@@ -57,7 +57,7 @@ export default function Home() {
           <div>
             <p><strong>Status:</strong> {health.status}</p>
             <p><strong>Service:</strong> {health.service}</p>
-            <p><strong>Mock Mode:</strong> {health.mock_mode ? 'Enabled' : 'Disabled'}</p>
+            <p><strong>Mock Mode:</strong> {health.mock_mode ? 'enabled' : 'disabled'}</p>
           </div>
         )}
       </div>
@@ -96,15 +96,6 @@ export default function Home() {
             Dashboard →
           </Link>
         </div>
-      </div>
-
-      <div style={{ marginTop: '2rem', color: '#666' }}>
-        <p>📍 Milestone 1 Progress:</p>
-        <ul>
-          <li>✅ Backend health check</li>
-          <li>✅ Settings page with mock accounts</li>
-          <li>⏳ Dashboard with mock insights (Step 3)</li>
-        </ul>
       </div>
     </div>
   )
