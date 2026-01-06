@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
@@ -16,7 +16,7 @@ interface AdAccount {
   currency: string
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<MetaStatus | null>(null)
   const [accounts, setAccounts] = useState<AdAccount[]>([])
@@ -52,7 +52,6 @@ export default function SettingsPage() {
       console.error('Load data error:', err)
       setFetchError(err.message || 'Failed to load data from backend')
       setLoading(false)
-      // Set a default disconnected status so UI can render
       setStatus({ connected: false, mock: false })
     })
   }
@@ -286,5 +285,17 @@ export default function SettingsPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', marginTop: '2rem' }}>
+        <p>Loading settings...</p>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   )
 }
