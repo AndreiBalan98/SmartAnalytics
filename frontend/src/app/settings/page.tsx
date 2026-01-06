@@ -24,9 +24,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const loadData = () => {
     setLoading(true)
+    setFetchError(null)
     
     const saved = localStorage.getItem('selected_account_id')
     if (saved) {
@@ -34,15 +36,24 @@ export default function SettingsPage() {
     }
 
     Promise.all([
-      fetch('/api/meta/status').then(r => r.json()),
-      fetch('/api/ad-accounts').then(r => r.json())
+      fetch('/api/meta/status').then(r => {
+        if (!r.ok) throw new Error('Failed to fetch status')
+        return r.json()
+      }),
+      fetch('/api/ad-accounts').then(r => {
+        if (!r.ok) throw new Error('Failed to fetch accounts')
+        return r.json()
+      })
     ]).then(([statusData, accountsData]) => {
       setStatus(statusData)
       setAccounts(accountsData.data || [])
       setLoading(false)
     }).catch(err => {
-      console.error(err)
+      console.error('Load data error:', err)
+      setFetchError(err.message || 'Failed to load data from backend')
       setLoading(false)
+      // Set a default disconnected status so UI can render
+      setStatus({ connected: false, mock: false })
     })
   }
 
@@ -92,8 +103,41 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {fetchError && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: '#fff3cd',
+          borderRadius: '8px',
+          marginTop: '1rem',
+          color: '#856404',
+          border: '1px solid #ffc107'
+        }}>
+          <strong>⚠️ Backend Connection Error:</strong>
+          <div style={{ marginTop: '0.5rem' }}>{fetchError}</div>
+          <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            Make sure Django backend is running on http://localhost:8000
+          </div>
+          <button
+            onClick={loadData}
+            style={{
+              marginTop: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#856404',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading ? (
-        <p>Loading...</p>
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          <p>Loading...</p>
+        </div>
       ) : (
         <>
           <div style={{
@@ -118,24 +162,22 @@ export default function SettingsPage() {
                   {status.account_name && <div><strong>{status.account_name}</strong></div>}
                 </div>
                 
-                {!status.mock && (
-                  <button
-                    onClick={handleConnect}
-                    disabled={connecting}
-                    style={{
-                      marginTop: '1rem',
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#666',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: connecting ? 'not-allowed' : 'pointer',
-                      opacity: connecting ? 0.6 : 1
-                    }}
-                  >
-                    {connecting ? 'Reconnecting...' : 'Reconnect Meta Account'}
-                  </button>
-                )}
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#666',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: connecting ? 'not-allowed' : 'pointer',
+                    opacity: connecting ? 0.6 : 1
+                  }}
+                >
+                  {connecting ? 'Reconnecting...' : 'Reconnect Meta Account'}
+                </button>
               </div>
             ) : (
               <div>
