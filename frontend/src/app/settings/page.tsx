@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 interface MetaStatus {
   connected: boolean
@@ -16,12 +17,17 @@ interface AdAccount {
 }
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams()
   const [status, setStatus] = useState<MetaStatus | null>(null)
   const [accounts, setAccounts] = useState<AdAccount[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [connecting, setConnecting] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
-  useEffect(() => {
+  const loadData = () => {
+    setLoading(true)
+    
     // Load saved account from localStorage
     const saved = localStorage.getItem('selected_account_id')
     if (saved) {
@@ -40,11 +46,33 @@ export default function SettingsPage() {
       console.error(err)
       setLoading(false)
     })
-  }, [])
+  }
+
+  useEffect(() => {
+    // Check for OAuth callback messages
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+
+    if (success) {
+      setMessage({ type: 'success', text: 'Successfully connected to Meta!' })
+      // Clear selected account when reconnecting
+      localStorage.removeItem('selected_account_id')
+      setSelectedAccount('')
+    } else if (error) {
+      setMessage({ type: 'error', text: decodeURIComponent(error) })
+    }
+
+    loadData()
+  }, [searchParams])
 
   const handleAccountChange = (accountId: string) => {
     setSelectedAccount(accountId)
     localStorage.setItem('selected_account_id', accountId)
+  }
+
+  const handleConnect = () => {
+    setConnecting(true)
+    window.location.href = '/api/meta/start'
   }
 
   return (
@@ -55,6 +83,19 @@ export default function SettingsPage() {
           ← Back to Home
         </Link>
       </div>
+
+      {/* Messages */}
+      {message && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
+          borderRadius: '8px',
+          marginTop: '1rem',
+          color: message.type === 'success' ? '#155724' : '#721c24'
+        }}>
+          {message.text}
+        </div>
+      )}
 
       {loading ? (
         <p>Loading...</p>
@@ -71,25 +112,66 @@ export default function SettingsPage() {
             <h2>Meta Ads Connection</h2>
             
             {status?.connected ? (
-              <div style={{
-                padding: '1rem',
-                backgroundColor: '#d4edda',
-                borderRadius: '4px',
-                color: '#155724',
-                marginTop: '1rem'
-              }}>
-                ✅ Connected {status.mock && '(Mock Mode)'}
-                {status.account_name && <div><strong>{status.account_name}</strong></div>}
+              <div>
+                <div style={{
+                  padding: '1rem',
+                  backgroundColor: '#d4edda',
+                  borderRadius: '4px',
+                  color: '#155724',
+                  marginTop: '1rem'
+                }}>
+                  ✅ Connected {status.mock && '(Mock Mode)'}
+                  {status.account_name && <div><strong>{status.account_name}</strong></div>}
+                </div>
+                
+                {!status.mock && (
+                  <button
+                    onClick={handleConnect}
+                    disabled={connecting}
+                    style={{
+                      marginTop: '1rem',
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#666',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: connecting ? 'not-allowed' : 'pointer',
+                      opacity: connecting ? 0.6 : 1
+                    }}
+                  >
+                    {connecting ? 'Reconnecting...' : 'Reconnect Meta Account'}
+                  </button>
+                )}
               </div>
             ) : (
-              <div style={{
-                padding: '1rem',
-                backgroundColor: '#f8d7da',
-                borderRadius: '4px',
-                color: '#721c24',
-                marginTop: '1rem'
-              }}>
-                ❌ Not Connected
+              <div>
+                <div style={{
+                  padding: '1rem',
+                  backgroundColor: '#f8d7da',
+                  borderRadius: '4px',
+                  color: '#721c24',
+                  marginTop: '1rem'
+                }}>
+                  ❌ Not Connected
+                </div>
+                
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#1877f2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: connecting ? 'not-allowed' : 'pointer',
+                    opacity: connecting ? 0.6 : 1,
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {connecting ? 'Connecting...' : 'Connect Meta Account'}
+                </button>
               </div>
             )}
           </div>
