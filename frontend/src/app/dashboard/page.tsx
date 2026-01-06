@@ -234,27 +234,6 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-
-      <div style={{
-        marginTop: '3rem',
-        padding: '1.5rem',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        color: '#666'
-      }}>
-        <h3 style={{ marginTop: 0 }}>✅ Milestone 1 Complete!</h3>
-        <p>All features working with mock data:</p>
-        <ul>
-          <li>✅ Backend health check + API key middleware</li>
-          <li>✅ Mock Meta endpoints (status, ad-accounts, insights)</li>
-          <li>✅ Settings page with account selection</li>
-          <li>✅ Dashboard with KPI cards</li>
-        </ul>
-        <p style={{ marginTop: '1rem', fontWeight: 'bold' }}>
-          Ready for Milestone 2: Real Meta OAuth integration
-        </p>
-      </div>
     </div>
   )
 }
