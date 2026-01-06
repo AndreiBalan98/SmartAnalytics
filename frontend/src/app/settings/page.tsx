@@ -28,13 +28,11 @@ export default function SettingsPage() {
   const loadData = () => {
     setLoading(true)
     
-    // Load saved account from localStorage
     const saved = localStorage.getItem('selected_account_id')
     if (saved) {
       setSelectedAccount(saved)
     }
 
-    // Fetch status and accounts
     Promise.all([
       fetch('/api/meta/status').then(r => r.json()),
       fetch('/api/ad-accounts').then(r => r.json())
@@ -49,13 +47,11 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    // Check for OAuth callback messages
     const success = searchParams.get('success')
     const error = searchParams.get('error')
 
     if (success) {
       setMessage({ type: 'success', text: 'Successfully connected to Meta!' })
-      // Clear selected account when reconnecting
       localStorage.removeItem('selected_account_id')
       setSelectedAccount('')
     } else if (error) {
@@ -84,7 +80,6 @@ export default function SettingsPage() {
         </Link>
       </div>
 
-      {/* Messages */}
       {message && (
         <div style={{
           padding: '1rem',
@@ -101,7 +96,6 @@ export default function SettingsPage() {
         <p>Loading...</p>
       ) : (
         <>
-          {/* Meta Connection Status */}
           <div style={{
             padding: '1.5rem',
             backgroundColor: 'white',
@@ -176,7 +170,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Ad Account Selection */}
           {accounts.length > 0 && (
             <div style={{
               padding: '1.5rem',
@@ -221,7 +214,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Navigation */}
           <div style={{
             marginTop: '2rem',
             padding: '1rem',
