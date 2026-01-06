@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 interface HealthResponse {
   status: string
@@ -61,12 +62,48 @@ export default function Home() {
         )}
       </div>
 
+      <div style={{
+        marginTop: '2rem',
+        padding: '1.5rem',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
+        <h2>Navigation</h2>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+          <Link 
+            href="/settings"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#0070f3',
+              color: 'white',
+              borderRadius: '4px',
+              textDecoration: 'none'
+            }}
+          >
+            Settings →
+          </Link>
+          <Link 
+            href="/dashboard"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#666',
+              color: 'white',
+              borderRadius: '4px',
+              textDecoration: 'none'
+            }}
+          >
+            Dashboard →
+          </Link>
+        </div>
+      </div>
+
       <div style={{ marginTop: '2rem', color: '#666' }}>
-        <p>📍 Next steps:</p>
+        <p>📍 Milestone 1 Progress:</p>
         <ul>
-          <li>✅ Backend health check working</li>
-          <li>⏳ Settings page (Milestone 1 - Step 2)</li>
-          <li>⏳ Dashboard page (Milestone 1 - Step 3)</li>
+          <li>✅ Backend health check</li>
+          <li>✅ Settings page with mock accounts</li>
+          <li>⏳ Dashboard with mock insights (Step 3)</li>
         </ul>
       </div>
     </div>

@@ -12,6 +12,7 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
+    'django.contrib.auth',  # ← ADĂUGAT
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
@@ -66,6 +67,8 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    'UNAUTHENTICATED_USER': None,  # ← ADĂUGAT (nu avem user auth)
+    'UNAUTHENTICATED_TOKEN': None,  # ← ADĂUGAT
 }
 
 # Custom settings
