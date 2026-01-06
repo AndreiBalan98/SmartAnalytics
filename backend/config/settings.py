@@ -7,12 +7,23 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production')
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = ['*']
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+
+# Allowed hosts - pentru production
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.onrender.com',  # Pentru orice subdomain Render
+]
+
+# Dacă ai un custom domain
+RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
-    'django.contrib.auth',  # ← ADĂUGAT
+    'django.contrib.auth',
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
@@ -22,6 +33,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Pentru static files
     'api.middleware.APIKeyMiddleware',
 ]
 
@@ -43,6 +55,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# Database - SQLite pentru simplitate (poți folosi PostgreSQL mai târziu)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -55,11 +68,24 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+# Static files
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS - permite Vercel frontend
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'https://localhost:3000',
+]
+
+# Dacă ai frontend URL-ul (îl adaugi după ce deploiezi pe Vercel)
+FRONTEND_URL = os.getenv('FRONTEND_URL', '')
+if FRONTEND_URL:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework
@@ -67,8 +93,8 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
-    'UNAUTHENTICATED_USER': None,  # ← ADĂUGAT (nu avem user auth)
-    'UNAUTHENTICATED_TOKEN': None,  # ← ADĂUGAT
+    'UNAUTHENTICATED_USER': None,
+    'UNAUTHENTICATED_TOKEN': None,
 }
 
 # Custom settings
@@ -76,4 +102,4 @@ INTERNAL_API_KEY = os.getenv('INTERNAL_API_KEY', 'dev-internal-key-123')
 MOCK_META = os.getenv('MOCK_META', 'true').lower() == 'true'
 META_APP_ID = os.getenv('META_APP_ID', '')
 META_APP_SECRET = os.getenv('META_APP_SECRET', '')
-META_REDIRECT_URI = os.getenv('META_REDIRECT_URI', 'http://localhost:3000/api/meta/callback')
+META_REDIRECT_URI = os.getenv('META_REDIRECT_URI', '')
