@@ -348,12 +348,12 @@ export default function ClientDashboardPage() {
                 <XAxis 
                   dataKey="date" 
                   tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(value) => new Date(String(value)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  formatter={(value) => formatCurrency(Number(value) || 0)}
+                  labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 />
                 <Legend />
                 <Line 
@@ -388,13 +388,14 @@ export default function ClientDashboardPage() {
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
-                  formatter={(value: number, name: string) => {
+                  formatter={(value, name) => {
+                    const numValue = Number(value) || 0
                     if (name === 'Clicks' || name === 'Conversions') {
-                      return formatNumber(value)
+                      return formatNumber(numValue)
                     }
-                    return formatNumber(value)
+                    return formatNumber(numValue)
                   }}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 />
                 <Legend />
                 <Line 
