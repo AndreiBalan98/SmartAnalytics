@@ -28,6 +28,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # New modular apps
+    'users',
+    'agencies',
+    'integrations',
+    'campaigns',
+    'metrics',
+    'core',
+    # Legacy (will be removed after migration)
     'api',
 ]
 
@@ -77,6 +85,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom User Model
+AUTH_USER_MODEL = 'users.User'
 
 # CORS - permite Vercel frontend
 CORS_ALLOWED_ORIGINS = [
