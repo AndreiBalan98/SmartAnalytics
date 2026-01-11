@@ -1,4 +1,4 @@
-from rest_framework import status, generics
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -184,4 +184,79 @@ def list_agency_clients(request):
         },
         'clients': clients_data,
         'total': len(clients_data)
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_client_permissions(request, client_id):
+    """
+    Update permissions for a specific client.
+    Only accessible by agency owner.
+    """
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can update client permissions'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get the AgencyUser relationship
+    try:
+        agency_user = AgencyUser.objects.get(id=client_id, agency=agency)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'Client not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Update permissions
+    new_permissions = request.data.get('permissions', {})
+    agency_user.permissions = new_permissions
+    agency_user.save()
+
+    return Response({
+        'message': 'Permissions updated successfully',
+        'client_id': agency_user.id,
+        'permissions': agency_user.permissions
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_client(request, client_id):
+    """
+    Remove a client from the agency (soft delete - set is_active=False).
+    """
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can remove clients'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        agency_user = AgencyUser.objects.get(id=client_id, agency=agency)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'Client not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Soft delete
+    agency_user.is_active = False
+    agency_user.save()
+
+    return Response({
+        'message': 'Client removed successfully'
     })

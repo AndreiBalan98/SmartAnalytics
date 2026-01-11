@@ -161,6 +161,66 @@ export const api = {
     if (!response.ok) throw new Error('Failed to list clients')
     return response.json()
   },
+
+  /**
+   * Update client permissions
+   */
+  async updateClientPermissions(clientId: number, permissions: Record<string, any>) {
+    const response = await fetchWithAuth(`/api/clients/${clientId}/permissions/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ permissions }),
+    })
+
+    if (!response.ok) throw new Error('Failed to update permissions')
+    return response.json()
+  },
+
+  /**
+   * Remove client
+   */
+  async removeClient(clientId: number) {
+    const response = await fetchWithAuth(`/api/clients/${clientId}/`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) throw new Error('Failed to remove client')
+    return response.json()
+  },
+
+  /**
+   * Get integrations status
+   */
+  async getIntegrationsStatus() {
+    const response = await fetchWithAuth('/api/integrations/status/')
+    if (!response.ok) throw new Error('Failed to get integrations')
+    return response.json()
+  },
+
+  /**
+   * Get Meta ad accounts
+   */
+  async getMetaAdAccounts() {
+    const response = await fetchWithAuth('/api/integrations/meta/ad-accounts/')
+    if (!response.ok) throw new Error('Failed to get Meta ad accounts')
+    return response.json()
+  },
+
+  /**
+   * Connect Meta (store token after OAuth)
+   */
+  async connectMeta(accessToken: string, businessName?: string, businessId?: string) {
+    const response = await fetchWithAuth('/api/integrations/meta/connect/', {
+      method: 'POST',
+      body: JSON.stringify({
+        access_token: accessToken,
+        business_name: businessName,
+        business_id: businessId,
+      }),
+    })
+
+    if (!response.ok) throw new Error('Failed to connect Meta')
+    return response.json()
+  },
 }
 
 export { API_URL }
