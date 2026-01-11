@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
-  title: 'Meta Ads Integration',
-  description: 'Internal MVP for Meta Ads management',
+  title: 'SmartMoney - Advertising Analytics',
+  description: 'Smart advertising analytics for agencies and their clients',
 }
 
 export default function RootLayout({
@@ -12,13 +13,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ 
-        margin: 0, 
-        padding: '2rem', 
+      <body style={{
+        margin: 0,
+        padding: 0,
         fontFamily: 'system-ui, sans-serif',
         backgroundColor: '#f5f5f5'
       }}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

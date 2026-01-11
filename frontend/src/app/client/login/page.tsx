@@ -1,8 +1,45 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function ClientLoginPage() {
+  const router = useRouter()
+  const { login } = useAuth()
+
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    })
+    setError(null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      await login(formData.email, formData.password)
+      // Redirect to client dashboard on success
+      router.push('/dashboard')
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.')
+    } finally {
+      setLoading(false)
+    }
+  }
   return (
     <div style={{
       minHeight: '100vh',
@@ -46,33 +83,6 @@ export default function ClientLoginPage() {
           </h2>
         </div>
 
-        {/* Coming Soon Notice */}
-        <div style={{
-          padding: '1.5rem',
-          backgroundColor: '#f0f7ff',
-          borderRadius: '8px',
-          border: '1px solid #0070f3',
-          marginBottom: '1.5rem'
-        }}>
-          <p style={{
-            margin: 0,
-            color: '#0070f3',
-            fontWeight: '600',
-            fontSize: '0.875rem',
-            textAlign: 'center'
-          }}>
-            🚧 Authentication Coming in FAZA 2
-          </p>
-          <p style={{
-            margin: '0.5rem 0 0 0',
-            color: '#666',
-            fontSize: '0.75rem',
-            textAlign: 'center'
-          }}>
-            Client login will be implemented in the next phase
-          </p>
-        </div>
-
         {/* Info Box */}
         <div style={{
           padding: '1rem',
@@ -92,8 +102,22 @@ export default function ClientLoginPage() {
           </p>
         </div>
 
-        {/* Placeholder Form */}
-        <form style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#fee',
+            borderRadius: '6px',
+            marginBottom: '1.5rem',
+            color: '#c00',
+            fontSize: '0.875rem'
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{
               display: 'block',
@@ -106,7 +130,10 @@ export default function ClientLoginPage() {
             </label>
             <input
               type="email"
-              disabled
+              name="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
               placeholder="client@example.com"
               style={{
                 width: '100%',
@@ -114,7 +141,7 @@ export default function ClientLoginPage() {
                 borderRadius: '6px',
                 border: '1px solid #ddd',
                 fontSize: '0.875rem',
-                backgroundColor: '#f5f5f5'
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -131,7 +158,10 @@ export default function ClientLoginPage() {
             </label>
             <input
               type="password"
-              disabled
+              name="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
               placeholder="••••••••"
               style={{
                 width: '100%',
@@ -139,27 +169,27 @@ export default function ClientLoginPage() {
                 borderRadius: '6px',
                 border: '1px solid #ddd',
                 fontSize: '0.875rem',
-                backgroundColor: '#f5f5f5'
+                boxSizing: 'border-box'
               }}
             />
           </div>
 
           <button
-            type="button"
-            disabled
+            type="submit"
+            disabled={loading}
             style={{
               padding: '0.875rem',
-              backgroundColor: '#ddd',
-              color: '#999',
+              backgroundColor: loading ? '#ccc' : '#0070f3',
+              color: 'white',
               border: 'none',
               borderRadius: '6px',
               fontSize: '1rem',
               fontWeight: '600',
-              cursor: 'not-allowed',
+              cursor: loading ? 'not-allowed' : 'pointer',
               marginTop: '0.5rem'
             }}
           >
-            Login (Coming Soon)
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 

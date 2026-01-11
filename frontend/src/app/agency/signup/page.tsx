@@ -5,13 +5,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
-export default function AgencyLoginPage() {
+export default function AgencySignupPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { signup } = useAuth()
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    password_confirm: '',
+    first_name: '',
+    last_name: '',
+    agency_name: '',
   })
 
   const [loading, setLoading] = useState(false)
@@ -30,16 +34,30 @@ export default function AgencyLoginPage() {
     setLoading(true)
     setError(null)
 
+    // Client-side validation
+    if (formData.password !== formData.password_confirm) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters')
+      setLoading(false)
+      return
+    }
+
     try {
-      await login(formData.email, formData.password)
+      await signup(formData)
       // Redirect to agency dashboard on success
       router.push('/agency/dashboard')
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.')
+      setError(err.message || 'Signup failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -52,7 +70,7 @@ export default function AgencyLoginPage() {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '450px',
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '2rem',
@@ -79,7 +97,7 @@ export default function AgencyLoginPage() {
             color: '#0070f3',
             margin: 0
           }}>
-            Agency Login
+            Create Agency Account
           </h2>
         </div>
 
@@ -107,7 +125,7 @@ export default function AgencyLoginPage() {
               fontWeight: '600',
               color: '#333'
             }}>
-              Email
+              Email *
             </label>
             <input
               type="email"
@@ -127,6 +145,64 @@ export default function AgencyLoginPage() {
             />
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                First Name *
+              </label>
+              <input
+                type="text"
+                name="first_name"
+                required
+                value={formData.first_name}
+                onChange={handleChange}
+                placeholder="John"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '0.875rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                Last Name *
+              </label>
+              <input
+                type="text"
+                name="last_name"
+                required
+                value={formData.last_name}
+                onChange={handleChange}
+                placeholder="Doe"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '0.875rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
           <div>
             <label style={{
               display: 'block',
@@ -135,13 +211,69 @@ export default function AgencyLoginPage() {
               fontWeight: '600',
               color: '#333'
             }}>
-              Password
+              Agency Name *
+            </label>
+            <input
+              type="text"
+              name="agency_name"
+              required
+              value={formData.agency_name}
+              onChange={handleChange}
+              placeholder="My Marketing Agency"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '0.875rem',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              color: '#333'
+            }}>
+              Password *
             </label>
             <input
               type="password"
               name="password"
               required
               value={formData.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '0.875rem',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              color: '#333'
+            }}>
+              Confirm Password *
+            </label>
+            <input
+              type="password"
+              name="password_confirm"
+              required
+              value={formData.password_confirm}
               onChange={handleChange}
               placeholder="••••••••"
               style={{
@@ -170,7 +302,7 @@ export default function AgencyLoginPage() {
               marginTop: '0.5rem'
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
@@ -183,12 +315,12 @@ export default function AgencyLoginPage() {
           fontSize: '0.875rem',
           color: '#666'
         }}>
-          Don't have an account?{' '}
+          Already have an account?{' '}
           <Link
-            href="/agency/signup"
+            href="/agency/login"
             style={{ color: '#0070f3', textDecoration: 'none', fontWeight: '600' }}
           >
-            Sign up
+            Login
           </Link>
         </div>
       </div>
