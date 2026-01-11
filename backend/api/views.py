@@ -1,9 +1,11 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from django.conf import settings
 from api.services import meta_service
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def health(request):
     """Public health check endpoint"""
     return Response({
