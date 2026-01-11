@@ -6,7 +6,8 @@
       "Bash(.venvScriptspip.exe install -r requirements.txt)",
       "Bash(python -m pip install:*)",
       "Bash(python manage.py:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

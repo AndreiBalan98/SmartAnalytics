@@ -1,102 +1,108 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-interface HealthResponse {
-  status: string
-  service: string
-  mock_mode: boolean
-}
-
 export default function Home() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
-        setHealth(data)
-        setLoading(false)
-      })
-      .catch(err => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }, [])
-
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Meta Ads Integration MVP</h1>
-      
-      <div style={{
-        padding: '1.5rem',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        marginTop: '2rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa',
+      padding: '2rem'
+    }}>
+      {/* Main Title */}
+      <h1 style={{
+        fontSize: 'clamp(3rem, 10vw, 6rem)',
+        fontWeight: 'bold',
+        color: '#1a1a1a',
+        marginBottom: '4rem',
+        textAlign: 'center',
+        letterSpacing: '-0.02em'
       }}>
-        <h2>Backend Health Check</h2>
-        
-        {loading && <p>Loading...</p>}
-        
-        {error && (
-          <div style={{ 
-            padding: '1rem', 
-            backgroundColor: '#fee', 
-            borderRadius: '4px',
-            color: '#c00'
-          }}>
-            Error: {error}
-          </div>
-        )}
-        
-        {health && (
-          <div>
-            <p><strong>Status:</strong> {health.status}</p>
-            <p><strong>Service:</strong> {health.service}</p>
-            <p><strong>Mock Mode:</strong> {health.mock_mode ? 'enabled' : 'disabled'}</p>
-          </div>
-        )}
+        SmartMoney
+      </h1>
+
+      {/* Connection Buttons */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+        width: '100%',
+        maxWidth: '400px'
+      }}>
+        <Link
+          href="/agency/login"
+          style={{
+            padding: '1.25rem 2rem',
+            fontSize: '1.125rem',
+            fontWeight: '600',
+            backgroundColor: '#0070f3',
+            color: 'white',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            textAlign: 'center',
+            transition: 'all 0.2s ease',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 112, 243, 0.3)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#0051cc'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 112, 243, 0.4)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#0070f3'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 112, 243, 0.3)'
+          }}
+        >
+          Connect as Agency
+        </Link>
+
+        <Link
+          href="/client/login"
+          style={{
+            padding: '1.25rem 2rem',
+            fontSize: '1.125rem',
+            fontWeight: '600',
+            backgroundColor: 'white',
+            color: '#0070f3',
+            border: '2px solid #0070f3',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            textAlign: 'center',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f0f7ff'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'white'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)'
+          }}
+        >
+          Connect as Client
+        </Link>
       </div>
 
-      <div style={{
-        marginTop: '2rem',
-        padding: '1.5rem',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      {/* Footer Note */}
+      <p style={{
+        marginTop: '3rem',
+        fontSize: '0.875rem',
+        color: '#666',
+        textAlign: 'center'
       }}>
-        <h2>Navigation</h2>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-          <Link 
-            href="/settings"
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#0070f3',
-              color: 'white',
-              borderRadius: '4px',
-              textDecoration: 'none'
-            }}
-          >
-            Settings →
-          </Link>
-          <Link 
-            href="/dashboard"
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#666',
-              color: 'white',
-              borderRadius: '4px',
-              textDecoration: 'none'
-            }}
-          >
-            Dashboard →
-          </Link>
-        </div>
-      </div>
+        Smart advertising analytics for agencies and their clients
+      </p>
     </div>
   )
 }
