@@ -2,6 +2,11 @@
 
 import { getTokens, setTokens, clearAuth, type AuthTokens } from './auth'
 
+/**
+ * IMPORTANT: API_URL should point to the Django backend
+ * Local: http://localhost:8000
+ * Production: https://your-backend.onrender.com (NOT Vercel URL!)
+ */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface FetchOptions extends RequestInit {
@@ -202,23 +207,6 @@ export const api = {
   async getMetaAdAccounts() {
     const response = await fetchWithAuth('/api/integrations/meta/ad-accounts/')
     if (!response.ok) throw new Error('Failed to get Meta ad accounts')
-    return response.json()
-  },
-
-  /**
-   * Connect Meta (store token after OAuth)
-   */
-  async connectMeta(accessToken: string, businessName?: string, businessId?: string) {
-    const response = await fetchWithAuth('/api/integrations/meta/connect/', {
-      method: 'POST',
-      body: JSON.stringify({
-        access_token: accessToken,
-        business_name: businessName,
-        business_id: businessId,
-      }),
-    })
-
-    if (!response.ok) throw new Error('Failed to connect Meta')
     return response.json()
   },
 

@@ -99,6 +99,9 @@ CORS_ALLOWED_ORIGINS = [
 FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 if FRONTEND_URL:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+    # Add both with and without www
+    if not FRONTEND_URL.startswith('http://localhost'):
+        CORS_ALLOWED_ORIGINS.append(FRONTEND_URL.replace('https://', 'https://www.'))
 
 CORS_ALLOW_CREDENTIALS = True
 

@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 
-export default function MetaCallbackPage() {
+function MetaCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing')
@@ -154,5 +154,23 @@ export default function MetaCallbackPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MetaCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <p>Loading...</p>
+      </div>
+    }>
+      <MetaCallbackContent />
+    </Suspense>
   )
 }
