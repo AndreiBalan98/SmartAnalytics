@@ -5,49 +5,67 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-// Mock data for development (FAZA 4A)
-const MOCK_DAILY_DATA = [
-  { date: '2026-01-05', spend: 145.50, impressions: 5420, clicks: 234, conversions: 12, revenue: 580.00 },
-  { date: '2026-01-06', spend: 158.20, impressions: 6120, clicks: 267, conversions: 15, revenue: 690.00 },
-  { date: '2026-01-07', spend: 142.80, impressions: 5890, clicks: 245, conversions: 11, revenue: 520.00 },
-  { date: '2026-01-08', spend: 167.30, impressions: 6540, clicks: 289, conversions: 18, revenue: 820.00 },
-  { date: '2026-01-09', spend: 155.90, impressions: 6230, clicks: 271, conversions: 14, revenue: 710.00 },
-  { date: '2026-01-10', spend: 172.40, impressions: 6890, clicks: 302, conversions: 19, revenue: 890.00 },
-  { date: '2026-01-11', spend: 163.20, impressions: 6450, clicks: 285, conversions: 16, revenue: 760.00 },
-]
+// Mock data for development (FAZA 4)
+const MOCK_DAILY_DATA_BY_ACCOUNT: Record<string, any[]> = {
+  'act_123456789': [
+    { date: '2026-01-05', spend: 145.50, impressions: 5420, clicks: 234, conversions: 12, revenue: 580.00 },
+    { date: '2026-01-06', spend: 158.20, impressions: 6120, clicks: 267, conversions: 15, revenue: 690.00 },
+    { date: '2026-01-07', spend: 142.80, impressions: 5890, clicks: 245, conversions: 11, revenue: 520.00 },
+    { date: '2026-01-08', spend: 167.30, impressions: 6540, clicks: 289, conversions: 18, revenue: 820.00 },
+    { date: '2026-01-09', spend: 155.90, impressions: 6230, clicks: 271, conversions: 14, revenue: 710.00 },
+    { date: '2026-01-10', spend: 172.40, impressions: 6890, clicks: 302, conversions: 19, revenue: 890.00 },
+    { date: '2026-01-11', spend: 163.20, impressions: 6450, clicks: 285, conversions: 16, revenue: 760.00 },
+  ],
+  'act_987654321': [
+    { date: '2026-01-05', spend: 98.30, impressions: 3210, clicks: 156, conversions: 8, revenue: 380.00 },
+    { date: '2026-01-06', spend: 112.50, impressions: 3890, clicks: 189, conversions: 11, revenue: 520.00 },
+    { date: '2026-01-07', spend: 105.20, impressions: 3560, clicks: 167, conversions: 9, revenue: 410.00 },
+    { date: '2026-01-08', spend: 118.90, impressions: 4120, clicks: 201, conversions: 13, revenue: 610.00 },
+    { date: '2026-01-09', spend: 108.70, impressions: 3780, clicks: 178, conversions: 10, revenue: 480.00 },
+    { date: '2026-01-10', spend: 125.40, impressions: 4320, clicks: 215, conversions: 14, revenue: 670.00 },
+    { date: '2026-01-11', spend: 115.80, impressions: 4050, clicks: 195, conversions: 12, revenue: 560.00 },
+  ],
+}
 
-const MOCK_CAMPAIGNS = [
-  { 
-    id: 1, 
-    name: 'Summer Sale Campaign', 
-    spend: 485.30, 
-    impressions: 18450, 
-    clicks: 823, 
-    conversions: 42,
-    revenue: 1950.00,
-    status: 'active'
-  },
-  { 
-    id: 2, 
-    name: 'Brand Awareness Q1', 
-    spend: 312.80, 
-    impressions: 12340, 
-    clicks: 534, 
-    conversions: 28,
-    revenue: 1240.00,
-    status: 'active'
-  },
-  { 
-    id: 3, 
-    name: 'Retargeting - Cart Abandoners', 
-    spend: 267.20, 
-    impressions: 9850, 
-    clicks: 456, 
-    conversions: 35,
-    revenue: 1780.00,
-    status: 'active'
-  },
-]
+const MOCK_CAMPAIGNS_BY_ACCOUNT: Record<string, any[]> = {
+  'act_123456789': [
+    { 
+      id: 1, 
+      name: 'Summer Sale Campaign', 
+      account_id: 'act_123456789',
+      spend: 485.30, 
+      impressions: 18450, 
+      clicks: 823, 
+      conversions: 42,
+      revenue: 1950.00,
+      status: 'active'
+    },
+    { 
+      id: 2, 
+      name: 'Brand Awareness Q1', 
+      account_id: 'act_123456789',
+      spend: 312.80, 
+      impressions: 12340, 
+      clicks: 534, 
+      conversions: 28,
+      revenue: 1240.00,
+      status: 'active'
+    },
+  ],
+  'act_987654321': [
+    { 
+      id: 3, 
+      name: 'Retargeting Campaign', 
+      account_id: 'act_987654321',
+      spend: 267.20, 
+      impressions: 9850, 
+      clicks: 456, 
+      conversions: 35,
+      revenue: 1780.00,
+      status: 'active'
+    },
+  ],
+}
 
 type DateRange = 'last_7_days' | 'last_30_days' | 'custom'
 
@@ -57,17 +75,53 @@ export default function ClientDashboardPage() {
 
   const [dateRange, setDateRange] = useState<DateRange>('last_7_days')
   const [loading, setLoading] = useState(false)
+  const [allowedAccounts, setAllowedAccounts] = useState<string[]>([])
+  const [noPermissions, setNoPermissions] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/client/login')
     } else if (!authLoading && user && user.user_type !== 'client') {
       router.push('/')
+    } else if (!authLoading && user && user.user_type === 'client') {
+      // Get allowed accounts from user permissions
+      const permissions = user.agencies?.[0]?.permissions
+      const metaAccounts = permissions?.meta_accounts || []
+      
+      if (metaAccounts.length === 0) {
+        setNoPermissions(true)
+      } else {
+        setAllowedAccounts(metaAccounts)
+      }
     }
   }, [user, authLoading, router])
 
-  // Calculate totals from mock data
-  const totals = MOCK_DAILY_DATA.reduce((acc, day) => ({
+  // Filter data based on allowed accounts
+  const filteredDailyData = allowedAccounts.length > 0
+    ? allowedAccounts.flatMap(accountId => MOCK_DAILY_DATA_BY_ACCOUNT[accountId] || [])
+    : []
+
+  const filteredCampaigns = allowedAccounts.length > 0
+    ? allowedAccounts.flatMap(accountId => MOCK_CAMPAIGNS_BY_ACCOUNT[accountId] || [])
+    : []
+
+  // Aggregate daily data by date
+  const aggregatedDailyData = filteredDailyData.reduce((acc: any[], day) => {
+    const existing = acc.find(d => d.date === day.date)
+    if (existing) {
+      existing.spend += day.spend
+      existing.impressions += day.impressions
+      existing.clicks += day.clicks
+      existing.conversions += day.conversions
+      existing.revenue += day.revenue
+    } else {
+      acc.push({ ...day })
+    }
+    return acc
+  }, [])
+
+  // Calculate totals
+  const totals = aggregatedDailyData.reduce((acc, day) => ({
     spend: acc.spend + day.spend,
     impressions: acc.impressions + day.impressions,
     clicks: acc.clicks + day.clicks,
@@ -106,6 +160,42 @@ export default function ClientDashboardPage() {
 
   if (!user || user.user_type !== 'client') {
     return null
+  }
+
+  if (noPermissions) {
+    return (
+      <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#f8f9fa' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', marginTop: '4rem' }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '3rem',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
+            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>No Access Permissions</h2>
+            <p style={{ color: '#666', marginBottom: '2rem' }}>
+              Your agency has not granted you access to any ad accounts yet.
+              Please contact your agency administrator.
+            </p>
+            <button
+              onClick={logout}
+              style={{
+                padding: '0.75rem 2rem',
+                backgroundColor: '#0070f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -163,16 +253,20 @@ export default function ClientDashboardPage() {
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Mock Data Notice */}
+        {/* Permission Info */}
         <div style={{
           padding: '1rem',
-          backgroundColor: '#fff3cd',
+          backgroundColor: '#e7f3ff',
           borderRadius: '8px',
           marginBottom: '2rem',
-          border: '1px solid #ffc107'
+          border: '1px solid #0070f3'
         }}>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#856404' }}>
-            📊 <strong>Mock Data:</strong> Currently showing sample data. Real data from your ad accounts will be available in FAZA 5 (Background Workers).
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#0051cc' }}>
+            📊 <strong>Viewing data for:</strong> {allowedAccounts.length} ad account(s) - 
+            {allowedAccounts.map(id => ` ${id}`).join(',')}
+          </p>
+          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#666' }}>
+            Mock data shown. Real metrics will be available in FAZA 5.
           </p>
         </div>
 
@@ -343,7 +437,7 @@ export default function ClientDashboardPage() {
               Spend Trend
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={MOCK_DAILY_DATA}>
+              <LineChart data={aggregatedDailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
@@ -368,7 +462,7 @@ export default function ClientDashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Clicks & Impressions Trend Chart */}
+          {/* Clicks & Conversions Trend Chart */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '8px',
@@ -379,7 +473,7 @@ export default function ClientDashboardPage() {
               Engagement Trend
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={MOCK_DAILY_DATA}>
+              <LineChart data={aggregatedDailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
@@ -390,9 +484,6 @@ export default function ClientDashboardPage() {
                 <Tooltip 
                   formatter={(value, name) => {
                     const numValue = Number(value) || 0
-                    if (name === 'Clicks' || name === 'Conversions') {
-                      return formatNumber(numValue)
-                    }
                     return formatNumber(numValue)
                   }}
                   labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -444,7 +535,7 @@ export default function ClientDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_CAMPAIGNS.map((campaign) => {
+                {filteredCampaigns.map((campaign) => {
                   const campaignRoas = campaign.spend > 0 ? campaign.revenue / campaign.spend : 0
                   return (
                     <tr key={campaign.id} style={{ borderBottom: '1px solid #eee' }}>
@@ -483,19 +574,19 @@ export default function ClientDashboardPage() {
                 <tr style={{ borderTop: '2px solid #ddd', fontWeight: 'bold' }}>
                   <td style={{ padding: '0.75rem' }}>TOTAL</td>
                   <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatCurrency(MOCK_CAMPAIGNS.reduce((sum, c) => sum + c.spend, 0))}
+                    {formatCurrency(filteredCampaigns.reduce((sum, c) => sum + c.spend, 0))}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(MOCK_CAMPAIGNS.reduce((sum, c) => sum + c.impressions, 0))}
+                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.impressions, 0))}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(MOCK_CAMPAIGNS.reduce((sum, c) => sum + c.clicks, 0))}
+                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.clicks, 0))}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(MOCK_CAMPAIGNS.reduce((sum, c) => sum + c.conversions, 0))}
+                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.conversions, 0))}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatCurrency(MOCK_CAMPAIGNS.reduce((sum, c) => sum + c.revenue, 0))}
+                    {formatCurrency(filteredCampaigns.reduce((sum, c) => sum + c.revenue, 0))}
                   </td>
                   <td colSpan={2}></td>
                 </tr>
