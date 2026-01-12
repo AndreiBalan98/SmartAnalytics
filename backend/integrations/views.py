@@ -2,8 +2,10 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.conf import settings
 from agencies.models import Agency
 from .models import MetaIntegration, GoogleAdsIntegration, GA4Integration
+from .services import meta_service
 
 
 @api_view(['GET'])
@@ -60,10 +62,10 @@ def get_integrations_status(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def connect_meta(request):
+def exchange_meta_code(request):
     """
-    Store Meta OAuth token for agency.
-    Called after OAuth callback.
+    Exchange Meta OAuth code for access token.
+    Called from frontend OAuth callback.
     """
 
     if request.user.user_type != 'agency':
@@ -78,26 +80,26 @@ def connect_meta(request):
             'error': 'No agency found for this user'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    access_token = request.data.get('access_token')
-    if not access_token:
+    code = request.data.get('code')
+    redirect_uri = request.data.get('redirect_uri')
+
+    if not code or not redirect_uri:
         return Response({
-            'error': 'access_token is required'
+            'error': 'code and redirect_uri are required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Create or update Meta integration
-    meta_integration, created = MetaIntegration.objects.update_or_create(
-        agency=agency,
-        defaults={
-            'access_token': access_token,
-            'business_name': request.data.get('business_name', ''),
-            'business_id': request.data.get('business_id', ''),
-        }
-    )
-
-    return Response({
-        'message': 'Meta connected successfully',
-        'created': created
-    })
+    try:
+        result = meta_service.exchange_code_for_token(code, redirect_uri, agency)
+        return Response({
+            'success': True,
+            'message': 'Meta connected successfully',
+            'business_name': result.get('business_name'),
+        })
+    except Exception as e:
+        return Response({
+            'error': 'Failed to connect Meta',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -119,60 +121,94 @@ def get_meta_ad_accounts(request):
             'error': 'No agency found for this user'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    # Get Meta integration
-    try:
-        meta_integration = MetaIntegration.objects.get(agency=agency)
-    except MetaIntegration.DoesNotExist:
+    # Check if Meta is connected
+    if not MetaIntegration.objects.filter(agency=agency).exists():
         return Response({
             'error': 'Meta not connected for this agency'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    # Fetch ad accounts from Meta API
-    from api.services import meta_service
-    from django.conf import settings
-
+    # Mock mode check
     if settings.MOCK_META:
-        # Return mock data
         return Response({
             'data': [
                 {
                     'id': 'act_123456789',
                     'name': 'Mock Ad Account 1',
-                    'currency': 'USD'
+                    'currency': 'USD',
+                    'account_status': 1
                 },
                 {
                     'id': 'act_987654321',
                     'name': 'Mock Ad Account 2',
-                    'currency': 'EUR'
+                    'currency': 'EUR',
+                    'account_status': 1
                 },
                 {
                     'id': 'act_555555555',
                     'name': 'Mock Ad Account 3',
-                    'currency': 'RON'
+                    'currency': 'RON',
+                    'account_status': 1
                 }
             ]
         })
 
     # Real API call
     try:
-        # Temporarily set token for service
-        import requests
-        GRAPH_API_VERSION = 'v21.0'
-        GRAPH_API_BASE = f'https://graph.facebook.com/{GRAPH_API_VERSION}'
-        
-        url = f'{GRAPH_API_BASE}/me/adaccounts'
-        params = {
-            'access_token': meta_integration.access_token,
-            'fields': 'id,name,currency,account_status'
-        }
-        
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        data = response.json()
-        return Response({'data': data.get('data', [])})
+        accounts = meta_service.get_ad_accounts(agency)
+        return Response({'data': accounts})
     except Exception as e:
         return Response({
             'error': 'Failed to fetch ad accounts',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_meta_insights(request):
+    """
+    Get insights for a specific ad account.
+    """
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can access insights'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    account_id = request.GET.get('account_id')
+    if not account_id:
+        return Response({
+            'error': 'account_id is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Mock mode check
+    if settings.MOCK_META:
+        return Response({
+            'account_id': account_id,
+            'date_range': 'last_7_days',
+            'metrics': {
+                'spend': 1250.75,
+                'impressions': 45678,
+                'clicks': 1234,
+                'purchases': 87,
+                'revenue': 4350.25,
+                'roas': 3.48
+            }
+        })
+
+    # Real API call
+    try:
+        insights = meta_service.get_insights(agency, account_id)
+        return Response(insights)
+    except Exception as e:
+        return Response({
+            'error': 'Failed to fetch insights',
             'message': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)

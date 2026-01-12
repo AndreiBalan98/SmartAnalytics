@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -10,44 +11,32 @@ export async function GET(request: NextRequest) {
   if (error) {
     const errorDescription = searchParams.get('error_description') || 'Unknown error'
     return NextResponse.redirect(
-      `${baseUrl}/settings?error=${encodeURIComponent(errorDescription)}`
+      `${baseUrl}/agency/dashboard?error=${encodeURIComponent(errorDescription)}`
     )
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${baseUrl}/settings?error=No authorization code received`
+      `${baseUrl}/agency/dashboard?error=No authorization code received`
     )
   }
 
   try {
-    // Exchange code for token via backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
-    const apiKey = process.env.INTERNAL_API_KEY || 'dev-internal-key-123'
-    const redirectUri = process.env.META_REDIRECT_URI || ''
+    // Get JWT token from cookie or localStorage
+    // Note: We need to pass the token from frontend since this is a server-side route
+    // The frontend will handle the OAuth flow and call the backend API directly
+    
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const redirectUri = process.env.META_REDIRECT_URI || `${baseUrl}/api/meta/callback`
 
-    const response = await fetch(`${backendUrl}/internal/meta/exchange-code/`, {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code,
-        redirect_uri: redirectUri,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Failed to exchange code')
-    }
-
-    // Success - redirect to settings
-    return NextResponse.redirect(`${baseUrl}/settings?success=1`)
+    // Since we can't access localStorage here (server-side), we'll redirect to a client-side page
+    // that will handle the token exchange
+    return NextResponse.redirect(
+      `${baseUrl}/agency/meta-callback?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`
+    )
   } catch (error: any) {
     return NextResponse.redirect(
-      `${baseUrl}/settings?error=${encodeURIComponent(error.message)}`
+      `${baseUrl}/agency/dashboard?error=${encodeURIComponent(error.message)}`
     )
   }
 }

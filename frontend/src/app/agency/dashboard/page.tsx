@@ -63,13 +63,28 @@ export default function AgencyDashboardPage() {
     last_name: '',
   })
 
-  useEffect(() => {
+    useEffect(() => {
     if (!authLoading && !user) {
       router.push('/agency/login')
     } else if (!authLoading && user && user.user_type !== 'agency') {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'agency') {
       loadDashboardData()
+      
+      // Check for Meta connection success
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('meta_connected') === 'true') {
+        setError(null)
+        // Show success message (you can add a success state if needed)
+        setTimeout(() => {
+          window.history.replaceState({}, '', '/agency/dashboard')
+        }, 2000)
+      } else if (params.get('error')) {
+        setError(decodeURIComponent(params.get('error')!))
+        setTimeout(() => {
+          window.history.replaceState({}, '', '/agency/dashboard')
+        }, 5000)
+      }
     }
   }, [user, authLoading, router])
 

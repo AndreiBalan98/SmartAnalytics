@@ -221,6 +221,22 @@ export const api = {
     if (!response.ok) throw new Error('Failed to connect Meta')
     return response.json()
   },
+
+  /**
+   * Exchange Meta OAuth code for token
+   */
+  async exchangeMetaCode(code: string, redirectUri: string) {
+    const response = await fetchWithAuth('/api/integrations/meta/exchange-code/', {
+      method: 'POST',
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+
+    if (!response.ok) throw new Error('Failed to exchange Meta code')
+    return response.json()
+  },
 }
 
 export { API_URL }
