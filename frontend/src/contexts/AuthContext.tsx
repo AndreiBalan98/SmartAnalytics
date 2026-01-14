@@ -61,8 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null)
           }
         } else {
-          // Token is valid, use saved user
-          setUser(savedUser)
+          // Token is valid - fetch fresh user data to ensure permissions are current
+          // This is especially important for client users who need up-to-date permissions
+          try {
+            const freshUser = await api.getCurrentUser()
+            setUser(freshUser)
+            saveUser(freshUser)
+          } catch {
+            // If fetch fails (e.g., network error), use saved user as fallback
+            setUser(savedUser)
+          }
         }
       }
     } catch (error) {
@@ -84,9 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh: response.refresh,
       })
 
-      // Store user
-      saveUser(response.user)
-      setUser(response.user)
+      // Fetch full user data (includes agencies/permissions for clients)
+      // The login response only includes basic user info
+      const fullUser = await api.getCurrentUser()
+      
+      // Store full user data
+      saveUser(fullUser)
+      setUser(fullUser)
     } catch (error) {
       throw error
     }

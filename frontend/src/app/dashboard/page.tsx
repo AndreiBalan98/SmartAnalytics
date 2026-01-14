@@ -85,13 +85,23 @@ export default function ClientDashboardPage() {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'client') {
       // Get allowed accounts from user permissions
-      const permissions = user.agencies?.[0]?.permissions
-      const metaAccounts = permissions?.meta_accounts || []
+      // user.agencies is an array of agency memberships, each with permissions
+      const agencies = user.agencies || []
       
-      if (metaAccounts.length === 0) {
+      // Collect all meta_accounts from all agency memberships
+      const allMetaAccounts: string[] = []
+      agencies.forEach((agency: any) => {
+        const metaAccounts = agency.permissions?.meta_accounts || []
+        allMetaAccounts.push(...metaAccounts)
+      })
+      
+      // Remove duplicates
+      const uniqueAccounts = Array.from(new Set(allMetaAccounts))
+      
+      if (uniqueAccounts.length === 0) {
         setNoPermissions(true)
       } else {
-        setAllowedAccounts(metaAccounts)
+        setAllowedAccounts(uniqueAccounts)
       }
     }
   }, [user, authLoading, router])
