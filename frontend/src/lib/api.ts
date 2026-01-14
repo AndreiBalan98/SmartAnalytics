@@ -241,6 +241,18 @@ export const api = {
 
     return response.json()
   },
+
+  /**
+   * Get dashboard data for client users
+   */
+  async getClientDashboardData() {
+    const response = await fetchWithAuth('/api/integrations/client/dashboard/')
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'Failed to fetch dashboard data')
+    }
+    return response.json()
+  },
 }
 
 export { API_URL }
