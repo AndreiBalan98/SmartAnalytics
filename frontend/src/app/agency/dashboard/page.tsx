@@ -49,6 +49,8 @@ export default function AgencyDashboardPage() {
   const [metaAdAccounts, setMetaAdAccounts] = useState<AdAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncingMeta, setSyncingMeta] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   // Modal states
   const [showAddClientModal, setShowAddClientModal] = useState(false)
@@ -114,6 +116,24 @@ export default function AgencyDashboardPage() {
       setError(err.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSyncMeta() {
+    setError(null)
+    setSyncMessage(null)
+    setSyncingMeta(true)
+
+    try {
+      const result = await api.syncMetaData()
+      setSyncMessage(result.message || 'Meta data synced successfully')
+
+      // After syncing, refresh dashboard data (ad accounts etc.)
+      await loadDashboardData()
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync Meta data')
+    } finally {
+      setSyncingMeta(false)
     }
   }
 
@@ -231,6 +251,19 @@ export default function AgencyDashboardPage() {
           </div>
         )}
 
+        {/* Sync Message */}
+        {syncMessage && !error && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#e6ffed',
+            borderRadius: '8px',
+            marginBottom: '2rem',
+            color: '#1a7f37'
+          }}>
+            {syncMessage}
+          </div>
+        )}
+
         {/* Platform Integrations Section */}
         <div style={{
           backgroundColor: 'white',
@@ -257,34 +290,54 @@ export default function AgencyDashboardPage() {
               </div>
               {integrations?.meta.connected ? (
                 <>
-                  <div style={{
-                    padding: '0.5rem',
-                    backgroundColor: '#d4edda',
-                    borderRadius: '4px',
-                    color: '#155724',
-                    fontSize: '0.875rem'
-                  }}>
-                    ✅ Connected
-                    {integrations.meta.business_name && (
-                      <div style={{ marginTop: '0.25rem' }}>
-                        {integrations.meta.business_name}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleConnectMeta}
-                    style={{
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{
                       padding: '0.5rem',
-                      backgroundColor: '#666',
-                      color: 'white',
-                      border: 'none',
+                      backgroundColor: '#d4edda',
                       borderRadius: '4px',
-                      cursor: 'pointer',
+                      color: '#155724',
                       fontSize: '0.875rem'
-                    }}
-                  >
-                    Reconnect
-                  </button>
+                    }}>
+                      ✅ Connected
+                      {integrations.meta.business_name && (
+                        <div style={{ marginTop: '0.25rem' }}>
+                          {integrations.meta.business_name}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={handleConnectMeta}
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: '#666',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        Reconnect
+                      </button>
+                      <button
+                        onClick={handleSyncMeta}
+                        disabled={syncingMeta}
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: syncingMeta ? '#999' : '#0070f3',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: syncingMeta ? 'default' : 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: '600'
+                        }}
+                      >
+                        {syncingMeta ? 'Syncing...' : 'Sync Data'}
+                      </button>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>

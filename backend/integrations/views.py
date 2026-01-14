@@ -212,3 +212,85 @@ def get_meta_insights(request):
             'error': 'Failed to fetch insights',
             'message': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_meta_data(request):
+    """
+    Trigger a data sync from Meta for the current agency.
+
+    For now this endpoint only fetches the latest ad accounts and a
+    high-level insights snapshot without persisting to the reporting
+    tables. It is meant to be called from the Agency Dashboard "Sync
+    data" button and can be extended later to write into DailyMetric,
+    Campaign, etc.
+    """
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can sync Meta data'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Ensure Meta is connected
+    integration = MetaIntegration.objects.filter(agency=agency).first()
+    if not integration:
+        return Response({
+            'error': 'Meta not connected for this agency'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # In mock mode we just return a simple payload – the client dashboards
+    # already rely on mock data defined in the frontend.
+    if settings.MOCK_META:
+        return Response({
+            'success': True,
+            'mock': True,
+            'message': 'Mock Meta sync completed',
+            'summary': {
+                'accounts_synced': 3,
+                'date_range': 'last_7_days',
+            }
+        })
+
+    # Real API calls – keep it light-weight for now and just fetch
+    # all ad accounts and an insights snapshot for each.
+    try:
+        accounts = meta_service.get_ad_accounts(agency)
+
+        insights_summaries = []
+        for account in accounts:
+            account_id = account.get('id')
+            if not account_id:
+                continue
+
+            try:
+                insights = meta_service.get_insights(agency, account_id)
+                insights_summaries.append({
+                    'account_id': account_id,
+                    'metrics': insights.get('metrics', {}),
+                })
+            except Exception:
+                # Don't fail the whole sync if a single account errors out
+                continue
+
+        return Response({
+            'success': True,
+            'mock': False,
+            'message': 'Meta sync completed',
+            'summary': {
+                'accounts_synced': len(accounts),
+                'insights_synced': len(insights_summaries),
+            }
+        })
+    except Exception as e:
+        return Response({
+            'error': 'Failed to sync Meta data',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)

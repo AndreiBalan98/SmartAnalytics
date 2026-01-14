@@ -225,6 +225,22 @@ export const api = {
     if (!response.ok) throw new Error('Failed to exchange Meta code')
     return response.json()
   },
+
+  /**
+   * Trigger Meta data sync for current agency
+   */
+  async syncMetaData() {
+    const response = await fetchWithAuth('/api/integrations/meta/sync/', {
+      method: 'POST',
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'Failed to sync Meta data')
+    }
+
+    return response.json()
+  },
 }
 
 export { API_URL }
