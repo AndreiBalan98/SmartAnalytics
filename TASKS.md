@@ -1,40 +1,4 @@
-**Single Source of Truth (SSOT) – Document de Referință pentru Dezvoltare**
-
-## 1. 🤖 IDENTITATEA ȘI ROLUL CLAUDE (Senior Guide)
-
-Claude nu este doar un generator de cod, ci partenerul tău de engineering.
-
-- **Rol:** Senior Web Developer & Ghid Personal.
-- **Filozofie:**
-    - **Simplitate:** Cât mai puține linii de cod, fără complexitate inutilă.
-    - **Calitate:** Cod perfect funcțional, modular, scalabil și „production-ready”.
-    - **Metodologie:** Software engineering corect, nu doar „feature-uri fancy”.
-- **Interacțiune:**
-    - Claude nu improvizează în afara acestui plan.
-    - Claude explică fiecare pas pentru un nivel non-senior.
-    - Claude ghidează procesul etapă cu etapă, asigurând o structură solidă.
-
-## 2. 🔄 WORKFLOW DE DEZVOLTARE (STRICT)
-
-Procesul este etapizat riguros. Nu se sare nicio etapă, nu se amestecă fluxurile.
-
-1. **Propunere Etapă:** Claude propune următoarea etapă din plan.
-2. **Consultare:** Claude întreabă: „Lipsesc informații? Sunt decizii de luat?”.
-3. **Implementare:** După acord, Claude oferă codul; tu îl implementezi și îl testezi.
-4. **Debug & Validare:** Se rezolvă erorile. Când totul e funcțional și testat, se confirmă etapa.
-5. **Pasul următor:** Se trece la următoarea etapă din lista de mai jos.
-
-## 3. 🛠️ STACK TEHNIC & INFRASTRUCTURĂ
-
-- **Frontend:** Next.js (App Router) – Găzduit pe **Vercel**.
-- **Backend:** Django + Django REST Framework (DRF) – Găzduit pe **Render**.
-- **Bază de Date:** PostgreSQL – Găzduit pe **Render**.
-- **Background Jobs:** Render Background Worker + Cron Scheduler (fără Celery/Redis).
-- **Design:** 3-way responsive (Mobile/Tablet/Desktop), minimalist, ultra-rapid.
-
----
-
-## 4. ETAPELE DE IMPLEMENTARE (DETALIATE)
+## ETAPELE DE IMPLEMENTARE (DETALIATE)
 
 ### 🏗️ FAZA 0: Fundația Tehnică (Prerechizite)
 
@@ -88,7 +52,7 @@ Procesul este etapizat riguros. Nu se sare nicio etapă, nu se amestecă fluxuri
     - Grafice simple (Recharts) și tabele cu datele extrase din DB.
 - **Sursă Date:** Interogări exclusive către baza de date internă (nu direct către API-uri externe în timpul încărcării paginii).
 
-### ⏲️ FAZA 5: Implementare Cron Worker & Background Worker
+### ⏲️ FAZA 5: Implementare Cron Worker & Background Worker - Nu se face, momentan se implementeaza un buton in dashboard ul agentiei pentru sync data
 
 *Sistemul automat de sincronizare a datelor pe Render.*
 
@@ -106,12 +70,3 @@ Procesul este etapizat riguros. Nu se sare nicio etapă, nu se amestecă fluxuri
 - **Logica de Sign-in/Sign-up:** Validări stricte și managementul sesiunilor JWT/Session.
 - **API Endpoints:** Optimizate pentru consumul din Next.js.
 - **Currency Support:** Convertirea automată a metricilor într-o monedă unificată la nivel de dashboard.
-
----
-
-## 5. REGULI CRITICE ȘI DISCIPLINĂ (Din Blueprint & Breakdown)
-
-1. **Securitate:** Un client nu poate accesa sub nicio formă datele altui client (enforcing la nivel de Row Level Security sau Query Filtering).
-2. **Integritatea Datelor:** Mapare clară între ID-urile externe (Meta/Google) și ID-urile interne.
-3. **Performanță:** Toate dashboard-urile citesc din Postgres, niciodată live din API-uri externe (pentru a evita rate-limiting și lag).
-4. **Mentenanță:** Logging clar pe procesul de Background Worker pentru a vedea când un token de acces a expirat sau un sync a eșuat.
