@@ -60,6 +60,60 @@ def get_integrations_status(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def start_meta_oauth(request):
+    """
+    Start Meta OAuth flow.
+    In MOCK mode: Creates integration directly and redirects back.
+    In real mode: Redirects to Meta OAuth URL.
+    """
+    from django.shortcuts import redirect
+    from urllib.parse import urlencode
+
+    if request.user.user_type != 'agency':
+        return redirect('/agency/dashboard?error=Only+agency+users+can+connect+Meta')
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return redirect('/agency/dashboard?error=No+agency+found')
+
+    # Mock mode: Create integration directly
+    if settings.MOCK_META:
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Create mock Meta integration
+        integration, created = MetaIntegration.objects.update_or_create(
+            agency=agency,
+            defaults={
+                'access_token': 'mock_access_token_' + str(agency.id),
+                'token_type': 'bearer',
+                'expires_at': timezone.now() + timedelta(days=60),
+                'business_id': 'mock_business_123',
+                'business_name': f'Mock Business ({agency.name})',
+                'last_refreshed_at': timezone.now(),
+            }
+        )
+
+        # Redirect back to dashboard with success
+        return redirect('/agency/dashboard?meta_connected=true')
+
+    # Real OAuth flow
+    redirect_uri = request.build_absolute_uri('/agency/meta-callback')
+
+    params = {
+        'client_id': settings.META_APP_ID,
+        'redirect_uri': redirect_uri,
+        'scope': 'ads_management,ads_read',
+        'response_type': 'code',
+    }
+
+    oauth_url = f'https://www.facebook.com/v21.0/dialog/oauth?{urlencode(params)}'
+    return redirect(oauth_url)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def exchange_meta_code(request):
@@ -88,6 +142,31 @@ def exchange_meta_code(request):
             'error': 'code and redirect_uri are required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    # Mock mode check
+    if settings.MOCK_META:
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Create mock Meta integration
+        integration, created = MetaIntegration.objects.update_or_create(
+            agency=agency,
+            defaults={
+                'access_token': 'mock_access_token_' + str(agency.id),
+                'token_type': 'bearer',
+                'expires_at': timezone.now() + timedelta(days=60),
+                'business_id': 'mock_business_123',
+                'business_name': f'Mock Business ({agency.name})',
+                'last_refreshed_at': timezone.now(),
+            }
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Meta connected successfully (MOCK)',
+            'business_name': f'Mock Business ({agency.name})',
+        })
+
+    # Real OAuth flow
     try:
         result = meta_service.exchange_code_for_token(code, redirect_uri, agency)
         return Response({
