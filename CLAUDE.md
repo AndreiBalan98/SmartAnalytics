@@ -80,7 +80,8 @@ backend/
 - ✅ `GET /api/integrations/status/` - Status toate integrările (Meta/Google/GA4)
 - ✅ `POST /api/integrations/meta/exchange-code/` - Exchange Meta OAuth code
 - ✅ `GET /api/integrations/meta/ad-accounts/` - Lista Meta ad accounts
-- ✅ `GET /api/integrations/meta/insights/` - Metrici Meta (pregătit)
+- ✅ `GET /api/integrations/meta/insights/` - Metrici Meta (legacy)
+- ✅ `POST /api/integrations/meta/sync/` - **NEW:** Sync all Meta data (campaigns, ad sets, ads, metrics)
 
 *Legacy (`/internal/` - în tranziție)*
 - ✅ `GET /health/` - Health check
@@ -235,6 +236,21 @@ frontend/src/app/
 - Reconnect option pentru refresh token
 - "Coming in FAZA 5" pentru Google și GA4
 
+✅ **Data Sync (FAZA 3.5):**
+- **Sync Data button** în Meta integration card
+- Manual sync pentru ultimele 30 zile
+- Fetch & store: Campaigns → Ad Sets → Ads → Daily Metrics
+- Rate limiting: max 1 sync per minut
+- Success message cu statistici detaliate:
+  - Ad accounts synced
+  - Campaigns (created/updated)
+  - Ad Sets (created/updated)
+  - Ads (created/updated)
+  - Metrics (created/updated)
+- Error handling: skip failed accounts, continue cu următoarele
+- Loading states cu "Syncing..." indicator
+- Mock mode support pentru development
+
 ✅ **UX & Design:**
 - Responsive layout (mobile/tablet/desktop)
 - Clean card-based design
@@ -250,6 +266,18 @@ frontend/src/app/
 - ✅ Permission filtering la nivel de query
 - ✅ Meta OAuth flow complet
 - ✅ Ad accounts fetch de la Meta API
+- ✅ **NEW:** Sync endpoint cu rate limiting
+- ✅ **NEW:** Meta service layer cu sync functions:
+  - `sync_campaigns()` - Fetch și store campaigns
+  - `sync_ad_sets()` - Fetch și store ad sets
+  - `sync_ads()` - Fetch și store ads
+  - `sync_insights_for_account()` - Fetch și store daily metrics
+  - `sync_all_data()` - Orchestrator pentru sync complet
+- ✅ **NEW:** Upsert logic pentru evitare duplicate
+- ✅ **NEW:** Error handling cu logging
+
+**Database Updates:**
+- ✅ Added `last_synced_at` field la MetaIntegration (migration applied)
 
 **Testing Status:**
 ```
@@ -262,6 +290,10 @@ frontend/src/app/
 ✅ Ad accounts fetch
 ✅ Client removal
 ✅ Protected route enforcement
+✅ Sync button rendering
+✅ Django check passed
+✅ Frontend build successful
+✅ Python syntax validation passed
 ```
 
 ---
@@ -288,33 +320,43 @@ Conform BLUEPRINT.md și TASKS.md, următoarea fază este **FAZA 4: Client Dashb
 
 **Ce Lipsește pentru FAZA 4:**
 - ❌ Client dashboard page nu este implementat
-- ❌ Nu există date în tabela `DailyMetric` (trebuie populate)
+- ✅ **GATA:** Date în tabela `DailyMetric` (poate fi populate prin Sync Data button)
 - ❌ Nu există endpoint pentru fetch metrici client
 - ❌ Nu există logica de date range filtering
 - ❌ Nu există componente charts (Recharts)
 - ❌ Nu există currency conversion logic
 
-**Pregătire Necesară:**
-1. Populate `DailyMetric` cu date test SAU
-2. Implementare data sync de la Meta API → DailyMetric (poate fi manual cu buton în Agency Dashboard pentru început)
-3. Endpoint backend pentru client metrics cu filtering
-4. Frontend client dashboard cu toate componentele
+**Pregătire Completă:**
+1. ✅ **GATA:** Data sync de la Meta API → DailyMetric (buton "Sync Data" în Agency Dashboard)
+2. ✅ **GATA:** Campaigns, AdSets, Ads structură sincronizată
+3. Următorii pași:
+   - Endpoint backend pentru client metrics cu filtering
+   - Frontend client dashboard cu toate componentele
 
 ---
 
 ## 🔜 FAZE VIITOARE
 
-### **FAZA 5: Background Workers** ⏲️
+### **FAZA 5: Background Workers (OPTIONAL)** ⏲️
 
-**Notă:** Conform BLUEPRINT.md, pentru început se va implementa un **buton în Agency Dashboard** pentru sync manual, nu cron worker automat.
+**Status:** ✅ **Manual sync GATA** - Butonul "Sync Data" din Agency Dashboard este funcțional
 
-**Obiective:**
-- Buton "Sync Data" în Agency Dashboard
-- Fetch manual Meta campaign structure (Campaigns → Ad Sets → Ads)
-- Fetch manual Meta metrics zilnice
-- Stocare în database (upsert logic)
-- Logging pentru succese/eșecuri
-- Mai târziu: Migrare la Render Background Worker cu Cron
+**Ce este deja implementat:**
+- ✅ Buton "Sync Data" în Agency Dashboard
+- ✅ Fetch manual Meta campaign structure (Campaigns → Ad Sets → Ads)
+- ✅ Fetch manual Meta metrics zilnice (ultimele 30 zile)
+- ✅ Stocare în database cu upsert logic
+- ✅ Logging pentru succese/eșecuri
+- ✅ Rate limiting (1 sync per minut)
+
+**Obiective Viitoare (OPTIONAL - nu critice pentru MVP):**
+- ❌ Automatic cron scheduler pentru sync recurent
+- ❌ Render Background Worker setup
+- ❌ Automatic token refresh înainte de expirare (60 zile)
+- ❌ Email notifications pentru sync failures
+- ❌ Backfill logic pentru conversii delayed (7-30 zile)
+
+**Notă:** Sync manual este suficient pentru MVP. Automatic sync poate fi adăugat mai târziu dacă e necesar.
 
 ---
 
@@ -369,9 +411,13 @@ Conform BLUEPRINT.md și TASKS.md, următoarea fază este **FAZA 4: Client Dashb
 - ✅ OAuth flow complet implementat
 - ✅ Long-lived tokens (60 zile)
 - ✅ Ad accounts fetch funcțional
-- 🚧 Insights/metrics fetch (endpoint există, nu e folosit)
-- ❌ Campaign structure sync (FAZA 5)
-- ❌ Background refresh tokens (FAZA 5)
+- ✅ **GATA:** Insights/metrics fetch și stocare în DailyMetric
+- ✅ **GATA:** Campaign structure sync (Campaigns → Ad Sets → Ads)
+- ✅ **GATA:** Manual sync prin buton în Agency Dashboard
+- ✅ **GATA:** Rate limiting (1 sync per minut)
+- ✅ **GATA:** Upsert logic pentru evitare duplicate
+- ❌ Background refresh tokens (FAZA 5 - optional)
+- ❌ Automatic cron sync (FAZA 5 - optional)
 
 **Google Ads & GA4:**
 - ❌ Complet nefuncțional
@@ -384,30 +430,30 @@ Conform BLUEPRINT.md și TASKS.md, următoarea fază este **FAZA 4: Client Dashb
 
 **Prioritate 1: Completare FAZA 4 - Client Dashboard**
 
+**Status:** ✅ Data sync is ready - Agency poate face sync cu "Sync Data" button
+
 1. **Backend:**
    - Endpoint nou: `GET /api/clients/metrics/` (filtered by client permissions)
    - Date range filtering (start_date, end_date params)
    - Aggregation logic pentru key metrics
-   - Currency conversion helper
+   - (Optional) Currency conversion helper - SKIP pentru acum
 
 2. **Frontend:**
    - Refactorizare `/dashboard/page.tsx` pentru client dashboard
    - Date range picker component
    - Metrics cards component (Spend/Impressions/Clicks/Conversions)
-   - Charts component cu Recharts
+   - Charts component cu Recharts (line chart pentru Spend/Clicks/Impressions)
    - Tables component cu date detaliate
    - Integration cu API endpoint nou
 
-3. **Data Population:**
-   - Script pentru populate `DailyMetric` cu date test SAU
-   - Buton în Agency Dashboard pentru manual sync (pregătire FAZA 5)
+**Nota:** Nu mai e nevoie de data population - Agency poate face sync direct cu butonul din dashboard!
 
 ---
 
-**Ultima Actualizare:** 2026-01-16
+**Ultima Actualizare:** 2026-01-16 (20:00)
 **Claude Role:** Senior Web Developer & Guide
 **Filosofie:** Simplitate, Calitate, Engineering Corect
-**Fază Curentă:** FAZA 3 Complete → Începem FAZA 4
+**Fază Curentă:** FAZA 3 Complete (cu Sync Data) → Începem FAZA 4
 
 ---
 

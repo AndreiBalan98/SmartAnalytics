@@ -225,6 +225,27 @@ export const api = {
     if (!response.ok) throw new Error('Failed to exchange Meta code')
     return response.json()
   },
+
+  /**
+   * Sync Meta data (campaigns, ad sets, ads, metrics)
+   */
+  async syncMetaData(days: number = 30) {
+    const response = await fetchWithAuth('/api/integrations/meta/sync/', {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      if (response.status === 429) {
+        // Rate limit error
+        throw new Error(error.message || 'Rate limit exceeded')
+      }
+      throw new Error(error.message || 'Failed to sync data')
+    }
+
+    return response.json()
+  },
 }
 
 export { API_URL }

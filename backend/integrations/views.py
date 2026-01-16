@@ -212,3 +212,93 @@ def get_meta_insights(request):
             'error': 'Failed to fetch insights',
             'message': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_meta_data(request):
+    """
+    Sync all Meta data (campaigns, ad sets, ads, metrics) for the agency.
+    Rate limited to 1 sync per minute.
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can sync data'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if Meta is connected
+    try:
+        integration = MetaIntegration.objects.get(agency=agency)
+    except MetaIntegration.DoesNotExist:
+        return Response({
+            'error': 'Meta not connected for this agency'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Rate limiting: max 1 sync per minute
+    if integration.last_synced_at:
+        time_since_last_sync = timezone.now() - integration.last_synced_at
+        if time_since_last_sync < timedelta(minutes=1):
+            seconds_remaining = 60 - time_since_last_sync.total_seconds()
+            return Response({
+                'error': 'Rate limit exceeded',
+                'message': f'Please wait {int(seconds_remaining)} seconds before syncing again',
+                'retry_after': int(seconds_remaining)
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+    # Mock mode check
+    if settings.MOCK_META:
+        # Update last_synced_at even in mock mode
+        integration.last_synced_at = timezone.now()
+        integration.save()
+
+        return Response({
+            'success': True,
+            'message': 'Mock sync completed',
+            'ad_accounts_synced': 3,
+            'campaigns': {'created': 15, 'updated': 5},
+            'ad_sets': {'created': 45, 'updated': 10},
+            'ads': {'created': 120, 'updated': 30},
+            'metrics': {'created': 90, 'updated': 60},
+            'errors': []
+        })
+
+    # Real sync
+    try:
+        # Get days parameter (default 30)
+        days = int(request.data.get('days', 30))
+        if days < 1 or days > 90:
+            days = 30
+
+        # Update last_synced_at before starting (for rate limiting)
+        integration.last_synced_at = timezone.now()
+        integration.save()
+
+        # Run sync
+        result = meta_service.sync_all_data(agency, days=days)
+
+        return Response({
+            'success': result['success'],
+            'message': 'Sync completed successfully' if result['success'] else 'Sync completed with errors',
+            'ad_accounts_synced': result['ad_accounts_synced'],
+            'campaigns': result['campaigns'],
+            'ad_sets': result['ad_sets'],
+            'ads': result['ads'],
+            'metrics': result['metrics'],
+            'errors': result['errors']
+        })
+
+    except Exception as e:
+        return Response({
+            'error': 'Sync failed',
+            'message': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

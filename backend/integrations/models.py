@@ -25,6 +25,9 @@ class MetaIntegration(models.Model):
     # Token refresh tracking
     last_refreshed_at = models.DateTimeField(null=True, blank=True)
 
+    # Data sync tracking
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

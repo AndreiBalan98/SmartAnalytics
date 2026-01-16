@@ -50,6 +50,10 @@ export default function AgencyDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Sync state
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
+
   // Modal states
   const [showAddClientModal, setShowAddClientModal] = useState(false)
   const [showPermissionsModal, setShowPermissionsModal] = useState(false)
@@ -171,6 +175,26 @@ export default function AgencyDashboardPage() {
     window.location.href = '/api/meta/start'
   }
 
+  async function handleSyncData() {
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+
+    try {
+      const result = await api.syncMetaData(30) // Sync last 30 days
+      setSyncResult(result)
+
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setSyncResult(null)
+      }, 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync data')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -231,6 +255,31 @@ export default function AgencyDashboardPage() {
           </div>
         )}
 
+        {/* Sync Success Message */}
+        {syncResult && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#d4edda',
+            borderRadius: '8px',
+            marginBottom: '2rem',
+            color: '#155724'
+          }}>
+            <strong>✅ Sync Completed Successfully!</strong>
+            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+              <div>• Ad Accounts: {syncResult.ad_accounts_synced}</div>
+              <div>• Campaigns: {syncResult.campaigns.created} created, {syncResult.campaigns.updated} updated</div>
+              <div>• Ad Sets: {syncResult.ad_sets.created} created, {syncResult.ad_sets.updated} updated</div>
+              <div>• Ads: {syncResult.ads.created} created, {syncResult.ads.updated} updated</div>
+              <div>• Metrics: {syncResult.metrics.created} created, {syncResult.metrics.updated} updated</div>
+              {syncResult.errors && syncResult.errors.length > 0 && (
+                <div style={{ marginTop: '0.5rem', color: '#856404' }}>
+                  ⚠️ {syncResult.errors.length} warning(s) during sync
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Platform Integrations Section */}
         <div style={{
           backgroundColor: 'white',
@@ -271,6 +320,22 @@ export default function AgencyDashboardPage() {
                       </div>
                     )}
                   </div>
+                  <button
+                    onClick={handleSyncData}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#0070f3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : '🔄 Sync Data'}
+                  </button>
                   <button
                     onClick={handleConnectMeta}
                     style={{
