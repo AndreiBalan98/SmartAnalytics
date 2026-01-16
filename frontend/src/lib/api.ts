@@ -246,6 +246,28 @@ export const api = {
 
     return response.json()
   },
+
+  /**
+   * Get client metrics (for client users only)
+   * Filtered by permissions and date range
+   */
+  async getClientMetrics(startDate?: string, endDate?: string) {
+    const params = new URLSearchParams()
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+
+    const queryString = params.toString()
+    const url = `/api/metrics/${queryString ? `?${queryString}` : ''}`
+
+    const response = await fetchWithAuth(url)
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch metrics')
+    }
+
+    return response.json()
+  },
 }
 
 export { API_URL }

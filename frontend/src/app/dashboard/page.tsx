@@ -3,80 +3,60 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/api'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-// Mock data for development (FAZA 4)
-const MOCK_DAILY_DATA_BY_ACCOUNT: Record<string, any[]> = {
-  'act_123456789': [
-    { date: '2026-01-05', spend: 145.50, impressions: 5420, clicks: 234, conversions: 12, revenue: 580.00 },
-    { date: '2026-01-06', spend: 158.20, impressions: 6120, clicks: 267, conversions: 15, revenue: 690.00 },
-    { date: '2026-01-07', spend: 142.80, impressions: 5890, clicks: 245, conversions: 11, revenue: 520.00 },
-    { date: '2026-01-08', spend: 167.30, impressions: 6540, clicks: 289, conversions: 18, revenue: 820.00 },
-    { date: '2026-01-09', spend: 155.90, impressions: 6230, clicks: 271, conversions: 14, revenue: 710.00 },
-    { date: '2026-01-10', spend: 172.40, impressions: 6890, clicks: 302, conversions: 19, revenue: 890.00 },
-    { date: '2026-01-11', spend: 163.20, impressions: 6450, clicks: 285, conversions: 16, revenue: 760.00 },
-  ],
-  'act_987654321': [
-    { date: '2026-01-05', spend: 98.30, impressions: 3210, clicks: 156, conversions: 8, revenue: 380.00 },
-    { date: '2026-01-06', spend: 112.50, impressions: 3890, clicks: 189, conversions: 11, revenue: 520.00 },
-    { date: '2026-01-07', spend: 105.20, impressions: 3560, clicks: 167, conversions: 9, revenue: 410.00 },
-    { date: '2026-01-08', spend: 118.90, impressions: 4120, clicks: 201, conversions: 13, revenue: 610.00 },
-    { date: '2026-01-09', spend: 108.70, impressions: 3780, clicks: 178, conversions: 10, revenue: 480.00 },
-    { date: '2026-01-10', spend: 125.40, impressions: 4320, clicks: 215, conversions: 14, revenue: 670.00 },
-    { date: '2026-01-11', spend: 115.80, impressions: 4050, clicks: 195, conversions: 12, revenue: 560.00 },
-  ],
+interface MetricsSummary {
+  total_spend: number
+  total_impressions: number
+  total_clicks: number
+  total_conversions: number
+  avg_ctr: number
+  avg_cpc: number
+  avg_cpm: number
 }
 
-const MOCK_CAMPAIGNS_BY_ACCOUNT: Record<string, any[]> = {
-  'act_123456789': [
-    { 
-      id: 1, 
-      name: 'Summer Sale Campaign', 
-      account_id: 'act_123456789',
-      spend: 485.30, 
-      impressions: 18450, 
-      clicks: 823, 
-      conversions: 42,
-      revenue: 1950.00,
-      status: 'active'
-    },
-    { 
-      id: 2, 
-      name: 'Brand Awareness Q1', 
-      account_id: 'act_123456789',
-      spend: 312.80, 
-      impressions: 12340, 
-      clicks: 534, 
-      conversions: 28,
-      revenue: 1240.00,
-      status: 'active'
-    },
-  ],
-  'act_987654321': [
-    { 
-      id: 3, 
-      name: 'Retargeting Campaign', 
-      account_id: 'act_987654321',
-      spend: 267.20, 
-      impressions: 9850, 
-      clicks: 456, 
-      conversions: 35,
-      revenue: 1780.00,
-      status: 'active'
-    },
-  ],
+interface DailyData {
+  date: string
+  spend: number
+  impressions: number
+  clicks: number
+  conversions: number
 }
 
-type DateRange = 'last_7_days' | 'last_30_days' | 'custom'
+interface AccountBreakdown {
+  account_id: string
+  spend: number
+  impressions: number
+  clicks: number
+  conversions: number
+  ctr: number
+  cpc: number
+  cpm: number
+  currency: string
+}
+
+interface MetricsData {
+  date_range: {
+    start_date: string
+    end_date: string
+  }
+  summary: MetricsSummary
+  daily_data: DailyData[]
+  account_breakdown: AccountBreakdown[]
+}
 
 export default function ClientDashboardPage() {
   const router = useRouter()
   const { user, loading: authLoading, logout } = useAuth()
 
-  const [dateRange, setDateRange] = useState<DateRange>('last_7_days')
-  const [loading, setLoading] = useState(false)
-  const [allowedAccounts, setAllowedAccounts] = useState<string[]>([])
-  const [noPermissions, setNoPermissions] = useState(false)
+  // State
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Date range state
+  const [days, setDays] = useState(30) // Last 30 days by default
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -84,73 +64,46 @@ export default function ClientDashboardPage() {
     } else if (!authLoading && user && user.user_type !== 'client') {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'client') {
-      // Get allowed accounts from user permissions
-      const permissions = user.agencies?.[0]?.permissions
-      const metaAccounts = permissions?.meta_accounts || []
-      
-      if (metaAccounts.length === 0) {
-        setNoPermissions(true)
-      } else {
-        setAllowedAccounts(metaAccounts)
-      }
+      loadMetrics()
     }
   }, [user, authLoading, router])
 
-  // Filter data based on allowed accounts
-  const filteredDailyData = allowedAccounts.length > 0
-    ? allowedAccounts.flatMap(accountId => MOCK_DAILY_DATA_BY_ACCOUNT[accountId] || [])
-    : []
+  async function loadMetrics() {
+    setLoading(true)
+    setError(null)
 
-  const filteredCampaigns = allowedAccounts.length > 0
-    ? allowedAccounts.flatMap(accountId => MOCK_CAMPAIGNS_BY_ACCOUNT[accountId] || [])
-    : []
+    try {
+      // Calculate date range
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - days)
 
-  // Aggregate daily data by date
-  const aggregatedDailyData = filteredDailyData.reduce((acc: any[], day) => {
-    const existing = acc.find(d => d.date === day.date)
-    if (existing) {
-      existing.spend += day.spend
-      existing.impressions += day.impressions
-      existing.clicks += day.clicks
-      existing.conversions += day.conversions
-      existing.revenue += day.revenue
-    } else {
-      acc.push({ ...day })
+      const data = await api.getClientMetrics(
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      )
+
+      setMetricsData(data)
+    } catch (err: any) {
+      setError(err.message || 'Failed to load metrics')
+    } finally {
+      setLoading(false)
     }
-    return acc
-  }, [])
-
-  // Calculate totals
-  const totals = aggregatedDailyData.reduce((acc, day) => ({
-    spend: acc.spend + day.spend,
-    impressions: acc.impressions + day.impressions,
-    clicks: acc.clicks + day.clicks,
-    conversions: acc.conversions + day.conversions,
-    revenue: acc.revenue + day.revenue,
-  }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 })
-
-  // Calculate derived metrics
-  const ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
-  const cpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0
-  const roas = totals.spend > 0 ? totals.revenue / totals.spend : 0
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(value)
   }
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('en-US').format(value)
+  function handleDateRangeChange(newDays: number) {
+    setDays(newDays)
+    // Reload metrics will be triggered by useEffect
   }
 
-  const formatPercent = (value: number) => {
-    return `${value.toFixed(2)}%`
-  }
+  // Reload metrics when days changes
+  useEffect(() => {
+    if (user && user.user_type === 'client') {
+      loadMetrics()
+    }
+  }, [days])
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <p>Loading...</p>
@@ -162,36 +115,41 @@ export default function ClientDashboardPage() {
     return null
   }
 
-  if (noPermissions) {
+  // No permissions case
+  if (metricsData && metricsData.daily_data.length === 0 && metricsData.summary.total_spend === 0) {
     return (
       <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#f8f9fa' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', marginTop: '4rem' }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '3rem',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
-            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem' }}>No Access Permissions</h2>
-            <p style={{ color: '#666', marginBottom: '2rem' }}>
-              Your agency has not granted you access to any ad accounts yet.
-              Please contact your agency administrator.
-            </p>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Client Dashboard</h1>
             <button
               onClick={logout}
               style={{
-                padding: '0.75rem 2rem',
-                backgroundColor: '#0070f3',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#666',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: '600'
+                cursor: 'pointer'
               }}
             >
               Logout
             </button>
+          </div>
+
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '3rem',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+            <h2 style={{ margin: '0 0 1rem 0', color: '#666' }}>No Data Available</h2>
+            <p style={{ color: '#999', marginBottom: '0' }}>
+              Your agency hasn't assigned any ad accounts to you yet.
+              <br />
+              Please contact your agency to get access.
+            </p>
           </div>
         </div>
       </div>
@@ -212,388 +170,277 @@ export default function ClientDashboardPage() {
         gap: '1rem'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Dashboard</h1>
+          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Client Dashboard</h1>
           <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>
-            Welcome back, {user.first_name || user.email}
+            {user.first_name} {user.last_name}
           </p>
         </div>
-        
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Date Range Selector */}
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as DateRange)}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '6px',
-              border: '1px solid #ddd',
-              backgroundColor: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="last_7_days">Last 7 Days</option>
-            <option value="last_30_days">Last 30 Days</option>
-            <option value="custom">Custom Range</option>
-          </select>
-
-          <button
-            onClick={logout}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#666',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={logout}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#666',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          Logout
+        </button>
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Permission Info */}
-        <div style={{
-          padding: '1rem',
-          backgroundColor: '#e7f3ff',
-          borderRadius: '8px',
-          marginBottom: '2rem',
-          border: '1px solid #0070f3'
-        }}>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#0051cc' }}>
-            📊 <strong>Viewing data for:</strong> {allowedAccounts.length} ad account(s) - 
-            {allowedAccounts.map(id => ` ${id}`).join(',')}
-          </p>
-          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#666' }}>
-            Mock data shown. Real metrics will be available in FAZA 5.
-          </p>
-        </div>
-
-        {/* Key Metrics Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem'
-        }}>
-          {/* Total Spend */}
+        {/* Error Message */}
+        {error && (
           <div style={{
-            backgroundColor: 'white',
+            padding: '1rem',
+            backgroundColor: '#fee',
             borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            marginBottom: '2rem',
+            color: '#c00'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>TOTAL SPEND</span>
-              <span style={{ fontSize: '1.5rem' }}>💰</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e74c3c' }}>
-              {formatCurrency(totals.spend)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Last 7 days
-            </div>
+            {error}
           </div>
+        )}
 
-          {/* Total Impressions */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>IMPRESSIONS</span>
-              <span style={{ fontSize: '1.5rem' }}>👁️</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3498db' }}>
-              {formatNumber(totals.impressions)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Last 7 days
-            </div>
-          </div>
-
-          {/* Total Clicks */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>CLICKS</span>
-              <span style={{ fontSize: '1.5rem' }}>🖱️</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9b59b6' }}>
-              {formatNumber(totals.clicks)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Last 7 days
-            </div>
-          </div>
-
-          {/* Total Conversions */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>CONVERSIONS</span>
-              <span style={{ fontSize: '1.5rem' }}>🎯</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#27ae60' }}>
-              {formatNumber(totals.conversions)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Last 7 days
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Metrics Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem'
-        }}>
-          {/* CTR */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>CTR</span>
-              <span style={{ fontSize: '1.5rem' }}>📊</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#16a085' }}>
-              {formatPercent(ctr)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Click-Through Rate
-            </div>
-          </div>
-
-          {/* CPC */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>CPC</span>
-              <span style={{ fontSize: '1.5rem' }}>💵</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e67e22' }}>
-              {formatCurrency(cpc)}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Cost Per Click
-            </div>
-          </div>
-
-          {/* ROAS */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>ROAS</span>
-              <span style={{ fontSize: '1.5rem' }}>📈</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f39c12' }}>
-              {roas.toFixed(2)}x
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.5rem' }}>
-              Return on Ad Spend
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Section */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem'
-        }}>
-          {/* Spend Trend Chart */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: '600' }}>
-              Spend Trend
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={aggregatedDailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(String(value)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  formatter={(value) => formatCurrency(Number(value) || 0)}
-                  labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="spend" 
-                  stroke="#e74c3c" 
-                  strokeWidth={2}
-                  name="Spend"
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Clicks & Conversions Trend Chart */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: '600' }}>
-              Engagement Trend
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={aggregatedDailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  formatter={(value, name) => {
-                    const numValue = Number(value) || 0
-                    return formatNumber(numValue)
-                  }}
-                  labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="clicks" 
-                  stroke="#9b59b6" 
-                  strokeWidth={2}
-                  name="Clicks"
-                  dot={{ r: 4 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="conversions" 
-                  stroke="#27ae60" 
-                  strokeWidth={2}
-                  name="Conversions"
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Campaigns Table */}
+        {/* Date Range Selector */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '8px',
-          padding: '1.5rem',
+          padding: '1rem',
+          marginBottom: '2rem',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: '600' }}>
-            Campaigns Performance
-          </h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #ddd' }}>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.875rem' }}>Campaign</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>Spend</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>Impressions</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>Clicks</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>Conversions</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>Revenue</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>ROAS</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.875rem' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCampaigns.map((campaign) => {
-                  const campaignRoas = campaign.spend > 0 ? campaign.revenue / campaign.spend : 0
-                  return (
-                    <tr key={campaign.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: '500' }}>{campaign.name}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(campaign.spend)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatNumber(campaign.impressions)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatNumber(campaign.clicks)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatNumber(campaign.conversions)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(campaign.revenue)}</td>
-                      <td style={{ 
-                        padding: '0.75rem', 
-                        textAlign: 'right',
-                        fontWeight: 'bold',
-                        color: campaignRoas >= 3 ? '#27ae60' : campaignRoas >= 2 ? '#f39c12' : '#e74c3c'
-                      }}>
-                        {campaignRoas.toFixed(2)}x
-                      </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <span style={{
-                          padding: '0.25rem 0.5rem',
-                          backgroundColor: campaign.status === 'active' ? '#d4edda' : '#f8d7da',
-                          color: campaign.status === 'active' ? '#155724' : '#721c24',
-                          borderRadius: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          textTransform: 'uppercase'
-                        }}>
-                          {campaign.status}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ borderTop: '2px solid #ddd', fontWeight: 'bold' }}>
-                  <td style={{ padding: '0.75rem' }}>TOTAL</td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatCurrency(filteredCampaigns.reduce((sum, c) => sum + c.spend, 0))}
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.impressions, 0))}
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.clicks, 0))}
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatNumber(filteredCampaigns.reduce((sum, c) => sum + c.conversions, 0))}
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    {formatCurrency(filteredCampaigns.reduce((sum, c) => sum + c.revenue, 0))}
-                  </td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            </table>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <span style={{ fontWeight: '600', marginRight: '1rem' }}>Date Range:</span>
+            <button
+              onClick={() => handleDateRangeChange(7)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: days === 7 ? '#0070f3' : 'white',
+                color: days === 7 ? 'white' : '#333',
+                border: days === 7 ? 'none' : '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: days === 7 ? '600' : '400'
+              }}
+            >
+              Last 7 Days
+            </button>
+            <button
+              onClick={() => handleDateRangeChange(30)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: days === 30 ? '#0070f3' : 'white',
+                color: days === 30 ? 'white' : '#333',
+                border: days === 30 ? 'none' : '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: days === 30 ? '600' : '400'
+              }}
+            >
+              Last 30 Days
+            </button>
+            <button
+              onClick={() => handleDateRangeChange(90)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: days === 90 ? '#0070f3' : 'white',
+                color: days === 90 ? 'white' : '#333',
+                border: days === 90 ? 'none' : '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: days === 90 ? '600' : '400'
+              }}
+            >
+              Last 90 Days
+            </button>
           </div>
         </div>
+
+        {metricsData && (
+          <>
+            {/* Metrics Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginBottom: '2rem'
+            }}>
+              <MetricCard
+                title="Total Spend"
+                value={`$${metricsData.summary.total_spend.toFixed(2)}`}
+                icon="💰"
+              />
+              <MetricCard
+                title="Impressions"
+                value={metricsData.summary.total_impressions.toLocaleString()}
+                icon="👁️"
+              />
+              <MetricCard
+                title="Clicks"
+                value={metricsData.summary.total_clicks.toLocaleString()}
+                icon="🖱️"
+              />
+              <MetricCard
+                title="Conversions"
+                value={metricsData.summary.total_conversions.toLocaleString()}
+                icon="🎯"
+              />
+              <MetricCard
+                title="Avg CTR"
+                value={`${metricsData.summary.avg_ctr.toFixed(2)}%`}
+                icon="📈"
+              />
+              <MetricCard
+                title="Avg CPC"
+                value={`$${metricsData.summary.avg_cpc.toFixed(2)}`}
+                icon="💵"
+              />
+              <MetricCard
+                title="Avg CPM"
+                value={`$${metricsData.summary.avg_cpm.toFixed(2)}`}
+                icon="📊"
+              />
+            </div>
+
+            {/* Charts */}
+            {metricsData.daily_data.length > 0 && (
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                padding: '1.5rem',
+                marginBottom: '2rem',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Performance Trends</h2>
+
+                {/* Spend Chart */}
+                <div style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Spend Over Time</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={metricsData.daily_data}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="spend" stroke="#0070f3" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Impressions & Clicks Chart */}
+                <div style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Impressions & Clicks</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={metricsData.daily_data}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="impressions" stroke="#10b981" strokeWidth={2} />
+                      <Line type="monotone" dataKey="clicks" stroke="#f59e0b" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Conversions Chart */}
+                <div>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Conversions</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={metricsData.daily_data}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="conversions" stroke="#8b5cf6" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Account Breakdown Table */}
+            {metricsData.account_breakdown.length > 0 && (
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                padding: '1.5rem',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Account Breakdown</h2>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #ddd' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Account ID</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Spend</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Impressions</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Clicks</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Conversions</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CTR</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CPC</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CPM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metricsData.account_breakdown.map((account) => (
+                        <tr key={account.account_id} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '0.75rem' }}>{account.account_id}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            ${account.spend.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            {account.impressions.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            {account.clicks.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            {account.conversions.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            {account.ctr.toFixed(2)}%
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            ${account.cpc.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                            ${account.cpm.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Metric Card Component
+function MetricCard({ title, value, icon }: { title: string; value: string; icon: string }) {
+  return (
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: '8px',
+      padding: '1.5rem',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <span style={{ fontSize: '1.5rem' }}>{icon}</span>
+        <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>{title}</span>
+      </div>
+      <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#333' }}>
+        {value}
       </div>
     </div>
   )

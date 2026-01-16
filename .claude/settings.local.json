@@ -9,7 +9,8 @@
       "Bash(python:*)",
       "Bash(npm run build:*)",
       "Bash(tree:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []
