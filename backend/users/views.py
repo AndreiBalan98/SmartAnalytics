@@ -315,9 +315,27 @@ def get_client_metrics(request):
     # Get allowed Meta ad accounts from permissions
     meta_accounts = agency_user.permissions.get('meta_accounts', [])
 
+    # DEBUG: Log permissions and available metrics
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Client {request.user.email} permissions: {agency_user.permissions}")
+    logger.info(f"Meta accounts from permissions: {meta_accounts}")
+
+    # Check what accounts exist in DailyMetric
+    available_accounts = DailyMetric.objects.filter(
+        platform='meta',
+        date__gte=start_date,
+        date__lte=end_date
+    ).values_list('account_id', flat=True).distinct()
+    logger.info(f"Available accounts in DailyMetric: {list(available_accounts)}")
+
     if not meta_accounts:
         return Response({
             'message': 'No ad accounts assigned to this client',
+            'debug': {
+                'permissions': agency_user.permissions,
+                'available_accounts': list(available_accounts),
+            },
             'summary': {
                 'total_spend': 0,
                 'total_impressions': 0,
@@ -338,6 +356,8 @@ def get_client_metrics(request):
         date__gte=start_date,
         date__lte=end_date
     ).order_by('date')
+
+    logger.info(f"Found {metrics.count()} metrics for accounts {meta_accounts} between {start_date} and {end_date}")
 
     # Aggregate totals
     aggregates = metrics.aggregate(
@@ -417,5 +437,52 @@ def get_client_metrics(request):
             'avg_cpm': round(float(aggregates['avg_cpm'] or 0), 2),
         },
         'daily_data': sorted(daily_metrics.values(), key=lambda x: x['date']),
-        'account_breakdown': list(account_metrics.values())
+        'account_breakdown': list(account_metrics.values()),
+        'debug': {
+            'meta_accounts_from_permissions': meta_accounts,
+            'metrics_count': metrics.count(),
+            'date_range_requested': f"{start_date} to {end_date}"
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_client_data(request):
+    """
+    DEBUG endpoint to check client permissions and available data.
+    """
+    if request.user.user_type != 'client':
+        return Response({'error': 'Only for client users'}, status=403)
+
+    try:
+        agency_user = AgencyUser.objects.get(user=request.user, is_active=True)
+    except AgencyUser.DoesNotExist:
+        return Response({'error': 'No agency membership'}, status=404)
+
+    # Get all available accounts in DailyMetric
+    all_accounts = list(DailyMetric.objects.values_list('account_id', flat=True).distinct())
+
+    # Get metrics count per account
+    metrics_per_account = {}
+    for account_id in all_accounts:
+        count = DailyMetric.objects.filter(account_id=account_id).count()
+        metrics_per_account[account_id] = count
+
+    return Response({
+        'user': {
+            'email': request.user.email,
+            'user_type': request.user.user_type,
+        },
+        'agency': {
+            'id': agency_user.agency.id,
+            'name': agency_user.agency.name,
+        },
+        'permissions': agency_user.permissions,
+        'meta_accounts_from_permissions': agency_user.permissions.get('meta_accounts', []),
+        'database_info': {
+            'all_accounts_in_daily_metric': all_accounts,
+            'metrics_count_per_account': metrics_per_account,
+            'total_metrics': DailyMetric.objects.count(),
+        }
     })

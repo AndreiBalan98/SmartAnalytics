@@ -21,4 +21,5 @@ urlpatterns = [
 
     # Client metrics
     path('metrics/', views.get_client_metrics, name='client_metrics'),
+    path('debug/client-data/', views.debug_client_data, name='debug_client_data'),
 ]
