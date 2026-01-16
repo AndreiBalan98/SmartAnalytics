@@ -1,387 +1,426 @@
-# CLAUDE.md - Development Session Log
+# CLAUDE.md - Jurnal de Dezvoltare
 
-**Project:** SmartAnalytics (Smart Money - S&M)
-**Date Started:** 2026-01-11
-**Status:** Active Development - FAZA 0 (Technical Foundation)
+**Proiect:** SmartAnalytics (SmartMoney - S&M)
+**Data Start:** 2026-01-11
+**Ultima Actualizare:** 2026-01-16
+**Status:** Dezvoltare Activă - FAZA 3 (Agency Dashboard)
 
 ---
 
-## 📋 PROJECT OVERVIEW
+## 📋 PREZENTARE GENERALĂ
 
-SmartAnalytics is a multi-tenancy SaaS platform for agencies to manage and visualize advertising metrics for their clients across Meta Ads, Google Ads, and GA4.
+SmartAnalytics este o platformă SaaS multi-tenancy pentru agenții, care gestionează și vizualizează metrici publicitare pentru clienții lor din Meta Ads, Google Ads și GA4.
 
-**Key Principles:**
-- Simplicity first - minimal code, maximum quality
-- Production-ready from day one
-- Step-by-step implementation following SSOT.md
-- No feature creep - strictly follow the plan
+**Principii Cheie:**
+- Simplitate pe primul loc - cod minimal, calitate maximă
+- Production-ready din ziua 1
+- Implementare pas cu pas conform BLUEPRINT.md și TASKS.md
+- Fără feature creep - urmărim strict planul
 
 ---
 
 ## 🏗️ TECH STACK
 
-- **Frontend:** Next.js 14 (App Router) → Deployed on Vercel
-- **Backend:** Django + Django REST Framework → Deployed on Render
-- **Database:** PostgreSQL → Hosted on Render
-- **Background Jobs:** Render Background Worker + Cron Scheduler
+- **Frontend:** Next.js 14 (App Router) → Deploy pe Vercel
+- **Backend:** Django 5.0.1 + Django REST Framework → Deploy pe Render
+- **Database:** PostgreSQL → Hosted pe Render
+- **Autentificare:** JWT (djangorestframework-simplejwt)
+- **Background Jobs:** Render Background Worker + Cron (FAZA 5)
 - **Design:** 3-way responsive (Mobile/Tablet/Desktop), minimalist
 
 ---
 
-## 📊 CURRENT STATE ANALYSIS
+## 📊 STAREA ACTUALĂ A PROIECTULUI
 
-### Backend Status ✅❌
+### Backend - Status Complet ✅
 
-**Working:**
-- ✅ Django 5.0.1 + DRF setup
-- ✅ CORS headers configured
-- ✅ Meta Ads OAuth basic integration
-- ✅ Mock mode for development
-- ✅ API endpoints: `/health/`, `/internal/meta/status/`, `/internal/meta/ad-accounts/`, `/internal/meta/insights/`
-- ✅ MetaIntegration model (stores access tokens)
-- ✅ Meta service layer for API calls
+**Arhitectură Django:**
+```
+backend/
+├── config/          # Settings și URL routing principal
+├── users/           # Autentificare, User model custom
+├── agencies/        # Agency și AgencyUser models
+├── integrations/    # OAuth Meta/Google/GA4
+├── campaigns/       # Campaign, AdSet, Ad models
+├── metrics/         # DailyMetric & MetricSnapshot models
+├── core/            # Utilități shared
+└── api/             # Legacy endpoints (în tranziție)
+```
 
-**Missing/Incorrect:**
-- ❌ **CRITICAL:** Using SQLite instead of PostgreSQL
-- ❌ **CRITICAL:** Monolithic structure - needs modular apps:
-  - `users/` - Authentication & user profiles
-  - `agencies/` - Agency management
-  - `integrations/` - OAuth tokens (Meta/Google)
-  - `campaigns/` - Campaign structure (campaigns, ad sets, ads)
-  - `metrics/` - Daily performance data
-  - `core/` - Shared utilities
-- ❌ No authentication system (no User model, no sessions/JWT)
-- ❌ No multi-tenancy architecture (Agency → AgencyUser → Client separation)
-- ❌ No data persistence for metrics (only live API calls)
-- ❌ No background workers or cron jobs
-- ❌ No campaign/ad set/ad structure models
-- ❌ No metrics storage models
+**Modele Database (Migrații Complete):**
+- ✅ `User` - Custom user model cu email ca login
+- ✅ `Agency` - Entitate agenție (1:1 cu User agency owner)
+- ✅ `AgencyUser` - Juncțiune agency-client cu permisiuni JSON
+- ✅ `MetaIntegration` - OAuth tokens Meta Ads
+- ✅ `GoogleAdsIntegration` - OAuth tokens Google Ads (pregătit)
+- ✅ `GA4Integration` - OAuth tokens GA4 (pregătit)
+- ✅ `Campaign` - Campanii publicitare
+- ✅ `AdSet` - Ad sets/grupuri de reclame
+- ✅ `Ad` - Reclame individuale
+- ✅ `DailyMetric` - Metrici de performanță zilnice
+- ✅ `MetricSnapshot` - Metrici agregate
 
-### Frontend Status ✅❌
+**API Endpoints Implementate:**
 
-**Working:**
-- ✅ Next.js 14 with App Router
-- ✅ TypeScript configured
-- ✅ Pages: Home (`/`), Settings (`/settings`), Dashboard (`/dashboard`)
-- ✅ Meta OAuth connection flow
-- ✅ Ad account selection via localStorage
-- ✅ Basic metrics display (mock data working)
+*Autentificare (`/api/auth/`))*
+- ✅ `POST /api/auth/agency/signup/` - Signup agenție + creare entitate Agency
+- ✅ `POST /api/auth/login/` - Login universal (agency & client) → returnează JWT
+- ✅ `POST /api/auth/refresh/` - Refresh JWT access token
 
-**Missing/Incorrect:**
-- ❌ Landing page doesn't match SSOT spec (should show "Smart Money (S&M)" with "Connect as Client" / "Connect as Agency" buttons)
-- ❌ No authentication UI (login/signup pages)
-- ❌ No Agency vs Client role separation
-- ❌ No Agency Dashboard (for managing clients)
-- ❌ No Client management interface
-- ❌ No permission system UI
-- ❌ Dashboard pulls from localStorage, not authenticated API
+*Management Clienți (`/api/clients/`)*
+- ✅ `POST /api/clients/create/` - Agenția creează client (generează parolă temp)
+- ✅ `GET /api/clients/` - Lista clienți agenție
+- ✅ `PATCH /api/clients/{id}/permissions/` - Update permisiuni client
+- ✅ `DELETE /api/clients/{id}/` - Șterge client
 
----
+*User Info*
+- ✅ `GET /api/me/` - Info user curent + agenție/membership
 
-## 🎯 DEVELOPMENT ROADMAP (from SSOT.md)
+*Integrări (`/api/integrations/`)*
+- ✅ `GET /api/integrations/status/` - Status toate integrările (Meta/Google/GA4)
+- ✅ `POST /api/integrations/meta/exchange-code/` - Exchange Meta OAuth code
+- ✅ `GET /api/integrations/meta/ad-accounts/` - Lista Meta ad accounts
+- ✅ `GET /api/integrations/meta/insights/` - Metrici Meta (pregătit)
 
-### **FAZA 0: Technical Foundation** 🔧 ← **WE ARE HERE**
+*Legacy (`/internal/` - în tranziție)*
+- ✅ `GET /health/` - Health check
+- ✅ Meta endpoints vechi (vor fi eliminate)
 
-**FAZA 0.1: PostgreSQL Migration**
-- Install `psycopg2-binary` and `dj-database-url`
-- Configure `.env` for dev/prod database URLs
-- Set up local PostgreSQL database
-- Update `settings.py` to use PostgreSQL
-- Test migrations
-
-**FAZA 0.2: Django App Restructuring**
-- Create modular Django apps:
-  - `users/` - Custom User model (email as login)
-  - `agencies/` - Agency, AgencyUser models
-  - `integrations/` - OAuth tokens for Meta/Google
-  - `campaigns/` - Campaign, AdSet, Ad models
-  - `metrics/` - DailyMetric model
-  - `core/` - Shared utilities
-- Define all models with proper relationships
-- Set up Row-Level Security filtering
-- Create initial migrations
+**Securitate & Autentificare:**
+- ✅ JWT cu token rotation (60min access, 7 zile refresh)
+- ✅ Protected endpoints cu IsAuthenticated
+- ✅ User type enforcement (agency vs client)
+- ✅ Auto-create Agency entity la signup
+- ✅ Password validation Django validators
+- ✅ CORS configurat pentru Next.js
 
 ---
 
-### **FAZA 1: Landing Page** 🏠
+### Frontend - Status Complet ✅
 
-- Design clean landing page
-- Large centered text: "Smart Money (S&M)"
-- Two buttons:
-  - "Connect as Client"
-  - "Connect as Agency"
-- Ultra-fast, static page
+**Structură Pages:**
+```
+frontend/src/app/
+├── page.tsx                      # ✅ Landing page
+├── layout.tsx                    # ✅ Root layout cu AuthProvider
+├── agency/
+│   ├── signup/page.tsx          # ✅ Agency signup form
+│   ├── login/page.tsx           # ✅ Agency login form
+│   ├── dashboard/page.tsx       # ✅ Agency dashboard COMPLET
+│   └── meta-callback/page.tsx   # ✅ Meta OAuth callback
+├── client/
+│   └── login/page.tsx           # ✅ Client login form
+├── dashboard/page.tsx           # 🚧 Client dashboard (FAZA 4)
+└── settings/page.tsx            # 🚧 Settings (legacy, de refactorizat)
+```
+
+**Infrastructură Autentificare:**
+- ✅ `AuthContext` (React Context API)
+- ✅ `AuthProvider` wraps întreaga aplicație
+- ✅ Token storage în localStorage (access + refresh)
+- ✅ Auto-refresh la 401 unauthorized
+- ✅ Protected route logic cu redirects
+- ✅ User data persistence
+
+**Utilități (`/lib/`):**
+- ✅ `api.ts` - Client API cu `fetchWithAuth()` și toate metodele
+- ✅ `auth.ts` - Token management (get/set/remove/validate)
+
+**Features Implementate:**
+- ✅ Landing page cu butoane "Connect as Agency" / "Connect as Client"
+- ✅ Agency signup cu validare (password match, length, required fields)
+- ✅ Agency & Client login cu auto-redirect
+- ✅ **Agency Dashboard COMPLET:**
+  - Lista clienți cu status
+  - Add client modal cu generare parolă
+  - Permissions editor (assign Meta ad accounts)
+  - Platform integrations (Meta/Google/GA4 status)
+  - Connect/Reconnect Meta button
+  - Remove client functionality
+- ✅ Logout functionality
+- ✅ Error handling și loading states
+- ✅ TypeScript types complet definite
 
 ---
 
-### **FAZA 2: Authentication** 🔐
+## ✅ FAZE COMPLETE
 
-**FAZA 2.1: Models**
-- Custom User model (email as username)
-- Agency model (agency owner)
-- AgencyUser model (junction table with JSON permissions)
+### **FAZA 0: Fundație Tehnică** ✅ COMPLET
 
-**FAZA 2.2: Access Flows**
-- Agency: Sign-up (email/password OR Google OAuth) + Login
-- Client: Created by agency only (no self sign-up), Login only
+**0.1 Migrare PostgreSQL** ✅
+- ✅ Instalat `psycopg2-binary` și `dj-database-url`
+- ✅ Creat `.env.example` cu template DATABASE_URL
+- ✅ Actualizat `settings.py` pentru PostgreSQL
+- ✅ Creat `SETUP.md` cu instrucțiuni complete setup
+- ✅ Configurat pentru local dev și Render production
+- ✅ Database conectat cu succes
+
+**0.2 Restructurare Django Apps** ✅
+- ✅ Creat 6 aplicații modulare Django
+- ✅ Definit toate modelele cu relații corecte
+- ✅ Custom User model (AUTH_USER_MODEL)
+- ✅ Multi-tenancy architecture (Agency → AgencyUser → Client)
+- ✅ JSON permissions în AgencyUser
+- ✅ Database indexes pentru performanță
+- ✅ Migrații rulate cu succes
+
+---
+
+### **FAZA 1: Landing Page** ✅ COMPLET
+
+**Landing Page:**
+- ✅ Pagină statică minimalistă la `/`
+- ✅ Titlu centrat mare "SmartMoney" (responsive cu clamp)
+- ✅ Două butoane proeminente:
+  - "Connect as Agency" → `/agency/login`
+  - "Connect as Client" → `/client/login`
+- ✅ Design clean, ultra-rapid cu animații hover
+- ✅ Full responsive (mobile/tablet/desktop)
+- ✅ Footer tagline: "Smart advertising analytics..."
+
+**Login Pages:**
+- ✅ `/agency/login` - Working login
+- ✅ `/client/login` - Working login
+- ✅ Ambele cu redirects corecte după login
 
 ---
 
-### **FAZA 3: Agency Dashboard** 🏢
+### **FAZA 2: Autentificare** ✅ COMPLET
 
-- Client management (add/invite clients)
-- Platform connection interface (Meta Ads, Google Ads, GA4)
-- Permission management (which client sees which ad accounts)
+**2.1 Backend Authentication** ✅
+- ✅ JWT setup (djangorestframework-simplejwt)
+- ✅ Token rotation și blacklisting
+- ✅ Agency signup endpoint (auto-create Agency)
+- ✅ Login universal endpoint (returnează user info + JWT)
+- ✅ Client creation endpoint (agenția creează clienți)
+- ✅ Protected endpoints cu IsAuthenticated
+- ✅ Serializers pentru toate operațiunile
+
+**2.2 Frontend Authentication** ✅
+- ✅ AuthContext cu React Context API
+- ✅ Token storage și management
+- ✅ Auto-refresh token la 401
+- ✅ Protected routes
+- ✅ `/agency/signup` - Working signup form
+- ✅ `/agency/login` - Working login form
+- ✅ `/client/login` - Working login form
+- ✅ Auto-redirect după login based pe user type
 
 ---
 
-### **FAZA 4: Client Dashboard** 📊
+### **FAZA 3: Agency Dashboard** ✅ COMPLET
 
-- Date range selector
-- Key metrics cards (Spend, Impressions, Clicks, Conversions)
-- Charts (Recharts library)
-- Tables with stored data
-- **Source:** Internal database only (no live API calls on page load)
+**Features Implementate:**
+
+✅ **Client Management:**
+- Lista completă clienți cu email, nume, status
+- Add Client modal cu formular (email, first_name, last_name)
+- Auto-generare parolă temporară (afișată o singură dată)
+- Display permissions tags (Meta/Google counts)
+- Remove client cu confirmare
+- Loading states și error handling
+
+✅ **Permissions Management:**
+- Permissions modal pentru fiecare client
+- Checkbox list pentru Meta ad accounts
+- Toggle accounts on/off pentru client
+- Save permissions cu update instant
+- Placeholders pentru Google Ads și GA4 (FAZA 5)
+
+✅ **Platform Integrations:**
+- Status cards pentru Meta Ads, Google Ads, GA4
+- Connected/Not Connected visual states
+- Business name display pentru Meta când e conectat
+- Connect Meta button (redirect către OAuth)
+- Reconnect option pentru refresh token
+- "Coming in FAZA 5" pentru Google și GA4
+
+✅ **UX & Design:**
+- Responsive layout (mobile/tablet/desktop)
+- Clean card-based design
+- Loading skeleton la data fetch
+- Error messages cu styling clar
+- Success feedback după operații
+- Logout button vizibil
+- Agency name display în header
+
+**Backend Support Complet:**
+- ✅ Toate endpoint-urile funcționale
+- ✅ Multi-tenancy enforcement (clienții văd doar datele lor)
+- ✅ Permission filtering la nivel de query
+- ✅ Meta OAuth flow complet
+- ✅ Ad accounts fetch de la Meta API
+
+**Testing Status:**
+```
+✅ Agency signup flow
+✅ Agency login și redirect
+✅ Client creation cu temp password
+✅ Client list display
+✅ Permissions update
+✅ Meta connection flow
+✅ Ad accounts fetch
+✅ Client removal
+✅ Protected route enforcement
+```
 
 ---
+
+## 🚧 FAZĂ CURENTĂ: FAZA 4 - Client Dashboard
+
+**Ce urmează:**
+
+Conform BLUEPRINT.md și TASKS.md, următoarea fază este **FAZA 4: Client Dashboard**.
+
+**Obiective FAZA 4:**
+1. **Date Range Selector** - Client alege perioada pentru metrici
+2. **Key Metrics Cards** - Display Spend, Impressions, Clicks, Conversions
+3. **Charts** - Vizualizări grafice (Recharts library)
+4. **Tables** - Tabele cu date detaliate
+5. **Data Source** - Citire exclusiv din baza de date internă (nu live API calls)
+
+**Considerații Importante:**
+- Clienții văd **doar** ad accounts la care au permisiuni (filtrat prin AgencyUser.permissions)
+- Datele sunt citite din `DailyMetric` model
+- Metrici sunt pre-calculate și stocate (nu se face fetch la fiecare request)
+- Multi-currency support (convertire automată la monedă unificată)
+- Responsive design (mobile/tablet/desktop)
+
+**Ce Lipsește pentru FAZA 4:**
+- ❌ Client dashboard page nu este implementat
+- ❌ Nu există date în tabela `DailyMetric` (trebuie populate)
+- ❌ Nu există endpoint pentru fetch metrici client
+- ❌ Nu există logica de date range filtering
+- ❌ Nu există componente charts (Recharts)
+- ❌ Nu există currency conversion logic
+
+**Pregătire Necesară:**
+1. Populate `DailyMetric` cu date test SAU
+2. Implementare data sync de la Meta API → DailyMetric (poate fi manual cu buton în Agency Dashboard pentru început)
+3. Endpoint backend pentru client metrics cu filtering
+4. Frontend client dashboard cu toate componentele
+
+---
+
+## 🔜 FAZE VIITOARE
 
 ### **FAZA 5: Background Workers** ⏲️
 
-**FAZA 5.1: Cron Scheduler**
-- Schedule hourly/daily sync tasks
+**Notă:** Conform BLUEPRINT.md, pentru început se va implementa un **buton în Agency Dashboard** pentru sync manual, nu cron worker automat.
 
-**FAZA 5.2: Background Worker**
-- Meta Ads: Refresh long-lived tokens (60-day validity)
-- Meta Ads: Fetch campaign structure (Campaigns → Ad Sets → Ads)
-- Meta Ads: Fetch daily metrics
-- Google Ads & GA4: OAuth 2.0 setup and fetch logic
-
-**FAZA 5.3: Sync Strategy**
-- Upsert logic (update-or-insert) to avoid duplicates
-- Backfill last 7-30 days for delayed conversion data
-- Logging for token expiration and sync failures
+**Obiective:**
+- Buton "Sync Data" în Agency Dashboard
+- Fetch manual Meta campaign structure (Campaigns → Ad Sets → Ads)
+- Fetch manual Meta metrics zilnice
+- Stocare în database (upsert logic)
+- Logging pentru succese/eșecuri
+- Mai târziu: Migrare la Render Background Worker cu Cron
 
 ---
 
 ### **FAZA 6: Backend-for-Frontend** ⚙️
 
-- Complete sign-in/sign-up validation logic
-- Optimized API endpoints for Next.js consumption
-- Currency conversion support (unified currency in dashboard)
+**Obiective:**
+- Logică completă sign-in/sign-up cu validări stricte
+- API endpoints optimizate pentru Next.js
+- Currency conversion support (unified currency în dashboard)
+- Rate limiting protection
+- Error handling robust
 
 ---
 
-## 🔒 CRITICAL RULES
+## 🔒 REGULI CRITICE
 
-1. **Security:** Clients can NEVER access other clients' data (enforced at query level)
-2. **Data Integrity:** Clear mapping between external IDs (Meta/Google) and internal IDs
-3. **Performance:** Dashboards read from PostgreSQL, NEVER live from external APIs (prevents rate limiting and lag)
-4. **Maintenance:** Clear logging on Background Worker (token expiration, sync failures)
-
----
-
-## 📝 WORKFLOW PROTOCOL
-
-1. **Proposal:** Claude proposes next step from plan
-2. **Consultation:** Claude asks "Missing info? Decisions needed?"
-3. **Implementation:** After agreement, Claude provides code; you implement and test
-4. **Debug & Validation:** Resolve errors together; confirm when working
-5. **Next Step:** Move to next phase only after current phase is validated
+1. **Securitate:** Clienții nu pot accesa NICIODATĂ datele altor clienți (enforced la nivel de query cu filter pe AgencyUser)
+2. **Data Integrity:** Mapping clar între ID-uri externe (Meta/Google) și ID-uri interne
+3. **Performance:** Dashboard-urile citesc din PostgreSQL, NICIODATĂ live din API-uri externe
+4. **Maintenance:** Logging clar pentru expirări token și sync failures
 
 ---
 
-## ✅ COMPLETED PHASES
+## 📝 PROTOCOL WORKFLOW
 
-### **FAZA 0: Technical Foundation** ✅ COMPLETE
-
-**FAZA 0.1: PostgreSQL Migration** ✅
-- ✅ Updated `requirements.txt` with `psycopg2-binary` and `dj-database-url`
-- ✅ Created `.env.example` with DATABASE_URL template
-- ✅ Updated `settings.py` to use `dj-database-url`
-- ✅ Created `SETUP.md` with comprehensive PostgreSQL setup instructions
-- ✅ Configured for both local dev and Render production
-- ✅ Database connected successfully
-
-**FAZA 0.2: Django App Restructuring** ✅
-- ✅ Created 6 modular Django apps:
-  - `users/` - Custom User model with email login
-  - `agencies/` - Agency & AgencyUser models
-  - `integrations/` - MetaIntegration, GoogleAdsIntegration, GA4Integration
-  - `campaigns/` - Campaign, AdSet, Ad models
-  - `metrics/` - DailyMetric & MetricSnapshot models
-  - `core/` - Shared utilities (placeholder for now)
-- ✅ Implemented custom User model (AUTH_USER_MODEL)
-- ✅ Created all data models with proper relationships
-- ✅ Set up multi-tenancy architecture
-- ✅ Added JSON permissions in AgencyUser
-- ✅ Created database indexes for performance
-- ✅ Ran migrations successfully
-
-**Database Tables Created:**
-```
-✅ users                    (custom user with email login)
-✅ agencies                 (agency entities)
-✅ agency_users             (junction with permissions)
-✅ campaigns                (ad campaigns)
-✅ ad_sets                  (ad sets/groups)
-✅ ads                      (individual ads)
-✅ meta_integrations        (Meta OAuth tokens)
-✅ google_ads_integrations  (Google Ads OAuth)
-✅ ga4_integrations         (GA4 OAuth)
-✅ daily_metrics            (performance data)
-✅ metric_snapshots         (aggregated metrics)
-```
+1. **Propunere:** Claude propune următorul pas din plan
+2. **Consultare:** Claude întreabă: "Lipsesc informații? Sunt decizii de luat?"
+3. **Implementare:** După acord, Claude oferă codul; tu implementezi și testezi
+4. **Debug & Validare:** Rezolvăm erorile împreună; confirmăm când totul funcționează
+5. **Pasul Următor:** Trecem la următoarea fază doar după validare completă
 
 ---
 
-### **FAZA 1: Landing Page** ✅ COMPLETE
+## 📌 NOTE TEHNICE
 
-**Landing Page Design:**
-- ✅ Created minimalist landing page at `/`
-- ✅ Large centered "SmartMoney" title (responsive with clamp)
-- ✅ Two prominent buttons:
-  - "Connect as Agency" → `/agency/login`
-  - "Connect as Client" → `/client/login`
-- ✅ Clean, ultra-fast design with hover animations
-- ✅ Fully responsive (mobile/tablet/desktop)
-- ✅ Footer tagline: "Smart advertising analytics for agencies and their clients"
-
-**Login Pages Created:**
-- ✅ `/agency/login` - Agency login placeholder with "Coming in FAZA 2" notice
-- ✅ `/client/login` - Client login placeholder with agency creation note
-- ✅ Both pages include:
-  - SmartMoney branding
-  - Disabled form fields (email, password)
-  - "Back to Home" navigation
-  - Clear messaging about upcoming authentication
-
-**Build Status:**
-- ✅ Next.js build successful
-- ✅ All routes working: `/`, `/agency/login`, `/client/login`
-- ✅ Static optimization enabled
-- ✅ No TypeScript errors
-
----
-
-### **FAZA 2.1: Backend Authentication** ✅ COMPLETE
-
-**JWT Authentication Setup:**
-- ✅ Installed `djangorestframework-simplejwt`
-- ✅ Configured JWT settings (60min access, 7day refresh)
-- ✅ Token rotation and blacklisting enabled
-- ✅ Updated REST Framework to use JWT by default
-
-**Authentication Endpoints Created:**
-- ✅ `POST /api/auth/agency/signup/` - Agency signup with auto-agency creation
-- ✅ `POST /api/auth/login/` - Login for both agency & client (returns JWT + user info)
-- ✅ `POST /api/auth/refresh/` - Token refresh endpoint
-- ✅ `POST /api/clients/create/` - Agency creates client (protected, generates temp password)
-- ✅ `GET /api/clients/` - List all clients for agency (protected)
-- ✅ `GET /api/me/` - Get current user info with agency/membership data (protected)
-
-**Serializers Created:**
-- ✅ `AgencySignupSerializer` - Agency registration with password validation
-- ✅ `ClientCreationSerializer` - Client creation (auto-generates password if not provided)
-- ✅ `CustomTokenObtainPairSerializer` - JWT with user info in response
-- ✅ `UserSerializer` - Basic user data serialization
-
-**Security Features:**
-- ✅ Password validation with Django validators
-- ✅ User type enforcement (agency vs client)
-- ✅ Automatic Agency entity creation on signup
-- ✅ AgencyUser relationship created when client is added
-- ✅ Protected endpoints require JWT authentication
-- ✅ Public health check endpoint maintained
-
-**Testing Results:**
-```
-✅ Agency Signup: Creates user + agency successfully
-✅ Login: Returns access + refresh tokens + user info
-✅ Client Creation: Agency can create clients with auto-password
-✅ Protected Routes: JWT authentication working
-✅ User Info: /api/me/ returns user + agency/membership data
-```
-
----
-
-### **FAZA 2.2: Frontend Authentication** ✅ COMPLETE
-
-**Authentication Infrastructure:**
-- ✅ Created `AuthContext` with React Context API
-- ✅ `AuthProvider` wraps entire app in root layout
-- ✅ Token storage in localStorage (access + refresh)
-- ✅ User data persistence across page refreshes
-- ✅ Automatic token refresh on API calls
-- ✅ Protected route logic (redirects if not authenticated)
-
-**API Utilities Created (`/lib/api.ts`):**
-- ✅ `fetchWithAuth()` - Authenticated fetch wrapper with auto-refresh
-- ✅ `api.agencySignup()` - Agency registration
-- ✅ `api.login()` - Login for both user types
-- ✅ `api.getCurrentUser()` - Fetch current user data
-- ✅ `api.createClient()` - Agency creates client
-- ✅ `api.listClients()` - List agency clients
-- ✅ Automatic retry with refreshed token on 401
-
-**Auth Utilities Created (`/lib/auth.ts`):**
-- ✅ Token management (get/set/remove/validate)
-- ✅ User data management
-- ✅ Token expiration checking
-- ✅ Full authentication state helpers
-
-**Pages Implemented:**
-- ✅ `/agency/signup` - Full registration form with validation
-- ✅ `/agency/login` - Working login form (redirects to `/agency/dashboard`)
-- ✅ `/client/login` - Working login form (redirects to `/dashboard`)
-- ✅ `/agency/dashboard` - Protected page with user info (FAZA 3 placeholder)
-- ✅ All forms have error handling and loading states
-
-**Features:**
-- ✅ Auto-login after signup
-- ✅ Form validation (password matching, length, required fields)
-- ✅ Error messages displayed to user
-- ✅ Loading states on submit buttons
-- ✅ Automatic redirect after login based on user type
-- ✅ Logout functionality
-- ✅ Proper TypeScript types throughout
-
-**Build Status:**
-```
-✅ Next.js build successful
-✅ All 16 routes compiled
-✅ No TypeScript errors
-✅ Static optimization enabled
-```
-
----
-
-## 🚀 NEXT IMMEDIATE STEPS
-
-**Starting FAZA 3: Agency Dashboard**
-
-According to SSOT.md, the next phase includes:
-1. Client management interface (add/invite/list clients)
-2. Platform connection interface (Meta Ads, Google Ads, GA4)
-3. Permission management (assign accounts to clients)
-4. View client list with status
-
----
-
-## 📌 NOTES
-
+**Environment:**
 - Current git branch: `main`
-- Backend runs on: `http://localhost:8000`
-- Frontend runs on: `http://localhost:3000`
-- Mock mode is enabled (`MOCK_META=true`) for development
+- Backend URL local: `http://localhost:8000`
+- Frontend URL local: `http://localhost:3000`
+- Mock mode: `MOCK_META=true` (pentru development fără API real)
 - PostgreSQL database: `smartanalytics_dev`
-- All FAZA 0 models created and migrated
-- FAZA 1 landing page deployed
-- FAZA 2 authentication system complete (backend + frontend)
-- **Authentication fully functional** - signup, login, logout working
+
+**Configuration Files:**
+- `backend/.env` - Database URL, Django secret, Meta API keys
+- `frontend/.env.local` - NEXT_PUBLIC_API_URL
+- `BLUEPRINT.md` - MVP blueprint cu etape high-level
+- `TASKS.md` - Task-uri detaliate bazate pe blueprint
+- `CLAUDE_GUIDE.md` - Ghid comportament Claude
+- `SETUP.md` - Instrucțiuni setup PostgreSQL
+
+**Meta Integration Status:**
+- ✅ OAuth flow complet implementat
+- ✅ Long-lived tokens (60 zile)
+- ✅ Ad accounts fetch funcțional
+- 🚧 Insights/metrics fetch (endpoint există, nu e folosit)
+- ❌ Campaign structure sync (FAZA 5)
+- ❌ Background refresh tokens (FAZA 5)
+
+**Google Ads & GA4:**
+- ❌ Complet nefuncțional
+- ❌ Models există, dar fără OAuth flow
+- ⏳ Implementare în FAZA 5
 
 ---
 
-**Last Updated:** 2026-01-12
+## 🎯 URMĂTORII PAȘI IMEDIATI
+
+**Prioritate 1: Completare FAZA 4 - Client Dashboard**
+
+1. **Backend:**
+   - Endpoint nou: `GET /api/clients/metrics/` (filtered by client permissions)
+   - Date range filtering (start_date, end_date params)
+   - Aggregation logic pentru key metrics
+   - Currency conversion helper
+
+2. **Frontend:**
+   - Refactorizare `/dashboard/page.tsx` pentru client dashboard
+   - Date range picker component
+   - Metrics cards component (Spend/Impressions/Clicks/Conversions)
+   - Charts component cu Recharts
+   - Tables component cu date detaliate
+   - Integration cu API endpoint nou
+
+3. **Data Population:**
+   - Script pentru populate `DailyMetric` cu date test SAU
+   - Buton în Agency Dashboard pentru manual sync (pregătire FAZA 5)
+
+---
+
+**Ultima Actualizare:** 2026-01-16
 **Claude Role:** Senior Web Developer & Guide
-**Philosophy:** Simplicity, Quality, Correct Engineering
-**Current Phase:** FAZA 3 - Agency Dashboard
+**Filosofie:** Simplitate, Calitate, Engineering Corect
+**Fază Curentă:** FAZA 3 Complete → Începem FAZA 4
+
+---
+
+## 📚 REFERINȚE RAPIDE
+
+**Documentație Proiect:**
+- `BLUEPRINT.md` - Viziune MVP și etape high-level
+- `TASKS.md` - Task-uri detaliate per fază
+- `CLAUDE_GUIDE.md` - Cum lucrează Claude pe proiect
+- `SETUP.md` - Setup PostgreSQL și environment
+
+**External Docs:**
+- [Meta Marketing API](https://developers.facebook.com/docs/marketing-apis/)
+- [Django REST Framework](https://www.django-rest-framework.org/)
+- [Next.js 14 App Router](https://nextjs.org/docs/app)
+- [djangorestframework-simplejwt](https://django-rest-framework-simplejwt.readthedocs.io/)
