@@ -54,6 +54,7 @@ export default function ClientDashboardPage() {
   const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [debugData, setDebugData] = useState<any>(null)
 
   // Date range state
   const [days, setDays] = useState(30) // Last 30 days by default
@@ -73,6 +74,11 @@ export default function ClientDashboardPage() {
     setError(null)
 
     try {
+      // DEBUG: Load debug data first
+      const debug = await api.debugClientData()
+      setDebugData(debug)
+      console.log('🔍 DEBUG DATA:', debug)
+
       // Calculate date range
       const endDate = new Date()
       const startDate = new Date()
@@ -83,9 +89,11 @@ export default function ClientDashboardPage() {
         endDate.toISOString().split('T')[0]
       )
 
+      console.log('📊 METRICS DATA:', data)
       setMetricsData(data)
     } catch (err: any) {
       setError(err.message || 'Failed to load metrics')
+      console.error('❌ ERROR:', err)
     } finally {
       setLoading(false)
     }
@@ -201,6 +209,30 @@ export default function ClientDashboardPage() {
             color: '#c00'
           }}>
             {error}
+          </div>
+        )}
+
+        {/* DEBUG Panel */}
+        {debugData && (
+          <div style={{
+            backgroundColor: '#fff3cd',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '2rem',
+            fontSize: '0.875rem',
+            fontFamily: 'monospace'
+          }}>
+            <strong style={{ display: 'block', marginBottom: '0.5rem' }}>🔍 DEBUG INFO:</strong>
+            <div><strong>Your Permissions:</strong> {JSON.stringify(debugData.permissions)}</div>
+            <div><strong>Meta Accounts (from permissions):</strong> {JSON.stringify(debugData.meta_accounts_from_permissions)}</div>
+            <div><strong>Accounts in Database:</strong> {JSON.stringify(debugData.database_info?.all_accounts_in_daily_metric)}</div>
+            <div><strong>Total Metrics in DB:</strong> {debugData.database_info?.total_metrics}</div>
+            <div style={{ marginTop: '0.5rem' }}>
+              <strong>Metrics per Account:</strong>
+              <pre style={{ margin: '0.5rem 0 0 0', padding: '0.5rem', backgroundColor: '#fff', borderRadius: '4px' }}>
+                {JSON.stringify(debugData.database_info?.metrics_count_per_account, null, 2)}
+              </pre>
+            </div>
           </div>
         )}
 
