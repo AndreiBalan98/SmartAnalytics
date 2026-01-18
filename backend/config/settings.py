@@ -94,15 +94,18 @@ AUTH_USER_MODEL = 'users.User'
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://localhost:3000',
+    'https://smart-analytics-alpha.vercel.app',  # Production Vercel URL
 ]
 
-# Dacă ai frontend URL-ul (îl adaugi după ce deploiezi pe Vercel)
+# Dacă ai frontend URL-ul custom (îl adaugi după ce deploiezi pe Vercel)
 FRONTEND_URL = os.getenv('FRONTEND_URL', '')
-if FRONTEND_URL:
+if FRONTEND_URL and FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
     # Add both with and without www
     if not FRONTEND_URL.startswith('http://localhost'):
-        CORS_ALLOWED_ORIGINS.append(FRONTEND_URL.replace('https://', 'https://www.'))
+        www_url = FRONTEND_URL.replace('https://', 'https://www.')
+        if www_url not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(www_url)
 
 CORS_ALLOW_CREDENTIALS = True
 
