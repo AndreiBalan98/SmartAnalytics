@@ -108,6 +108,26 @@ if FRONTEND_URL and FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
             CORS_ALLOWED_ORIGINS.append(www_url)
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Use CORS_ALLOWED_ORIGINS instead
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # REST Framework
 REST_FRAMEWORK = {

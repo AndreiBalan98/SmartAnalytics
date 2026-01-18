@@ -12,7 +12,7 @@ workers = 2
 worker_class = "sync"
 
 # Timeout configuration
-timeout = 60  # 60 seconds for sync operations
+timeout = 120  # 120 seconds (2 minutes) for sync operations
 graceful_timeout = 30
 keepalive = 5
 
