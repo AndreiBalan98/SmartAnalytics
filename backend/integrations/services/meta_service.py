@@ -24,6 +24,9 @@ def exchange_code_for_token(code: str, redirect_uri: str, agency) -> dict:
     Exchange authorization code for long-lived access token
     and save it for the agency
     """
+    logger.info('=' * 80)
+    logger.info(f'🔐 META OAUTH: Starting token exchange for agency {agency.name} (ID: {agency.id})')
+
     url = f'{GRAPH_API_BASE}/oauth/access_token'
     params = {
         'client_id': settings.META_APP_ID,
@@ -31,19 +34,22 @@ def exchange_code_for_token(code: str, redirect_uri: str, agency) -> dict:
         'redirect_uri': redirect_uri,
         'code': code,
     }
-    
+
     response = requests.get(url, params=params)
     response.raise_for_status()
-    
+
     data = response.json()
     access_token = data['access_token']
-    
+
+    logger.info('✅ Access token obtained successfully')
+
     # Get business info
     business_info = get_business_info(access_token)
-    
+    logger.info(f'Business Info: ID={business_info.get("id")}, Name={business_info.get("name")}')
+
     # Calculate expiration (Meta tokens are typically 60 days for long-lived)
     expires_at = timezone.now() + timedelta(days=60)
-    
+
     # Create or update Meta integration for this agency
     integration, created = MetaIntegration.objects.update_or_create(
         agency=agency,
@@ -56,11 +62,25 @@ def exchange_code_for_token(code: str, redirect_uri: str, agency) -> dict:
             'last_refreshed_at': timezone.now(),
         }
     )
-    
+
+    action = 'Created' if created else 'Updated'
+    logger.info(f'✅ {action} MetaIntegration for agency {agency.name}')
+    logger.info(f'Token expires at: {expires_at.isoformat()}')
+
+    # Fetch and log ad accounts
+    logger.info('Fetching ad accounts user has access to...')
+    ad_accounts = get_ad_accounts(agency)
+    logger.info(f'✅ User has access to {len(ad_accounts)} ad account(s):')
+    for account in ad_accounts:
+        logger.info(f'  - {account["name"]} (ID: {account["id"]}, Currency: {account.get("currency", "N/A")})')
+
+    logger.info('=' * 80)
+
     return {
         'success': True,
         'created': created,
         'business_name': business_info.get('name', ''),
+        'ad_accounts': ad_accounts,
     }
 
 
@@ -471,6 +491,7 @@ def sync_all_data(agency, days: int = 30) -> dict:
     Returns: {
         'success': bool,
         'ad_accounts_synced': count,
+        'ad_accounts': [{'id': str, 'name': str}, ...],
         'campaigns': {'created': X, 'updated': Y},
         'ad_sets': {'created': X, 'updated': Y},
         'ads': {'created': X, 'updated': Y},
@@ -481,6 +502,7 @@ def sync_all_data(agency, days: int = 30) -> dict:
     result = {
         'success': True,
         'ad_accounts_synced': 0,
+        'ad_accounts': [],
         'campaigns': {'created': 0, 'updated': 0},
         'ad_sets': {'created': 0, 'updated': 0},
         'ads': {'created': 0, 'updated': 0},
@@ -504,9 +526,16 @@ def sync_all_data(agency, days: int = 30) -> dict:
         # Sync each ad account
         for account in ad_accounts:
             account_id = account['id']
+            account_name = account.get('name', 'Unknown')
 
             try:
-                logger.info(f"Starting sync for ad account {account_id}")
+                logger.info(f"Starting sync for ad account {account_name} ({account_id})")
+
+                # Add account to result
+                result['ad_accounts'].append({
+                    'id': account_id,
+                    'name': account_name,
+                })
 
                 # 1. Sync campaigns
                 campaigns_result = sync_campaigns(agency, account_id, access_token)

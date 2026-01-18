@@ -14,6 +14,38 @@ interface FetchOptions extends RequestInit {
 }
 
 /**
+ * Log API request details to console
+ */
+function logRequest(method: string, url: string, hasAuth: boolean, body?: any) {
+  console.group(`🌐 API Request: ${method} ${url}`)
+  console.log('Timestamp:', new Date().toISOString())
+  console.log('Full URL:', url)
+  console.log('Method:', method)
+  console.log('Has Auth:', hasAuth ? '✅ Bearer token' : '❌ No auth')
+  if (body) {
+    console.log('Body:', body)
+  }
+  console.groupEnd()
+}
+
+/**
+ * Log API response details to console
+ */
+function logResponse(method: string, url: string, status: number, data?: any, error?: any) {
+  const emoji = status >= 200 && status < 300 ? '✅' : '❌'
+  console.group(`${emoji} API Response: ${method} ${url} - ${status}`)
+  console.log('Timestamp:', new Date().toISOString())
+  console.log('Status:', status)
+  if (data) {
+    console.log('Data:', data)
+  }
+  if (error) {
+    console.error('Error:', error)
+  }
+  console.groupEnd()
+}
+
+/**
  * Make an authenticated API request
  */
 async function fetchWithAuth(
@@ -31,54 +63,103 @@ async function fetchWithAuth(
     headers['Authorization'] = `Bearer ${tokens.access}`
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  const method = options.method || 'GET'
+  const url = `${API_URL}${endpoint}`
+  const body = options.body ? JSON.parse(options.body as string) : undefined
 
-  // If unauthorized, try to refresh token
-  if (response.status === 401 && tokens?.refresh) {
-    const refreshed = await refreshAccessToken(tokens.refresh)
-    if (refreshed) {
-      // Retry original request with new token
-      headers['Authorization'] = `Bearer ${refreshed.access}`
-      return fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers,
-      })
-    } else {
-      // Refresh failed, clear auth and redirect to login
-      clearAuth()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/'
+  // Log request
+  logRequest(method, endpoint, !!tokens?.access, body)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    })
+
+    // Log response
+    const clonedResponse = response.clone()
+    try {
+      const data = await clonedResponse.json()
+      logResponse(method, endpoint, response.status, data)
+    } catch {
+      logResponse(method, endpoint, response.status)
+    }
+
+    // If unauthorized, try to refresh token
+    if (response.status === 401 && tokens?.refresh) {
+      console.log('🔄 Token expired, attempting refresh...')
+      const refreshed = await refreshAccessToken(tokens.refresh)
+      if (refreshed) {
+        console.log('✅ Token refreshed successfully, retrying request...')
+        // Retry original request with new token
+        headers['Authorization'] = `Bearer ${refreshed.access}`
+        logRequest(method, endpoint, true, body)
+
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers,
+        })
+
+        // Log retry response
+        const retryCloned = retryResponse.clone()
+        try {
+          const retryData = await retryCloned.json()
+          logResponse(method, endpoint, retryResponse.status, retryData)
+        } catch {
+          logResponse(method, endpoint, retryResponse.status)
+        }
+
+        return retryResponse
+      } else {
+        // Refresh failed, clear auth and redirect to login
+        console.error('❌ Token refresh failed, redirecting to login...')
+        clearAuth()
+        if (typeof window !== 'undefined') {
+          window.location.href = '/'
+        }
       }
     }
-  }
 
-  return response
+    return response
+  } catch (error) {
+    logResponse(method, endpoint, 0, undefined, error)
+    throw error
+  }
 }
 
 /**
  * Refresh access token using refresh token
  */
 async function refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
+  const endpoint = '/api/auth/refresh/'
+  const url = `${API_URL}${endpoint}`
+  const body = { refresh: refreshToken }
+
+  logRequest('POST', endpoint, false, body)
+
   try {
-    const response = await fetch(`${API_URL}/api/auth/refresh/`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
+      body: JSON.stringify(body),
     })
 
     if (response.ok) {
       const data = await response.json()
+      logResponse('POST', endpoint, response.status, data)
+
       const newTokens: AuthTokens = {
         access: data.access,
         refresh: data.refresh || refreshToken, // Use new refresh if provided
       }
       setTokens(newTokens)
       return newTokens
+    } else {
+      const error = await response.json()
+      logResponse('POST', endpoint, response.status, undefined, error)
     }
   } catch (error) {
+    logResponse('POST', endpoint, 0, undefined, error)
     console.error('Token refresh failed:', error)
   }
 
@@ -100,30 +181,60 @@ export const api = {
     last_name: string
     agency_name: string
   }) {
-    const response = await fetch(`${API_URL}/api/auth/agency/signup/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    return response.json()
+    const endpoint = '/api/auth/agency/signup/'
+    const url = `${API_URL}${endpoint}`
+
+    logRequest('POST', endpoint, false, data)
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      const responseData = await response.json()
+      logResponse('POST', endpoint, response.status, responseData)
+
+      return responseData
+    } catch (error) {
+      logResponse('POST', endpoint, 0, undefined, error)
+      throw error
+    }
   },
 
   /**
    * Login (both agency and client)
    */
   async login(email: string, password: string) {
-    const response = await fetch(`${API_URL}/api/auth/login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    const endpoint = '/api/auth/login/'
+    const url = `${API_URL}${endpoint}`
+    const body = { email, password }
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || 'Login failed')
+    logRequest('POST', endpoint, false, body)
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        logResponse('POST', endpoint, response.status, undefined, responseData)
+        throw new Error(responseData.detail || 'Login failed')
+      }
+
+      logResponse('POST', endpoint, response.status, responseData)
+      return responseData
+    } catch (error) {
+      if (error instanceof Error && error.message !== 'Login failed') {
+        logResponse('POST', endpoint, 0, undefined, error)
+      }
+      throw error
     }
-
-    return response.json()
   },
 
   /**

@@ -43,6 +43,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Pentru static files
+    'core.middleware.RequestLoggingMiddleware',  # Request logging
     'api.middleware.APIKeyMiddleware',
 ]
 
@@ -141,7 +142,49 @@ SIMPLE_JWT = {
 
 # Custom settings
 INTERNAL_API_KEY = os.getenv('INTERNAL_API_KEY', 'dev-internal-key-123')
-MOCK_META = os.getenv('MOCK_META', 'true').lower() == 'true'
 META_APP_ID = os.getenv('META_APP_ID', '')
 META_APP_SECRET = os.getenv('META_APP_SECRET', '')
 META_REDIRECT_URI = os.getenv('META_REDIRECT_URI', '')
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'core.middleware': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'integrations': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

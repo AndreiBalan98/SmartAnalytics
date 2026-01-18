@@ -65,8 +65,7 @@ def get_integrations_status(request):
 def start_meta_oauth(request):
     """
     Start Meta OAuth flow.
-    In MOCK mode: Creates integration directly and redirects back.
-    In real mode: Redirects to Meta OAuth URL.
+    Redirects to Meta OAuth URL.
     """
     from django.shortcuts import redirect
     from urllib.parse import urlencode
@@ -79,28 +78,7 @@ def start_meta_oauth(request):
     except Agency.DoesNotExist:
         return redirect('/agency/dashboard?error=No+agency+found')
 
-    # Mock mode: Create integration directly
-    if settings.MOCK_META:
-        from django.utils import timezone
-        from datetime import timedelta
-
-        # Create mock Meta integration
-        integration, created = MetaIntegration.objects.update_or_create(
-            agency=agency,
-            defaults={
-                'access_token': 'mock_access_token_' + str(agency.id),
-                'token_type': 'bearer',
-                'expires_at': timezone.now() + timedelta(days=60),
-                'business_id': 'mock_business_123',
-                'business_name': f'Mock Business ({agency.name})',
-                'last_refreshed_at': timezone.now(),
-            }
-        )
-
-        # Redirect back to dashboard with success
-        return redirect('/agency/dashboard?meta_connected=true')
-
-    # Real OAuth flow
+    # OAuth flow
     redirect_uri = request.build_absolute_uri('/agency/meta-callback')
 
     params = {
@@ -142,31 +120,7 @@ def exchange_meta_code(request):
             'error': 'code and redirect_uri are required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Mock mode check
-    if settings.MOCK_META:
-        from django.utils import timezone
-        from datetime import timedelta
-
-        # Create mock Meta integration
-        integration, created = MetaIntegration.objects.update_or_create(
-            agency=agency,
-            defaults={
-                'access_token': 'mock_access_token_' + str(agency.id),
-                'token_type': 'bearer',
-                'expires_at': timezone.now() + timedelta(days=60),
-                'business_id': 'mock_business_123',
-                'business_name': f'Mock Business ({agency.name})',
-                'last_refreshed_at': timezone.now(),
-            }
-        )
-
-        return Response({
-            'success': True,
-            'message': 'Meta connected successfully (MOCK)',
-            'business_name': f'Mock Business ({agency.name})',
-        })
-
-    # Real OAuth flow
+    # OAuth flow
     try:
         result = meta_service.exchange_code_for_token(code, redirect_uri, agency)
         return Response({
@@ -206,32 +160,7 @@ def get_meta_ad_accounts(request):
             'error': 'Meta not connected for this agency'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    # Mock mode check
-    if settings.MOCK_META:
-        return Response({
-            'data': [
-                {
-                    'id': 'act_123456789',
-                    'name': 'Mock Ad Account 1',
-                    'currency': 'USD',
-                    'account_status': 1
-                },
-                {
-                    'id': 'act_987654321',
-                    'name': 'Mock Ad Account 2',
-                    'currency': 'EUR',
-                    'account_status': 1
-                },
-                {
-                    'id': 'act_555555555',
-                    'name': 'Mock Ad Account 3',
-                    'currency': 'RON',
-                    'account_status': 1
-                }
-            ]
-        })
-
-    # Real API call
+    # API call
     try:
         accounts = meta_service.get_ad_accounts(agency)
         return Response({'data': accounts})
@@ -267,22 +196,7 @@ def get_meta_insights(request):
             'error': 'account_id is required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Mock mode check
-    if settings.MOCK_META:
-        return Response({
-            'account_id': account_id,
-            'date_range': 'last_7_days',
-            'metrics': {
-                'spend': 1250.75,
-                'impressions': 45678,
-                'clicks': 1234,
-                'purchases': 87,
-                'revenue': 4350.25,
-                'roas': 3.48
-            }
-        })
-
-    # Real API call
+    # API call
     try:
         insights = meta_service.get_insights(agency, account_id)
         return Response(insights)
@@ -334,24 +248,7 @@ def sync_meta_data(request):
                 'retry_after': int(seconds_remaining)
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-    # Mock mode check
-    if settings.MOCK_META:
-        # Update last_synced_at even in mock mode
-        integration.last_synced_at = timezone.now()
-        integration.save()
-
-        return Response({
-            'success': True,
-            'message': 'Mock sync completed',
-            'ad_accounts_synced': 3,
-            'campaigns': {'created': 15, 'updated': 5},
-            'ad_sets': {'created': 45, 'updated': 10},
-            'ads': {'created': 120, 'updated': 30},
-            'metrics': {'created': 90, 'updated': 60},
-            'errors': []
-        })
-
-    # Real sync
+    # Sync
     try:
         # Get days parameter (default 30)
         days = int(request.data.get('days', 30))
@@ -369,6 +266,7 @@ def sync_meta_data(request):
             'success': result['success'],
             'message': 'Sync completed successfully' if result['success'] else 'Sync completed with errors',
             'ad_accounts_synced': result['ad_accounts_synced'],
+            'ad_accounts': result.get('ad_accounts', []),
             'campaigns': result['campaigns'],
             'ad_sets': result['ad_sets'],
             'ads': result['ads'],

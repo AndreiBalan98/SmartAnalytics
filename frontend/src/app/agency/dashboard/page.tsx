@@ -266,11 +266,26 @@ export default function AgencyDashboardPage() {
           }}>
             <strong>✅ Sync Completed Successfully!</strong>
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-              <div>• Ad Accounts: {syncResult.ad_accounts_synced}</div>
-              <div>• Campaigns: {syncResult.campaigns.created} created, {syncResult.campaigns.updated} updated</div>
-              <div>• Ad Sets: {syncResult.ad_sets.created} created, {syncResult.ad_sets.updated} updated</div>
-              <div>• Ads: {syncResult.ads.created} created, {syncResult.ads.updated} updated</div>
-              <div>• Metrics: {syncResult.metrics.created} created, {syncResult.metrics.updated} updated</div>
+              {/* Ad Accounts Details */}
+              {syncResult.ad_accounts && syncResult.ad_accounts.length > 0 && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <strong>Ad Accounts ({syncResult.ad_accounts_synced}):</strong>
+                  {syncResult.ad_accounts.map((account: any) => (
+                    <div key={account.id} style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
+                      • {account.name} ({account.id})
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Stats */}
+              <div style={{ borderTop: '1px solid #c3e6cb', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                <div>• Campaigns: {syncResult.campaigns.created} created, {syncResult.campaigns.updated} updated</div>
+                <div>• Ad Sets: {syncResult.ad_sets.created} created, {syncResult.ad_sets.updated} updated</div>
+                <div>• Ads: {syncResult.ads.created} created, {syncResult.ads.updated} updated</div>
+                <div>• Metrics: {syncResult.metrics.created} created, {syncResult.metrics.updated} updated</div>
+              </div>
+
               {syncResult.errors && syncResult.errors.length > 0 && (
                 <div style={{ marginTop: '0.5rem', color: '#856404' }}>
                   ⚠️ {syncResult.errors.length} warning(s) during sync
