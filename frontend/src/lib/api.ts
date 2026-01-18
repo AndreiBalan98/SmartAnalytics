@@ -379,20 +379,6 @@ export const api = {
 
     return response.json()
   },
-
-  /**
-   * DEBUG: Get client data info (permissions, available accounts, etc)
-   */
-  async debugClientData() {
-    const response = await fetchWithAuth('/api/debug/client-data/')
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to fetch debug data')
-    }
-
-    return response.json()
-  },
 }
 
 export { API_URL }
