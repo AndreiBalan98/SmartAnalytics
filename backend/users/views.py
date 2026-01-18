@@ -8,6 +8,7 @@ from django.db.models import Sum, Avg, Count
 from datetime import datetime, timedelta
 from agencies.models import Agency, AgencyUser
 from metrics.models import DailyMetric
+from campaigns.models import Campaign, AdSet, Ad
 from .serializers import (
     AgencySignupSerializer,
     ClientCreationSerializer,
@@ -486,3 +487,203 @@ def debug_client_data(request):
             'total_metrics': DailyMetric.objects.count(),
         }
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_ad_accounts(request):
+    """
+    Get ad accounts information for client user based on permissions.
+    Returns ad account details with metrics summary.
+    """
+    if request.user.user_type != 'client':
+        return Response({
+            'error': 'Only client users can access this endpoint'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency_user = AgencyUser.objects.get(user=request.user, is_active=True)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'No active agency membership found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get allowed Meta ad accounts from permissions
+    meta_accounts = agency_user.permissions.get('meta_accounts', [])
+
+    if not meta_accounts:
+        return Response({'ad_accounts': []})
+
+    # Get metrics summary per account
+    ad_accounts_data = []
+    for account_id in meta_accounts:
+        # Get latest metrics for this account
+        latest_metric = DailyMetric.objects.filter(
+            platform='meta',
+            account_id=account_id
+        ).order_by('-date').first()
+
+        # Count campaigns for this account
+        campaigns_count = Campaign.objects.filter(
+            platform='meta',
+            account_id=account_id,
+            agency=agency_user.agency
+        ).count()
+
+        ad_accounts_data.append({
+            'account_id': account_id,
+            'currency': latest_metric.currency if latest_metric else 'USD',
+            'campaigns_count': campaigns_count,
+            'has_data': latest_metric is not None,
+        })
+
+    return Response({'ad_accounts': ad_accounts_data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_campaigns(request):
+    """
+    Get campaigns for client user filtered by permissions.
+    """
+    if request.user.user_type != 'client':
+        return Response({
+            'error': 'Only client users can access this endpoint'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency_user = AgencyUser.objects.get(user=request.user, is_active=True)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'No active agency membership found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get allowed Meta ad accounts from permissions
+    meta_accounts = agency_user.permissions.get('meta_accounts', [])
+
+    if not meta_accounts:
+        return Response({'campaigns': []})
+
+    # Get campaigns filtered by allowed accounts
+    campaigns = Campaign.objects.filter(
+        platform='meta',
+        account_id__in=meta_accounts,
+        agency=agency_user.agency
+    ).order_by('-platform_created_at')
+
+    campaigns_data = [
+        {
+            'id': campaign.id,
+            'external_id': campaign.external_id,
+            'account_id': campaign.account_id,
+            'name': campaign.name,
+            'status': campaign.status,
+            'objective': campaign.objective,
+            'daily_budget': float(campaign.daily_budget) if campaign.daily_budget else None,
+            'lifetime_budget': float(campaign.lifetime_budget) if campaign.lifetime_budget else None,
+            'created_at': campaign.platform_created_at.isoformat() if campaign.platform_created_at else None,
+        }
+        for campaign in campaigns
+    ]
+
+    return Response({'campaigns': campaigns_data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_ad_sets(request):
+    """
+    Get ad sets for client user filtered by permissions.
+    """
+    if request.user.user_type != 'client':
+        return Response({
+            'error': 'Only client users can access this endpoint'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency_user = AgencyUser.objects.get(user=request.user, is_active=True)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'No active agency membership found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get allowed Meta ad accounts from permissions
+    meta_accounts = agency_user.permissions.get('meta_accounts', [])
+
+    if not meta_accounts:
+        return Response({'ad_sets': []})
+
+    # Get ad sets filtered by allowed accounts (through campaigns)
+    ad_sets = AdSet.objects.filter(
+        campaign__platform='meta',
+        campaign__account_id__in=meta_accounts,
+        campaign__agency=agency_user.agency
+    ).select_related('campaign').order_by('-platform_created_at')
+
+    ad_sets_data = [
+        {
+            'id': ad_set.id,
+            'external_id': ad_set.external_id,
+            'campaign_id': ad_set.campaign.id,
+            'campaign_name': ad_set.campaign.name,
+            'account_id': ad_set.campaign.account_id,
+            'name': ad_set.name,
+            'status': ad_set.status,
+            'daily_budget': float(ad_set.daily_budget) if ad_set.daily_budget else None,
+            'lifetime_budget': float(ad_set.lifetime_budget) if ad_set.lifetime_budget else None,
+            'created_at': ad_set.platform_created_at.isoformat() if ad_set.platform_created_at else None,
+        }
+        for ad_set in ad_sets
+    ]
+
+    return Response({'ad_sets': ad_sets_data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_ads(request):
+    """
+    Get ads for client user filtered by permissions.
+    """
+    if request.user.user_type != 'client':
+        return Response({
+            'error': 'Only client users can access this endpoint'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency_user = AgencyUser.objects.get(user=request.user, is_active=True)
+    except AgencyUser.DoesNotExist:
+        return Response({
+            'error': 'No active agency membership found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Get allowed Meta ad accounts from permissions
+    meta_accounts = agency_user.permissions.get('meta_accounts', [])
+
+    if not meta_accounts:
+        return Response({'ads': []})
+
+    # Get ads filtered by allowed accounts (through campaigns)
+    ads = Ad.objects.filter(
+        ad_set__campaign__platform='meta',
+        ad_set__campaign__account_id__in=meta_accounts,
+        ad_set__campaign__agency=agency_user.agency
+    ).select_related('ad_set__campaign').order_by('-platform_created_at')
+
+    ads_data = [
+        {
+            'id': ad.id,
+            'external_id': ad.external_id,
+            'ad_set_id': ad.ad_set.id,
+            'ad_set_name': ad.ad_set.name,
+            'campaign_id': ad.ad_set.campaign.id,
+            'campaign_name': ad.ad_set.campaign.name,
+            'account_id': ad.ad_set.campaign.account_id,
+            'name': ad.name,
+            'status': ad.status,
+            'created_at': ad.platform_created_at.isoformat() if ad.platform_created_at else None,
+        }
+        for ad in ads
+    ]
+
+    return Response({'ads': ads_data})

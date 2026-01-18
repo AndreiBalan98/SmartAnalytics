@@ -22,4 +22,10 @@ urlpatterns = [
     # Client metrics
     path('metrics/', views.get_client_metrics, name='client_metrics'),
     path('debug/client-data/', views.debug_client_data, name='debug_client_data'),
+
+    # Client data views
+    path('client/ad-accounts/', views.get_client_ad_accounts, name='client_ad_accounts'),
+    path('client/campaigns/', views.get_client_campaigns, name='client_campaigns'),
+    path('client/ad-sets/', views.get_client_ad_sets, name='client_ad_sets'),
+    path('client/ads/', views.get_client_ads, name='client_ads'),
 ]

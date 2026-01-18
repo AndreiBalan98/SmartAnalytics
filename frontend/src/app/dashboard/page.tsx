@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
+import { formatCurrency } from '@/lib/currency'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface MetricsSummary {
@@ -52,6 +53,10 @@ export default function ClientDashboardPage() {
 
   // State
   const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
+  const [adAccountsData, setAdAccountsData] = useState<any>(null)
+  const [campaignsCount, setCampaignsCount] = useState(0)
+  const [adSetsCount, setAdSetsCount] = useState(0)
+  const [adsCount, setAdsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,14 +83,25 @@ export default function ClientDashboardPage() {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - days)
 
-      const data = await api.getClientMetrics(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      )
+      // Load all data in parallel
+      const [metricsResponse, adAccountsResponse, campaignsResponse, adSetsResponse, adsResponse] = await Promise.all([
+        api.getClientMetrics(
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0]
+        ),
+        api.getClientAdAccounts(),
+        api.getClientCampaigns(),
+        api.getClientAdSets(),
+        api.getClientAds(),
+      ])
 
-      setMetricsData(data)
+      setMetricsData(metricsResponse)
+      setAdAccountsData(adAccountsResponse)
+      setCampaignsCount(campaignsResponse.campaigns?.length || 0)
+      setAdSetsCount(adSetsResponse.ad_sets?.length || 0)
+      setAdsCount(adsResponse.ads?.length || 0)
     } catch (err: any) {
-      setError(err.message || 'Failed to load metrics')
+      setError(err.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -201,6 +217,75 @@ export default function ClientDashboardPage() {
             color: '#c00'
           }}>
             {error}
+          </div>
+        )}
+
+        {/* Ad Accounts & Stats Overview */}
+        {adAccountsData && adAccountsData.ad_accounts && adAccountsData.ad_accounts.length > 0 && (
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            marginBottom: '2rem'
+          }}>
+            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem' }}>Your Ad Accounts</h2>
+
+            {/* Ad Accounts Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.5rem'
+            }}>
+              {adAccountsData.ad_accounts.map((account: any) => (
+                <div key={account.account_id} style={{
+                  padding: '1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  backgroundColor: '#f8f9fa'
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>
+                    {account.account_id}
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0070f3' }}>
+                    {account.currency}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '0.5rem' }}>
+                    {account.campaigns_count} {account.campaigns_count === 1 ? 'campaign' : 'campaigns'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary Stats */}
+            <div style={{
+              display: 'flex',
+              gap: '2rem',
+              padding: '1rem',
+              backgroundColor: '#f0f7ff',
+              borderRadius: '6px',
+              flexWrap: 'wrap'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Campaigns</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
+                  {campaignsCount}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Ad Sets</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
+                  {adSetsCount}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Ads</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
+                  {adsCount}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -401,7 +486,7 @@ export default function ClientDashboardPage() {
                         <tr key={account.account_id} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '0.75rem' }}>{account.account_id}</td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                            ${account.spend.toFixed(2)}
+                            {formatCurrency(account.spend, account.currency)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                             {account.impressions.toLocaleString()}
@@ -416,10 +501,10 @@ export default function ClientDashboardPage() {
                             {account.ctr.toFixed(2)}%
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                            ${account.cpc.toFixed(2)}
+                            {formatCurrency(account.cpc, account.currency)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                            ${account.cpm.toFixed(2)}
+                            {formatCurrency(account.cpm, account.currency)}
                           </td>
                         </tr>
                       ))}

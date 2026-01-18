@@ -379,6 +379,66 @@ export const api = {
 
     return response.json()
   },
+
+  /**
+   * Get client ad accounts (for client users only)
+   * Returns ad account details with currency and campaign counts
+   */
+  async getClientAdAccounts() {
+    const response = await fetchWithAuth('/api/client/ad-accounts/')
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ad accounts')
+    }
+
+    return response.json()
+  },
+
+  /**
+   * Get client campaigns (for client users only)
+   * Filtered by permissions
+   */
+  async getClientCampaigns() {
+    const response = await fetchWithAuth('/api/client/campaigns/')
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch campaigns')
+    }
+
+    return response.json()
+  },
+
+  /**
+   * Get client ad sets (for client users only)
+   * Filtered by permissions
+   */
+  async getClientAdSets() {
+    const response = await fetchWithAuth('/api/client/ad-sets/')
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ad sets')
+    }
+
+    return response.json()
+  },
+
+  /**
+   * Get client ads (for client users only)
+   * Filtered by permissions
+   */
+  async getClientAds() {
+    const response = await fetchWithAuth('/api/client/ads/')
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ads')
+    }
+
+    return response.json()
+  },
 }
 
 export { API_URL }
