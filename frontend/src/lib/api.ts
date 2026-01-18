@@ -247,6 +247,23 @@ export const api = {
   },
 
   /**
+   * Update user preferences (dark mode, etc.)
+   */
+  async updateUserPreferences(data: { dark_mode: boolean }) {
+    const response = await fetchWithAuth('/api/me/preferences/', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to update preferences')
+    }
+
+    return response.json()
+  },
+
+  /**
    * Create client (agency only)
    */
   async createClient(data: {

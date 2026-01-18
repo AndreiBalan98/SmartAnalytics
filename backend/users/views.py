@@ -148,6 +148,30 @@ def get_current_user(request):
     return Response(user_data)
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_user_preferences(request):
+    """
+    Update user preferences (dark mode, etc.)
+    """
+    dark_mode = request.data.get('dark_mode')
+
+    if dark_mode is not None:
+        if not isinstance(dark_mode, bool):
+            return Response({
+                'error': 'dark_mode must be a boolean'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.dark_mode = dark_mode
+        request.user.save()
+
+    serializer = UserSerializer(request.user)
+    return Response({
+        'message': 'Preferences updated successfully',
+        'user': serializer.data
+    })
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_agency_clients(request):

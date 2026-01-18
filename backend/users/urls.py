@@ -18,6 +18,7 @@ urlpatterns = [
 
     # User info
     path('me/', views.get_current_user, name='current_user'),
+    path('me/preferences/', views.update_user_preferences, name='update_user_preferences'),
 
     # Client metrics
     path('metrics/', views.get_client_metrics, name='client_metrics'),

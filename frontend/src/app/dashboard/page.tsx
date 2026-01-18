@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { formatCurrency } from '@/lib/currency'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import DarkModeToggle from '@/components/DarkModeToggle'
 
 interface MetricsSummary {
   total_spend: number
@@ -49,7 +50,7 @@ interface MetricsData {
 
 export default function ClientDashboardPage() {
   const router = useRouter()
-  const { user, loading: authLoading, logout } = useAuth()
+  const { user, loading: authLoading, logout, darkMode } = useAuth()
 
   // State
   const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
@@ -121,7 +122,13 @@ export default function ClientDashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{
+        padding: '2rem',
+        textAlign: 'center',
+        backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa',
+        color: darkMode ? '#f3f4f6' : '#000',
+        minHeight: '100vh'
+      }}>
         <p>Loading...</p>
       </div>
     )
@@ -134,34 +141,37 @@ export default function ClientDashboardPage() {
   // No permissions case
   if (metricsData && metricsData.daily_data.length === 0 && metricsData.summary.total_spend === 0) {
     return (
-      <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#f8f9fa' }}>
+      <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Client Dashboard</h1>
-            <button
-              onClick={logout}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#666',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Logout
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.75rem', color: darkMode ? '#f3f4f6' : '#000' }}>Client Dashboard</h1>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <DarkModeToggle />
+              <button
+                onClick={logout}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: darkMode ? '#3f3f46' : '#666',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Logout
+              </button>
+            </div>
           </div>
 
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: darkMode ? '#27272a' : 'white',
             borderRadius: '8px',
             padding: '3rem',
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
-            <h2 style={{ margin: '0 0 1rem 0', color: '#666' }}>No Data Available</h2>
-            <p style={{ color: '#999', marginBottom: '0' }}>
+            <h2 style={{ margin: '0 0 1rem 0', color: darkMode ? '#9ca3af' : '#666' }}>No Data Available</h2>
+            <p style={{ color: darkMode ? '#71717a' : '#999', marginBottom: '0' }}>
               Your agency hasn't assigned any ad accounts to you yet.
               <br />
               Please contact your agency to get access.
@@ -173,7 +183,7 @@ export default function ClientDashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#f8f9fa' }}>
+    <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa' }}>
       {/* Header */}
       <div style={{
         maxWidth: '1400px',
@@ -186,24 +196,27 @@ export default function ClientDashboardPage() {
         gap: '1rem'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Client Dashboard</h1>
-          <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>
+          <h1 style={{ margin: 0, fontSize: '1.75rem', color: darkMode ? '#f3f4f6' : '#000' }}>Client Dashboard</h1>
+          <p style={{ margin: '0.5rem 0 0 0', color: darkMode ? '#9ca3af' : '#666' }}>
             {user.first_name} {user.last_name}
           </p>
         </div>
-        <button
-          onClick={logout}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <DarkModeToggle />
+          <button
+            onClick={logout}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: darkMode ? '#3f3f46' : '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -211,10 +224,10 @@ export default function ClientDashboardPage() {
         {error && (
           <div style={{
             padding: '1rem',
-            backgroundColor: '#fee',
+            backgroundColor: darkMode ? '#3f1515' : '#fee',
             borderRadius: '8px',
             marginBottom: '2rem',
-            color: '#c00'
+            color: darkMode ? '#fca5a5' : '#c00'
           }}>
             {error}
           </div>
@@ -223,13 +236,13 @@ export default function ClientDashboardPage() {
         {/* Ad Accounts & Stats Overview */}
         {adAccountsData && adAccountsData.ad_accounts && adAccountsData.ad_accounts.length > 0 && (
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: darkMode ? '#27272a' : 'white',
             borderRadius: '8px',
             padding: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
             marginBottom: '2rem'
           }}>
-            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem' }}>Your Ad Accounts</h2>
+            <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: darkMode ? '#f3f4f6' : '#000' }}>Your Ad Accounts</h2>
 
             {/* Ad Accounts Grid */}
             <div style={{
@@ -241,17 +254,17 @@ export default function ClientDashboardPage() {
               {adAccountsData.ad_accounts.map((account: any) => (
                 <div key={account.account_id} style={{
                   padding: '1rem',
-                  border: '1px solid #ddd',
+                  border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
                   borderRadius: '8px',
-                  backgroundColor: '#f8f9fa'
+                  backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.25rem' }}>
                     {account.account_id}
                   </div>
                   <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0070f3' }}>
                     {account.currency}
                   </div>
-                  <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '0.5rem' }}>
+                  <div style={{ fontSize: '0.875rem', color: darkMode ? '#9ca3af' : '#666', marginTop: '0.5rem' }}>
                     {account.campaigns_count} {account.campaigns_count === 1 ? 'campaign' : 'campaigns'}
                   </div>
                 </div>
@@ -263,24 +276,24 @@ export default function ClientDashboardPage() {
               display: 'flex',
               gap: '2rem',
               padding: '1rem',
-              backgroundColor: '#f0f7ff',
+              backgroundColor: darkMode ? '#1e3a5f' : '#f0f7ff',
               borderRadius: '6px',
               flexWrap: 'wrap'
             }}>
               <div>
-                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Campaigns</div>
+                <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.25rem' }}>Total Campaigns</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
                   {campaignsCount}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Ad Sets</div>
+                <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.25rem' }}>Total Ad Sets</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
                   {adSetsCount}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>Total Ads</div>
+                <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.25rem' }}>Total Ads</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#0070f3' }}>
                   {adsCount}
                 </div>
@@ -291,21 +304,21 @@ export default function ClientDashboardPage() {
 
         {/* Date Range Selector */}
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: darkMode ? '#27272a' : 'white',
           borderRadius: '8px',
           padding: '1rem',
           marginBottom: '2rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontWeight: '600', marginRight: '1rem' }}>Date Range:</span>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '600', marginRight: '1rem', color: darkMode ? '#f3f4f6' : '#000' }}>Date Range:</span>
             <button
               onClick={() => handleDateRangeChange(7)}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: days === 7 ? '#0070f3' : 'white',
-                color: days === 7 ? 'white' : '#333',
-                border: days === 7 ? 'none' : '1px solid #ddd',
+                backgroundColor: days === 7 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
+                color: days === 7 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
+                border: days === 7 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: days === 7 ? '600' : '400'
@@ -317,9 +330,9 @@ export default function ClientDashboardPage() {
               onClick={() => handleDateRangeChange(30)}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: days === 30 ? '#0070f3' : 'white',
-                color: days === 30 ? 'white' : '#333',
-                border: days === 30 ? 'none' : '1px solid #ddd',
+                backgroundColor: days === 30 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
+                color: days === 30 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
+                border: days === 30 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: days === 30 ? '600' : '400'
@@ -331,9 +344,9 @@ export default function ClientDashboardPage() {
               onClick={() => handleDateRangeChange(90)}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: days === 90 ? '#0070f3' : 'white',
-                color: days === 90 ? 'white' : '#333',
-                border: days === 90 ? 'none' : '1px solid #ddd',
+                backgroundColor: days === 90 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
+                color: days === 90 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
+                border: days === 90 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: days === 90 ? '600' : '400'
@@ -357,21 +370,25 @@ export default function ClientDashboardPage() {
                 title="Total Spend"
                 value={`$${metricsData.summary.total_spend.toFixed(2)}`}
                 icon="💰"
+                darkMode={darkMode}
               />
               <MetricCard
                 title="Impressions"
                 value={metricsData.summary.total_impressions.toLocaleString()}
                 icon="👁️"
+                darkMode={darkMode}
               />
               <MetricCard
                 title="Clicks"
                 value={metricsData.summary.total_clicks.toLocaleString()}
                 icon="🖱️"
+                darkMode={darkMode}
               />
               <MetricCard
                 title="Conversions"
                 value={metricsData.summary.total_conversions.toLocaleString()}
                 icon="🎯"
+                darkMode={darkMode}
               />
             </div>
 
@@ -386,40 +403,49 @@ export default function ClientDashboardPage() {
                 title="Avg CTR"
                 value={`${metricsData.summary.avg_ctr.toFixed(2)}%`}
                 icon="📈"
+                darkMode={darkMode}
               />
               <MetricCard
                 title="Avg CPC"
                 value={`$${metricsData.summary.avg_cpc.toFixed(2)}`}
                 icon="💵"
+                darkMode={darkMode}
               />
               <MetricCard
                 title="Avg CPM"
                 value={`$${metricsData.summary.avg_cpm.toFixed(2)}`}
                 icon="📊"
+                darkMode={darkMode}
               />
             </div>
 
             {/* Charts */}
             {metricsData.daily_data.length > 0 && (
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: darkMode ? '#27272a' : 'white',
                 borderRadius: '8px',
                 padding: '1.5rem',
                 marginBottom: '2rem',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
               }}>
-                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Performance Trends</h2>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: darkMode ? '#f3f4f6' : '#000' }}>Performance Trends</h2>
 
                 {/* Spend Chart */}
                 <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Spend Over Time</h3>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: darkMode ? '#9ca3af' : '#666' }}>Spend Over Time</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={metricsData.daily_data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#3f3f46' : '#e5e7eb'} />
+                      <XAxis dataKey="date" stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <YAxis stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: darkMode ? '#27272a' : 'white',
+                          border: darkMode ? '1px solid #3f3f46' : '1px solid #e5e7eb',
+                          color: darkMode ? '#f3f4f6' : '#000'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: darkMode ? '#f3f4f6' : '#000' }} />
                       <Line type="monotone" dataKey="spend" stroke="#0070f3" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -427,14 +453,20 @@ export default function ClientDashboardPage() {
 
                 {/* Impressions & Clicks Chart */}
                 <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Impressions & Clicks</h3>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: darkMode ? '#9ca3af' : '#666' }}>Impressions & Clicks</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={metricsData.daily_data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#3f3f46' : '#e5e7eb'} />
+                      <XAxis dataKey="date" stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <YAxis stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: darkMode ? '#27272a' : 'white',
+                          border: darkMode ? '1px solid #3f3f46' : '1px solid #e5e7eb',
+                          color: darkMode ? '#f3f4f6' : '#000'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: darkMode ? '#f3f4f6' : '#000' }} />
                       <Line type="monotone" dataKey="impressions" stroke="#10b981" strokeWidth={2} />
                       <Line type="monotone" dataKey="clicks" stroke="#f59e0b" strokeWidth={2} />
                     </LineChart>
@@ -443,14 +475,20 @@ export default function ClientDashboardPage() {
 
                 {/* Conversions Chart */}
                 <div>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#666' }}>Conversions</h3>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: darkMode ? '#9ca3af' : '#666' }}>Conversions</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={metricsData.daily_data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#3f3f46' : '#e5e7eb'} />
+                      <XAxis dataKey="date" stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <YAxis stroke={darkMode ? '#9ca3af' : '#666'} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: darkMode ? '#27272a' : 'white',
+                          border: darkMode ? '1px solid #3f3f46' : '1px solid #e5e7eb',
+                          color: darkMode ? '#f3f4f6' : '#000'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: darkMode ? '#f3f4f6' : '#000' }} />
                       <Line type="monotone" dataKey="conversions" stroke="#8b5cf6" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -461,49 +499,49 @@ export default function ClientDashboardPage() {
             {/* Account Breakdown Table */}
             {metricsData.account_breakdown.length > 0 && (
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: darkMode ? '#27272a' : 'white',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
               }}>
-                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Account Breakdown</h2>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: darkMode ? '#f3f4f6' : '#000' }}>Account Breakdown</h2>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ borderBottom: '2px solid #ddd' }}>
-                        <th style={{ padding: '0.75rem', textAlign: 'left' }}>Account ID</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Spend</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Impressions</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Clicks</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Conversions</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CTR</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CPC</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>CPM</th>
+                      <tr style={{ borderBottom: darkMode ? '2px solid #3f3f46' : '2px solid #ddd' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Account ID</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Spend</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Impressions</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Clicks</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Conversions</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>CTR</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>CPC</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>CPM</th>
                       </tr>
                     </thead>
                     <tbody>
                       {metricsData.account_breakdown.map((account) => (
-                        <tr key={account.account_id} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '0.75rem' }}>{account.account_id}</td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                        <tr key={account.account_id} style={{ borderBottom: darkMode ? '1px solid #3f3f46' : '1px solid #eee' }}>
+                          <td style={{ padding: '0.75rem', color: darkMode ? '#f3f4f6' : '#000' }}>{account.account_id}</td>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {formatCurrency(account.spend, account.currency)}
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {account.impressions.toLocaleString()}
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {account.clicks.toLocaleString()}
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {account.conversions.toLocaleString()}
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {account.ctr.toFixed(2)}%
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {formatCurrency(account.cpc, account.currency)}
                           </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {formatCurrency(account.cpm, account.currency)}
                           </td>
                         </tr>
@@ -521,19 +559,19 @@ export default function ClientDashboardPage() {
 }
 
 // Metric Card Component
-function MetricCard({ title, value, icon }: { title: string; value: string; icon: string }) {
+function MetricCard({ title, value, icon, darkMode }: { title: string; value: string; icon: string; darkMode?: boolean }) {
   return (
     <div style={{
-      backgroundColor: 'white',
+      backgroundColor: darkMode ? '#27272a' : 'white',
       borderRadius: '8px',
       padding: '1.5rem',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: '1.5rem' }}>{icon}</span>
-        <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: '600' }}>{title}</span>
+        <span style={{ fontSize: '0.875rem', color: darkMode ? '#9ca3af' : '#666', fontWeight: '600' }}>{title}</span>
       </div>
-      <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#333' }}>
+      <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color: darkMode ? '#f3f4f6' : '#333' }}>
         {value}
       </div>
     </div>

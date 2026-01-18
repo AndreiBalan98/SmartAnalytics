@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
+import DarkModeToggle from '@/components/DarkModeToggle'
 
 interface Client {
   id: number
@@ -37,7 +38,7 @@ interface AdAccount {
 
 export default function AgencyDashboardPage() {
   const router = useRouter()
-  const { user, loading: authLoading, logout } = useAuth()
+  const { user, loading: authLoading, logout, darkMode } = useAuth()
 
   // State
   const [clients, setClients] = useState<Client[]>([])
@@ -197,7 +198,13 @@ export default function AgencyDashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{
+        minHeight: '100vh',
+        padding: '2rem',
+        textAlign: 'center',
+        backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa',
+        color: darkMode ? '#f3f4f6' : '#000'
+      }}>
         <p>Loading...</p>
       </div>
     )
@@ -208,7 +215,12 @@ export default function AgencyDashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#f8f9fa' }}>
+    <div style={{
+      minHeight: '100vh',
+      padding: '2rem',
+      backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa',
+      transition: 'background-color 0.2s ease'
+    }}>
       {/* Header */}
       <div style={{
         maxWidth: '1400px',
@@ -221,24 +233,37 @@ export default function AgencyDashboardPage() {
         gap: '1rem'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Agency Dashboard</h1>
-          <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '1.75rem',
+            color: darkMode ? '#f3f4f6' : '#000'
+          }}>
+            Agency Dashboard
+          </h1>
+          <p style={{
+            margin: '0.5rem 0 0 0',
+            color: darkMode ? '#9ca3af' : '#666'
+          }}>
             {user.agency?.name || 'Your Agency'}
           </p>
         </div>
-        <button
-          onClick={logout}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <DarkModeToggle />
+          <button
+            onClick={logout}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: darkMode ? '#3f3f46' : '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -246,10 +271,11 @@ export default function AgencyDashboardPage() {
         {error && (
           <div style={{
             padding: '1rem',
-            backgroundColor: '#fee',
+            backgroundColor: darkMode ? '#3f1e1e' : '#fee',
             borderRadius: '8px',
             marginBottom: '2rem',
-            color: '#c00'
+            color: darkMode ? '#fca5a5' : '#c00',
+            border: darkMode ? '1px solid #7f1d1d' : 'none'
           }}>
             {error}
           </div>
@@ -259,10 +285,11 @@ export default function AgencyDashboardPage() {
         {syncResult && (
           <div style={{
             padding: '1rem',
-            backgroundColor: '#d4edda',
+            backgroundColor: darkMode ? '#1e3a1e' : '#d4edda',
             borderRadius: '8px',
             marginBottom: '2rem',
-            color: '#155724'
+            color: darkMode ? '#86efac' : '#155724',
+            border: darkMode ? '1px solid #166534' : 'none'
           }}>
             <strong>✅ Sync Completed Successfully!</strong>
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
@@ -297,27 +324,35 @@ export default function AgencyDashboardPage() {
 
         {/* Platform Integrations Section */}
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: darkMode ? '#27272a' : 'white',
           borderRadius: '8px',
           padding: '1.5rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          marginBottom: '2rem'
+          boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+          marginBottom: '2rem',
+          border: darkMode ? '1px solid #3f3f46' : 'none'
         }}>
-          <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Platform Integrations</h2>
+          <h2 style={{
+            margin: '0 0 1.5rem 0',
+            fontSize: '1.25rem',
+            color: darkMode ? '#f3f4f6' : '#000'
+          }}>
+            Platform Integrations
+          </h2>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
             {/* Meta Ads */}
             <div style={{
               padding: '1rem',
-              border: '2px solid #ddd',
+              border: darkMode ? '2px solid #3f3f46' : '2px solid #ddd',
               borderRadius: '8px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>📘</span>
-                <strong>Meta Ads</strong>
+                <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Meta Ads</strong>
               </div>
               {integrations?.meta.connected ? (
                 <>
@@ -399,21 +434,22 @@ export default function AgencyDashboardPage() {
             {/* Google Ads */}
             <div style={{
               padding: '1rem',
-              border: '2px solid #ddd',
+              border: darkMode ? '2px solid #3f3f46' : '2px solid #ddd',
               borderRadius: '8px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🔍</span>
-                <strong>Google Ads</strong>
+                <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Google Ads</strong>
               </div>
               <div style={{
                 padding: '0.5rem',
-                backgroundColor: '#fff3cd',
+                backgroundColor: darkMode ? '#3f2e1e' : '#fff3cd',
                 borderRadius: '4px',
-                color: '#856404',
+                color: darkMode ? '#fbbf24' : '#856404',
                 fontSize: '0.875rem'
               }}>
                 ⏳ Coming in FAZA 5
@@ -423,21 +459,22 @@ export default function AgencyDashboardPage() {
             {/* GA4 */}
             <div style={{
               padding: '1rem',
-              border: '2px solid #ddd',
+              border: darkMode ? '2px solid #3f3f46' : '2px solid #ddd',
               borderRadius: '8px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>📊</span>
-                <strong>Google Analytics 4</strong>
+                <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Google Analytics 4</strong>
               </div>
               <div style={{
                 padding: '0.5rem',
-                backgroundColor: '#fff3cd',
+                backgroundColor: darkMode ? '#3f2e1e' : '#fff3cd',
                 borderRadius: '4px',
-                color: '#856404',
+                color: darkMode ? '#fbbf24' : '#856404',
                 fontSize: '0.875rem'
               }}>
                 ⏳ Coming in FAZA 5
@@ -448,13 +485,20 @@ export default function AgencyDashboardPage() {
 
         {/* Clients Section */}
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: darkMode ? '#27272a' : 'white',
           borderRadius: '8px',
           padding: '1.5rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: darkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+          border: darkMode ? '1px solid #3f3f46' : 'none'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Clients ({clients.length})</h2>
+            <h2 style={{
+              margin: 0,
+              fontSize: '1.25rem',
+              color: darkMode ? '#f3f4f6' : '#000'
+            }}>
+              Clients ({clients.length})
+            </h2>
             <button
               onClick={() => setShowAddClientModal(true)}
               style={{
@@ -464,44 +508,82 @@ export default function AgencyDashboardPage() {
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontWeight: '600'
+                fontWeight: '600',
+                transition: 'background-color 0.2s ease'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
             >
               + Add Client
             </button>
           </div>
 
           {clients.length === 0 ? (
-            <p style={{ color: '#666', textAlign: 'center', padding: '2rem' }}>
+            <p style={{
+              color: darkMode ? '#9ca3af' : '#666',
+              textAlign: 'center',
+              padding: '2rem'
+            }}>
               No clients yet. Click "Add Client" to get started.
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Name</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Email</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Permissions</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>Actions</th>
+                  <tr style={{
+                    borderBottom: darkMode ? '2px solid #3f3f46' : '2px solid #ddd'
+                  }}>
+                    <th style={{
+                      padding: '0.75rem',
+                      textAlign: 'left',
+                      color: darkMode ? '#f3f4f6' : '#000'
+                    }}>Name</th>
+                    <th style={{
+                      padding: '0.75rem',
+                      textAlign: 'left',
+                      color: darkMode ? '#f3f4f6' : '#000'
+                    }}>Email</th>
+                    <th style={{
+                      padding: '0.75rem',
+                      textAlign: 'left',
+                      color: darkMode ? '#f3f4f6' : '#000'
+                    }}>Permissions</th>
+                    <th style={{
+                      padding: '0.75rem',
+                      textAlign: 'left',
+                      color: darkMode ? '#f3f4f6' : '#000'
+                    }}>Status</th>
+                    <th style={{
+                      padding: '0.75rem',
+                      textAlign: 'center',
+                      color: darkMode ? '#f3f4f6' : '#000'
+                    }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {clients.map((client) => (
-                    <tr key={client.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '0.75rem' }}>
+                    <tr key={client.id} style={{
+                      borderBottom: darkMode ? '1px solid #3f3f46' : '1px solid #eee'
+                    }}>
+                      <td style={{
+                        padding: '0.75rem',
+                        color: darkMode ? '#f3f4f6' : '#000'
+                      }}>
                         {client.user.first_name} {client.user.last_name}
                       </td>
-                      <td style={{ padding: '0.75rem' }}>{client.user.email}</td>
+                      <td style={{
+                        padding: '0.75rem',
+                        color: darkMode ? '#9ca3af' : '#000'
+                      }}>{client.user.email}</td>
                       <td style={{ padding: '0.75rem' }}>
                         <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                           {client.permissions.meta_accounts && client.permissions.meta_accounts.length > 0 && (
                             <span style={{
                               padding: '0.25rem 0.5rem',
-                              backgroundColor: '#e7f3ff',
+                              backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
                               borderRadius: '4px',
-                              fontSize: '0.75rem'
+                              fontSize: '0.75rem',
+                              color: darkMode ? '#93c5fd' : '#0369a1'
                             }}>
                               Meta ({client.permissions.meta_accounts.length})
                             </span>
@@ -509,24 +591,32 @@ export default function AgencyDashboardPage() {
                           {client.permissions.google_accounts && client.permissions.google_accounts.length > 0 && (
                             <span style={{
                               padding: '0.25rem 0.5rem',
-                              backgroundColor: '#fff3e0',
+                              backgroundColor: darkMode ? '#3f2e1e' : '#fff3e0',
                               borderRadius: '4px',
-                              fontSize: '0.75rem'
+                              fontSize: '0.75rem',
+                              color: darkMode ? '#fbbf24' : '#b45309'
                             }}>
                               Google ({client.permissions.google_accounts.length})
                             </span>
                           )}
                           {(!client.permissions.meta_accounts || client.permissions.meta_accounts.length === 0) &&
                            (!client.permissions.google_accounts || client.permissions.google_accounts.length === 0) && (
-                            <span style={{ color: '#999', fontSize: '0.875rem' }}>None</span>
+                            <span style={{
+                              color: darkMode ? '#6b7280' : '#999',
+                              fontSize: '0.875rem'
+                            }}>None</span>
                           )}
                         </div>
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         <span style={{
                           padding: '0.25rem 0.5rem',
-                          backgroundColor: client.is_active ? '#d4edda' : '#f8d7da',
-                          color: client.is_active ? '#155724' : '#721c24',
+                          backgroundColor: client.is_active
+                            ? (darkMode ? '#1e3a1e' : '#d4edda')
+                            : (darkMode ? '#3f1e1e' : '#f8d7da'),
+                          color: client.is_active
+                            ? (darkMode ? '#86efac' : '#155724')
+                            : (darkMode ? '#fca5a5' : '#721c24'),
                           borderRadius: '4px',
                           fontSize: '0.875rem'
                         }}>
@@ -547,8 +637,11 @@ export default function AgencyDashboardPage() {
                               border: 'none',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              fontSize: '0.875rem'
+                              fontSize: '0.875rem',
+                              transition: 'background-color 0.2s ease'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
                           >
                             Permissions
                           </button>
@@ -561,8 +654,11 @@ export default function AgencyDashboardPage() {
                               border: 'none',
                               borderRadius: '4px',
                               cursor: 'pointer',
-                              fontSize: '0.875rem'
+                              fontSize: '0.875rem',
+                              transition: 'background-color 0.2s ease'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b02a37'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
                           >
                             Remove
                           </button>
@@ -585,49 +681,69 @@ export default function AgencyDashboardPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: darkMode ? '#27272a' : 'white',
             borderRadius: '8px',
             padding: '2rem',
             maxWidth: '500px',
             width: '90%',
             maxHeight: '90vh',
-            overflow: 'auto'
+            overflow: 'auto',
+            border: darkMode ? '1px solid #3f3f46' : 'none',
+            boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ margin: '0 0 1rem 0' }}>Add New Client</h3>
+            <h3 style={{
+              margin: '0 0 1rem 0',
+              color: darkMode ? '#f3f4f6' : '#000'
+            }}>Add New Client</h3>
             
             {newPassword ? (
               <div>
                 <div style={{
                   padding: '1rem',
-                  backgroundColor: '#d4edda',
+                  backgroundColor: darkMode ? '#1e3a1e' : '#d4edda',
                   borderRadius: '6px',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  border: darkMode ? '1px solid #166534' : 'none'
                 }}>
-                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#155724' }}>
+                  <p style={{
+                    margin: '0 0 0.5rem 0',
+                    fontWeight: '600',
+                    color: darkMode ? '#86efac' : '#155724'
+                  }}>
                     Client created successfully!
                   </p>
-                  <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: '#155724' }}>
+                  <p style={{
+                    margin: '0 0 0.5rem 0',
+                    fontSize: '0.875rem',
+                    color: darkMode ? '#86efac' : '#155724'
+                  }}>
                     Temporary Password:
                   </p>
                   <div style={{
                     padding: '0.75rem',
-                    backgroundColor: 'white',
+                    backgroundColor: darkMode ? '#1f1f23' : 'white',
                     borderRadius: '4px',
                     fontFamily: 'monospace',
                     fontSize: '1.1rem',
                     fontWeight: 'bold',
-                    wordBreak: 'break-all'
+                    wordBreak: 'break-all',
+                    color: darkMode ? '#f3f4f6' : '#000',
+                    border: darkMode ? '1px solid #3f3f46' : 'none'
                   }}>
                     {newPassword}
                   </div>
-                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#856404' }}>
+                  <p style={{
+                    margin: '0.5rem 0 0 0',
+                    fontSize: '0.875rem',
+                    color: darkMode ? '#fbbf24' : '#856404'
+                  }}>
                     ⚠️ Copy this password and send it to the client securely. It won't be shown again.
                   </p>
                 </div>
@@ -644,8 +760,11 @@ export default function AgencyDashboardPage() {
                     border: 'none',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    transition: 'background-color 0.2s ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
                 >
                   Done
                 </button>
@@ -653,7 +772,12 @@ export default function AgencyDashboardPage() {
             ) : (
               <form onSubmit={handleAddClient}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontWeight: '600',
+                    color: darkMode ? '#f3f4f6' : '#000'
+                  }}>
                     Email *
                   </label>
                   <input
@@ -665,14 +789,21 @@ export default function AgencyDashboardPage() {
                       width: '100%',
                       padding: '0.75rem',
                       borderRadius: '6px',
-                      border: '1px solid #ddd',
-                      boxSizing: 'border-box'
+                      border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+                      boxSizing: 'border-box',
+                      backgroundColor: darkMode ? '#1f1f23' : 'white',
+                      color: darkMode ? '#f3f4f6' : '#000'
                     }}
                   />
                 </div>
 
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontWeight: '600',
+                    color: darkMode ? '#f3f4f6' : '#000'
+                  }}>
                     First Name *
                   </label>
                   <input
@@ -684,14 +815,21 @@ export default function AgencyDashboardPage() {
                       width: '100%',
                       padding: '0.75rem',
                       borderRadius: '6px',
-                      border: '1px solid #ddd',
-                      boxSizing: 'border-box'
+                      border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+                      boxSizing: 'border-box',
+                      backgroundColor: darkMode ? '#1f1f23' : 'white',
+                      color: darkMode ? '#f3f4f6' : '#000'
                     }}
                   />
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    fontWeight: '600',
+                    color: darkMode ? '#f3f4f6' : '#000'
+                  }}>
                     Last Name *
                   </label>
                   <input
@@ -703,8 +841,10 @@ export default function AgencyDashboardPage() {
                       width: '100%',
                       padding: '0.75rem',
                       borderRadius: '6px',
-                      border: '1px solid #ddd',
-                      boxSizing: 'border-box'
+                      border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+                      boxSizing: 'border-box',
+                      backgroundColor: darkMode ? '#1f1f23' : 'white',
+                      color: darkMode ? '#f3f4f6' : '#000'
                     }}
                   />
                 </div>
@@ -719,12 +859,15 @@ export default function AgencyDashboardPage() {
                     style={{
                       flex: 1,
                       padding: '0.75rem',
-                      backgroundColor: '#666',
+                      backgroundColor: darkMode ? '#3f3f46' : '#666',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#52525b' : '#555'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#3f3f46' : '#666'}
                   >
                     Cancel
                   </button>
@@ -738,8 +881,11 @@ export default function AgencyDashboardPage() {
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      fontWeight: '600'
+                      fontWeight: '600',
+                      transition: 'background-color 0.2s ease'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
                   >
                     Create Client
                   </button>
@@ -758,25 +904,33 @@ export default function AgencyDashboardPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: darkMode ? '#27272a' : 'white',
             borderRadius: '8px',
             padding: '2rem',
             maxWidth: '600px',
             width: '90%',
             maxHeight: '90vh',
-            overflow: 'auto'
+            overflow: 'auto',
+            border: darkMode ? '1px solid #3f3f46' : 'none',
+            boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ margin: '0 0 0.5rem 0' }}>
+            <h3 style={{
+              margin: '0 0 0.5rem 0',
+              color: darkMode ? '#f3f4f6' : '#000'
+            }}>
               Manage Permissions
             </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#666' }}>
+            <p style={{
+              margin: '0 0 1.5rem 0',
+              color: darkMode ? '#9ca3af' : '#666'
+            }}>
               {selectedClient.user.first_name} {selectedClient.user.last_name}
             </p>
 
@@ -788,6 +942,7 @@ export default function AgencyDashboardPage() {
                 setShowPermissionsModal(false)
                 setSelectedClient(null)
               }}
+              darkMode={darkMode}
             />
           </div>
         </div>
@@ -801,12 +956,14 @@ function PermissionsEditor({
   client,
   metaAdAccounts,
   onSave,
-  onCancel
+  onCancel,
+  darkMode
 }: {
   client: Client
   metaAdAccounts: AdAccount[]
   onSave: (permissions: Record<string, any>) => void
   onCancel: () => void
+  darkMode: boolean
 }) {
   const [selectedMeta, setSelectedMeta] = useState<string[]>(
     client.permissions.meta_accounts || []
@@ -831,9 +988,17 @@ function PermissionsEditor({
   return (
     <div>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{ margin: '0 0 1rem 0' }}>📘 Meta Ad Accounts</h4>
+        <h4 style={{
+          margin: '0 0 1rem 0',
+          color: darkMode ? '#f3f4f6' : '#000'
+        }}>
+          📘 Meta Ad Accounts
+        </h4>
         {metaAdAccounts.length === 0 ? (
-          <p style={{ color: '#666', fontSize: '0.875rem' }}>
+          <p style={{
+            color: darkMode ? '#9ca3af' : '#666',
+            fontSize: '0.875rem'
+          }}>
             No Meta ad accounts available. Connect Meta first.
           </p>
         ) : (
@@ -846,10 +1011,13 @@ function PermissionsEditor({
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.75rem',
-                  border: '1px solid #ddd',
+                  border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  backgroundColor: selectedMeta.includes(account.id) ? '#e7f3ff' : 'white'
+                  backgroundColor: selectedMeta.includes(account.id)
+                    ? (darkMode ? '#1e3a5f' : '#e7f3ff')
+                    : (darkMode ? '#1f1f23' : 'white'),
+                  transition: 'background-color 0.2s ease'
                 }}
               >
                 <input
@@ -858,7 +1026,10 @@ function PermissionsEditor({
                   onChange={() => handleToggleMeta(account.id)}
                   style={{ cursor: 'pointer' }}
                 />
-                <span style={{ flex: 1 }}>
+                <span style={{
+                  flex: 1,
+                  color: darkMode ? '#f3f4f6' : '#000'
+                }}>
                   {account.name} ({account.currency})
                 </span>
               </label>
@@ -868,13 +1039,33 @@ function PermissionsEditor({
       </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{ margin: '0 0 0.5rem 0' }}>🔍 Google Ads Accounts</h4>
-        <p style={{ color: '#999', fontSize: '0.875rem' }}>Coming in FAZA 5</p>
+        <h4 style={{
+          margin: '0 0 0.5rem 0',
+          color: darkMode ? '#f3f4f6' : '#000'
+        }}>
+          🔍 Google Ads Accounts
+        </h4>
+        <p style={{
+          color: darkMode ? '#6b7280' : '#999',
+          fontSize: '0.875rem'
+        }}>
+          Coming in FAZA 5
+        </p>
       </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{ margin: '0 0 0.5rem 0' }}>📊 GA4 Properties</h4>
-        <p style={{ color: '#999', fontSize: '0.875rem' }}>Coming in FAZA 5</p>
+        <h4 style={{
+          margin: '0 0 0.5rem 0',
+          color: darkMode ? '#f3f4f6' : '#000'
+        }}>
+          📊 GA4 Properties
+        </h4>
+        <p style={{
+          color: darkMode ? '#6b7280' : '#999',
+          fontSize: '0.875rem'
+        }}>
+          Coming in FAZA 5
+        </p>
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
@@ -883,12 +1074,15 @@ function PermissionsEditor({
           style={{
             flex: 1,
             padding: '0.75rem',
-            backgroundColor: '#666',
+            backgroundColor: darkMode ? '#3f3f46' : '#666',
             color: 'white',
             border: 'none',
             borderRadius: '6px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#52525b' : '#555'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#3f3f46' : '#666'}
         >
           Cancel
         </button>
@@ -902,8 +1096,11 @@ function PermissionsEditor({
             border: 'none',
             borderRadius: '6px',
             cursor: 'pointer',
-            fontWeight: '600'
+            fontWeight: '600',
+            transition: 'background-color 0.2s ease'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
         >
           Save Permissions
         </button>

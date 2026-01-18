@@ -6,6 +6,7 @@ export interface User {
   first_name: string
   last_name: string
   user_type: 'agency' | 'client'
+  dark_mode?: boolean
   date_joined: string
   agency?: {
     id: number
@@ -142,4 +143,57 @@ export function getValidAccessToken(): string | null {
   }
 
   return tokens.access
+}
+
+// Dark Mode Utilities
+
+const DARK_MODE_KEY = 'dark_mode_preference'
+
+/**
+ * Apply dark mode to the document
+ */
+export function applyDarkMode(enabled: boolean): void {
+  if (typeof window === 'undefined') return
+
+  if (enabled) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+
+/**
+ * Set dark mode preference in localStorage and apply it
+ */
+export function setDarkModePreference(enabled: boolean): void {
+  if (typeof window === 'undefined') return
+
+  localStorage.setItem(DARK_MODE_KEY, JSON.stringify(enabled))
+  applyDarkMode(enabled)
+}
+
+/**
+ * Get dark mode preference from localStorage
+ */
+export function getDarkModePreference(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const stored = localStorage.getItem(DARK_MODE_KEY)
+  if (!stored) return false
+
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Clear dark mode preference from localStorage
+ */
+export function clearDarkModePreference(): void {
+  if (typeof window === 'undefined') return
+
+  localStorage.removeItem(DARK_MODE_KEY)
+  applyDarkMode(false)
 }
