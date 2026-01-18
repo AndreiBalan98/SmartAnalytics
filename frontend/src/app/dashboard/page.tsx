@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { formatCurrency } from '@/lib/currency'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import DarkModeToggle from '@/components/DarkModeToggle'
+import ClientDashboardSkeleton from '@/components/ClientDashboardSkeleton'
 
 interface MetricsSummary {
   total_spend: number
@@ -59,6 +60,7 @@ export default function ClientDashboardPage() {
   const [adSetsCount, setAdSetsCount] = useState(0)
   const [adsCount, setAdsCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [dateRangeLoading, setDateRangeLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Date range state
@@ -74,8 +76,12 @@ export default function ClientDashboardPage() {
     }
   }, [user, authLoading, router])
 
-  async function loadMetrics() {
-    setLoading(true)
+  async function loadMetrics(isDateRangeChange: boolean = false) {
+    if (isDateRangeChange) {
+      setDateRangeLoading(true)
+    } else {
+      setLoading(true)
+    }
     setError(null)
 
     try {
@@ -104,7 +110,11 @@ export default function ClientDashboardPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to load data')
     } finally {
-      setLoading(false)
+      if (isDateRangeChange) {
+        setDateRangeLoading(false)
+      } else {
+        setLoading(false)
+      }
     }
   }
 
@@ -116,26 +126,23 @@ export default function ClientDashboardPage() {
   // Reload metrics when days changes
   useEffect(() => {
     if (user && user.user_type === 'client') {
-      loadMetrics()
+      // Determine if this is a date range change (not the initial load)
+      const isDateRangeChange = !loading
+      loadMetrics(isDateRangeChange)
     }
   }, [days])
 
   if (authLoading || loading) {
-    return (
-      <div style={{
-        padding: '2rem',
-        textAlign: 'center',
-        backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa',
-        color: darkMode ? '#f3f4f6' : '#000',
-        minHeight: '100vh'
-      }}>
-        <p>Loading...</p>
-      </div>
-    )
+    return <ClientDashboardSkeleton darkMode={darkMode} />
   }
 
   if (!user || user.user_type !== 'client') {
     return null
+  }
+
+  // Show skeleton during date range loading
+  if (dateRangeLoading) {
+    return <ClientDashboardSkeleton darkMode={darkMode} />
   }
 
   // No permissions case
@@ -314,42 +321,48 @@ export default function ClientDashboardPage() {
             <span style={{ fontWeight: '600', marginRight: '1rem', color: darkMode ? '#f3f4f6' : '#000' }}>Date Range:</span>
             <button
               onClick={() => handleDateRangeChange(7)}
+              disabled={dateRangeLoading}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: days === 7 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
                 color: days === 7 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
                 border: days === 7 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: days === 7 ? '600' : '400'
+                cursor: dateRangeLoading ? 'not-allowed' : 'pointer',
+                fontWeight: days === 7 ? '600' : '400',
+                opacity: dateRangeLoading ? 0.6 : 1
               }}
             >
               Last 7 Days
             </button>
             <button
               onClick={() => handleDateRangeChange(30)}
+              disabled={dateRangeLoading}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: days === 30 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
                 color: days === 30 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
                 border: days === 30 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: days === 30 ? '600' : '400'
+                cursor: dateRangeLoading ? 'not-allowed' : 'pointer',
+                fontWeight: days === 30 ? '600' : '400',
+                opacity: dateRangeLoading ? 0.6 : 1
               }}
             >
               Last 30 Days
             </button>
             <button
               onClick={() => handleDateRangeChange(90)}
+              disabled={dateRangeLoading}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: days === 90 ? '#0070f3' : (darkMode ? '#3f3f46' : 'white'),
                 color: days === 90 ? 'white' : (darkMode ? '#f3f4f6' : '#333'),
                 border: days === 90 ? 'none' : (darkMode ? '1px solid #3f3f46' : '1px solid #ddd'),
                 borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: days === 90 ? '600' : '400'
+                cursor: dateRangeLoading ? 'not-allowed' : 'pointer',
+                fontWeight: days === 90 ? '600' : '400',
+                opacity: dateRangeLoading ? 0.6 : 1
               }}
             >
               Last 90 Days

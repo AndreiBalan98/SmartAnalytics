@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import DarkModeToggle from '@/components/DarkModeToggle'
+import AgencyDashboardSkeleton from '@/components/AgencyDashboardSkeleton'
 
 interface Client {
   id: number
@@ -197,17 +198,7 @@ export default function AgencyDashboardPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        padding: '2rem',
-        textAlign: 'center',
-        backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa',
-        color: darkMode ? '#f3f4f6' : '#000'
-      }}>
-        <p>Loading...</p>
-      </div>
-    )
+    return <AgencyDashboardSkeleton darkMode={darkMode} />
   }
 
   if (!user || user.user_type !== 'agency') {
