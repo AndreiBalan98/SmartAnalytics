@@ -34,6 +34,7 @@ class DailyMetric(models.Model):
     entity_type = models.CharField(max_length=20, choices=ENTITY_TYPE_CHOICES)
     entity_id = models.CharField(max_length=100, db_index=True)
     account_id = models.CharField(max_length=100, db_index=True)
+    account_name = models.CharField(max_length=255, blank=True, default='')
 
     # Date
     date = models.DateField(db_index=True)

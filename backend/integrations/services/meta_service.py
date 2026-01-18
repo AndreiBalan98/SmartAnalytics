@@ -390,7 +390,7 @@ def sync_ads(agency, ad_set_external_id: str, access_token: str) -> dict:
     return result
 
 
-def sync_insights_for_account(agency, account_id: str, access_token: str, days: int = 30) -> dict:
+def sync_insights_for_account(agency, account_id: str, account_name: str, access_token: str, days: int = 30) -> dict:
     """
     Sync daily insights for an ad account (last N days).
     Returns: {'created': count, 'updated': count, 'errors': []}
@@ -456,6 +456,7 @@ def sync_insights_for_account(agency, account_id: str, access_token: str, days: 
                     defaults={
                         'agency': agency,
                         'account_id': account_id,
+                        'account_name': account_name,
                         'impressions': impressions,
                         'clicks': clicks,
                         'spend': spend,
@@ -566,7 +567,7 @@ def sync_all_data(agency, days: int = 30) -> dict:
                         result['errors'].extend(ads_result['errors'])
 
                 # 4. Sync insights (metrics)
-                metrics_result = sync_insights_for_account(agency, account_id, access_token, days)
+                metrics_result = sync_insights_for_account(agency, account_id, account_name, access_token, days)
                 result['metrics']['created'] += metrics_result['created']
                 result['metrics']['updated'] += metrics_result['updated']
                 result['errors'].extend(metrics_result['errors'])

@@ -1,58 +1,37 @@
 /**
- * Currency utilities for displaying native currencies
+ * Currency utilities for displaying monetary values
  */
 
+/**
+ * Get currency symbol for a given currency code
+ */
 export function getCurrencySymbol(currency: string): string {
-  const symbols: Record<string, string> = {
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-    RON: 'lei',
-    CAD: 'C$',
-    AUD: 'A$',
-    JPY: '¥',
-    CNY: '¥',
-    INR: '₹',
-    BRL: 'R$',
-    MXN: 'MX$',
-    CHF: 'CHF',
-    SEK: 'kr',
-    NOK: 'kr',
-    DKK: 'kr',
-    PLN: 'zł',
-    CZK: 'Kč',
-    HUF: 'Ft',
-    TRY: '₺',
-    ZAR: 'R',
-    AED: 'د.إ',
-    SAR: '﷼',
+  const currencyMap: Record<string, string> = {
+    'USD': '$',
+    'EUR': '€',
+    'RON': 'Lei',
+    'GBP': '£',
+    'JPY': '¥',
   }
 
-  return symbols[currency.toUpperCase()] || currency
+  return currencyMap[currency.toUpperCase()] || currency
 }
 
-export function formatCurrency(amount: number, currency: string): string {
+/**
+ * Format monetary value with currency symbol
+ */
+export function formatCurrency(value: number, currency: string, decimals: number = 2): string {
   const symbol = getCurrencySymbol(currency)
-  const formatted = amount.toFixed(2)
+  const formattedValue = value.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
 
-  // For some currencies, symbol goes after the amount
-  const suffixCurrencies = ['RON', 'CZK', 'HUF', 'PLN']
-
-  if (suffixCurrencies.includes(currency.toUpperCase())) {
-    return `${formatted} ${symbol}`
+  // For RON, put currency after value: "100.00 Lei"
+  if (currency.toUpperCase() === 'RON') {
+    return `${formattedValue} ${symbol}`
   }
 
-  return `${symbol}${formatted}`
-}
-
-export function formatCurrencyCompact(amount: number, currency: string): string {
-  const symbol = getCurrencySymbol(currency)
-
-  if (amount >= 1000000) {
-    return `${symbol}${(amount / 1000000).toFixed(2)}M`
-  } else if (amount >= 1000) {
-    return `${symbol}${(amount / 1000).toFixed(2)}K`
-  }
-
-  return formatCurrency(amount, currency)
+  // For others, put symbol before value: "$100.00"
+  return `${symbol}${formattedValue}`
 }

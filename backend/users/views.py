@@ -419,6 +419,7 @@ def get_client_metrics(request):
         if account_id not in account_metrics:
             account_metrics[account_id] = {
                 'account_id': account_id,
+                'account_name': metric.account_name or account_id,
                 'spend': 0,
                 'impressions': 0,
                 'clicks': 0,

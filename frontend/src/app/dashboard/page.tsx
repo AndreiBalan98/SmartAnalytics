@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency, getCurrencySymbol } from '@/lib/currency'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import DarkModeToggle from '@/components/DarkModeToggle'
 import ClientDashboardSkeleton from '@/components/ClientDashboardSkeleton'
@@ -29,6 +29,7 @@ interface DailyData {
 
 interface AccountBreakdown {
   account_id: string
+  account_name: string
   spend: number
   impressions: number
   clicks: number
@@ -62,6 +63,7 @@ export default function ClientDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dateRangeLoading, setDateRangeLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currency, setCurrency] = useState('USD')
 
   // Date range state
   const [days, setDays] = useState(30) // Last 30 days by default
@@ -107,6 +109,13 @@ export default function ClientDashboardPage() {
       setCampaignsCount(campaignsResponse.campaigns?.length || 0)
       setAdSetsCount(adSetsResponse.ad_sets?.length || 0)
       setAdsCount(adsResponse.ads?.length || 0)
+
+      // Detect currency from first account or use default
+      if (metricsResponse?.account_breakdown && metricsResponse.account_breakdown.length > 0) {
+        setCurrency(metricsResponse.account_breakdown[0].currency || 'USD')
+      } else if (adAccountsResponse?.ad_accounts && adAccountsResponse.ad_accounts.length > 0) {
+        setCurrency(adAccountsResponse.ad_accounts[0].currency || 'USD')
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load data')
     } finally {
@@ -265,7 +274,10 @@ export default function ClientDashboardPage() {
                   borderRadius: '8px',
                   backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.25rem' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '600', color: darkMode ? '#f3f4f6' : '#000', marginBottom: '0.25rem' }}>
+                    {account.account_name || account.account_id}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666', marginBottom: '0.5rem' }}>
                     {account.account_id}
                   </div>
                   <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0070f3' }}>
@@ -381,7 +393,7 @@ export default function ClientDashboardPage() {
             }}>
               <MetricCard
                 title="Total Spend"
-                value={`$${metricsData.summary.total_spend.toFixed(2)}`}
+                value={formatCurrency(metricsData.summary.total_spend, currency, 2)}
                 icon="💰"
                 darkMode={darkMode}
               />
@@ -420,13 +432,13 @@ export default function ClientDashboardPage() {
               />
               <MetricCard
                 title="Avg CPC"
-                value={`$${metricsData.summary.avg_cpc.toFixed(2)}`}
+                value={formatCurrency(metricsData.summary.avg_cpc, currency, 2)}
                 icon="💵"
                 darkMode={darkMode}
               />
               <MetricCard
                 title="Avg CPM"
-                value={`$${metricsData.summary.avg_cpm.toFixed(2)}`}
+                value={formatCurrency(metricsData.summary.avg_cpm, currency, 2)}
                 icon="📊"
                 darkMode={darkMode}
               />
@@ -457,6 +469,7 @@ export default function ClientDashboardPage() {
                           border: darkMode ? '1px solid #3f3f46' : '1px solid #e5e7eb',
                           color: darkMode ? '#f3f4f6' : '#000'
                         }}
+                        formatter={(value: any) => formatCurrency(Number(value), currency, 2)}
                       />
                       <Legend wrapperStyle={{ color: darkMode ? '#f3f4f6' : '#000' }} />
                       <Line type="monotone" dataKey="spend" stroke="#0070f3" strokeWidth={2} />
@@ -522,7 +535,7 @@ export default function ClientDashboardPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: darkMode ? '2px solid #3f3f46' : '2px solid #ddd' }}>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Account ID</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Account Name</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Spend</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Impressions</th>
                         <th style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>Clicks</th>
@@ -535,9 +548,12 @@ export default function ClientDashboardPage() {
                     <tbody>
                       {metricsData.account_breakdown.map((account) => (
                         <tr key={account.account_id} style={{ borderBottom: darkMode ? '1px solid #3f3f46' : '1px solid #eee' }}>
-                          <td style={{ padding: '0.75rem', color: darkMode ? '#f3f4f6' : '#000' }}>{account.account_id}</td>
+                          <td style={{ padding: '0.75rem', color: darkMode ? '#f3f4f6' : '#000' }}>
+                            <div style={{ fontWeight: '600' }}>{account.account_name || account.account_id}</div>
+                            <div style={{ fontSize: '0.75rem', color: darkMode ? '#9ca3af' : '#666' }}>{account.account_id}</div>
+                          </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
-                            {formatCurrency(account.spend, account.currency)}
+                            {formatCurrency(account.spend, account.currency, 2)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
                             {account.impressions.toLocaleString()}
@@ -552,10 +568,10 @@ export default function ClientDashboardPage() {
                             {account.ctr.toFixed(2)}%
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
-                            {formatCurrency(account.cpc, account.currency)}
+                            {formatCurrency(account.cpc, account.currency, 2)}
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'right', color: darkMode ? '#f3f4f6' : '#000' }}>
-                            {formatCurrency(account.cpm, account.currency)}
+                            {formatCurrency(account.cpm, account.currency, 2)}
                           </td>
                         </tr>
                       ))}
