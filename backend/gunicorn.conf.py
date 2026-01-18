@@ -12,9 +12,9 @@ workers = 2
 worker_class = "sync"
 
 # Timeout configuration
-timeout = 120  # 120 seconds (2 minutes) for sync operations
-graceful_timeout = 30
-keepalive = 5
+timeout = 600  # 600 seconds (10 minutes) for sync operations with many ad accounts
+graceful_timeout = 60
+keepalive = 10
 
 # Logging
 accesslog = "-"  # Log to stdout
