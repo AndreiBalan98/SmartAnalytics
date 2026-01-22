@@ -114,7 +114,9 @@ def test_user_info(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     url = f'{GRAPH_API_BASE}/me'
-    result = make_meta_request(url, integration.access_token, {'fields': 'id,name,email'})
+    result = make_meta_request(url, integration.access_token, {
+        'fields': 'id,name,email,first_name,last_name,locale,timezone,link,picture'
+    })
 
     return Response(result)
 
@@ -144,7 +146,9 @@ def test_businesses(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     url = f'{GRAPH_API_BASE}/me/businesses'
-    result = make_meta_request(url, integration.access_token, {'fields': 'id,name,verification_status'})
+    result = make_meta_request(url, integration.access_token, {
+        'fields': 'id,name,verification_status,primary_page,created_time,link,picture,timezone_id,is_published,permitted_roles'
+    })
 
     return Response(result)
 
@@ -175,7 +179,7 @@ def test_ad_accounts(request):
 
     url = f'{GRAPH_API_BASE}/me/adaccounts'
     result = make_meta_request(url, integration.access_token, {
-        'fields': 'id,name,account_id,currency,account_status,business_name,timezone_name'
+        'fields': 'id,name,account_id,currency,account_status,business_name,timezone_name,timezone_id,spend_cap,amount_spent,balance,created_time,owner,business,min_daily_budget,funding_source_details,disable_reason,age,end_advertiser,media_agency'
     })
 
     return Response(result)
@@ -209,7 +213,7 @@ def test_campaigns(request):
 
     url = f'{GRAPH_API_BASE}/{ad_account_id}/campaigns'
     result = make_meta_request(url, integration.access_token, {
-        'fields': 'id,name,status,objective,created_time,updated_time,daily_budget,lifetime_budget'
+        'fields': 'id,name,status,objective,created_time,updated_time,start_time,stop_time,daily_budget,lifetime_budget,budget_remaining,buying_type,bid_strategy,configured_status,effective_status,spend_cap,special_ad_categories,source_campaign_id,promoted_object'
     })
 
     return Response(result)
@@ -243,7 +247,7 @@ def test_ad_sets(request):
 
     url = f'{GRAPH_API_BASE}/{campaign_id}/adsets'
     result = make_meta_request(url, integration.access_token, {
-        'fields': 'id,name,status,daily_budget,lifetime_budget,bid_amount,targeting,created_time,updated_time'
+        'fields': 'id,name,status,daily_budget,lifetime_budget,budget_remaining,bid_amount,bid_strategy,billing_event,optimization_goal,targeting,created_time,updated_time,start_time,end_time,configured_status,effective_status,destination_type,promoted_object,attribution_spec,pacing_type'
     })
 
     return Response(result)
@@ -277,7 +281,7 @@ def test_ads(request):
 
     url = f'{GRAPH_API_BASE}/{ad_set_id}/ads'
     result = make_meta_request(url, integration.access_token, {
-        'fields': 'id,name,status,creative,created_time,updated_time'
+        'fields': 'id,name,status,creative{id,name,title,body,image_url,video_id,thumbnail_url,object_story_spec,call_to_action_type,link_url,object_type,effective_object_story_id},adset_id,campaign_id,created_time,updated_time,configured_status,effective_status,bid_amount,last_updated_by_app_id,preview_shareable_link,tracking_specs,conversion_specs'
     })
 
     return Response(result)
@@ -311,7 +315,7 @@ def test_creatives(request):
 
     url = f'{GRAPH_API_BASE}/{creative_id}'
     result = make_meta_request(url, integration.access_token, {
-        'fields': 'id,name,title,body,image_url,video_id,thumbnail_url,object_story_spec'
+        'fields': 'id,name,title,body,image_url,image_hash,video_id,thumbnail_url,object_story_spec,asset_feed_spec,call_to_action_type,effective_object_story_id,link_url,object_type,product_set_id,template_url,url_tags,use_page_actor_override,status,account_id'
     })
 
     return Response(result)
@@ -348,9 +352,10 @@ def test_insights(request):
     url = f'{GRAPH_API_BASE}/{object_id}/insights'
 
     params = {
-        'fields': 'spend,impressions,clicks,conversions,ctr,cpc,cpm,reach,frequency',
-        'level': 'account',
+        'fields': 'spend,impressions,clicks,inline_link_clicks,ctr,cpc,cpm,cpp,reach,frequency,social_spend,unique_clicks,unique_ctr,unique_inline_link_clicks,actions,action_values,conversions,conversion_values,cost_per_action_type,cost_per_conversion,website_ctr,unique_outbound_clicks,outbound_clicks,video_30_sec_watched_actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions',
+        'level': 'ad',  # Get detailed breakdown
         'time_increment': 1,  # Daily breakdown
+        'breakdowns': 'age,gender,device_platform,publisher_platform,placement',  # Add demographic breakdowns
     }
 
     if start_date and end_date:
