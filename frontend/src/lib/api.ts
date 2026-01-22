@@ -456,6 +456,119 @@ export const api = {
 
     return response.json()
   },
+
+  // ==================== API TESTING ENDPOINTS ====================
+  // Development only - for testing Meta API calls
+
+  /**
+   * List all OAuth connected users
+   */
+  async testListOAuthUsers() {
+    const response = await fetchWithAuth('/api/integrations/meta/test/users/')
+    if (!response.ok) throw new Error('Failed to list OAuth users')
+    return response.json()
+  },
+
+  /**
+   * Test user info endpoint
+   */
+  async testUserInfo(data: { integration_id: number }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/user-info/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get user info')
+    return response.json()
+  },
+
+  /**
+   * Test businesses endpoint
+   */
+  async testBusinesses(data: { integration_id: number }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/businesses/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get businesses')
+    return response.json()
+  },
+
+  /**
+   * Test ad accounts endpoint
+   */
+  async testAdAccounts(data: { integration_id: number }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/ad-accounts/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get ad accounts')
+    return response.json()
+  },
+
+  /**
+   * Test campaigns endpoint
+   */
+  async testCampaigns(data: { integration_id: number; ad_account_id: string }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/campaigns/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get campaigns')
+    return response.json()
+  },
+
+  /**
+   * Test ad sets endpoint
+   */
+  async testAdSets(data: { integration_id: number; campaign_id: string }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/ad-sets/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get ad sets')
+    return response.json()
+  },
+
+  /**
+   * Test ads endpoint
+   */
+  async testAds(data: { integration_id: number; ad_set_id: string }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/ads/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get ads')
+    return response.json()
+  },
+
+  /**
+   * Test creatives endpoint
+   */
+  async testCreatives(data: { integration_id: number; creative_id: string }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/creatives/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get creative')
+    return response.json()
+  },
+
+  /**
+   * Test insights endpoint
+   */
+  async testInsights(data: {
+    integration_id: number
+    object_id: string
+    start_date?: string
+    end_date?: string
+  }) {
+    const response = await fetchWithAuth('/api/integrations/meta/test/insights/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to get insights')
+    return response.json()
+  },
 }
 
 export { API_URL }

@@ -241,6 +241,23 @@ export default function AgencyDashboardPage() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <DarkModeToggle />
           <button
+            onClick={() => router.push('/agency/api-tester')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#9333ea',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+              fontWeight: '600'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7e22ce'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#9333ea'}
+          >
+            🧪 API Tester
+          </button>
+          <button
             onClick={logout}
             style={{
               padding: '0.5rem 1rem',
