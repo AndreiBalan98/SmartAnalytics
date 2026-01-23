@@ -18,9 +18,9 @@ class RequestLoggingMiddleware:
         # Start timer
         start_time = time.time()
 
-        # Get user info
+        # Get user info (defensive check for user existence)
         user = 'anonymous'
-        if request.user and request.user.is_authenticated:
+        if hasattr(request, 'user') and request.user.is_authenticated:
             user = request.user.email
 
         # Log incoming request

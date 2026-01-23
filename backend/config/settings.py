@@ -25,6 +25,8 @@ if RENDER_EXTERNAL_HOSTNAME:
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.auth',
+    'django.contrib.sessions',  # Required for SessionMiddleware
+    'django.contrib.messages',  # Required for MessageMiddleware
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
@@ -41,11 +43,17 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Pentru static files
-    'core.middleware.logging_middleware.RequestLoggingMiddleware',  # Request logging
-    'api.middleware.APIKeyMiddleware',
+    'django.middleware.security.SecurityMiddleware',  # Security headers
+    'corsheaders.middleware.CorsMiddleware',  # CORS (must be before CommonMiddleware)
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files
+    'django.contrib.sessions.middleware.SessionMiddleware',  # Sessions
+    'django.middleware.common.CommonMiddleware',  # Common processing
+    'django.middleware.csrf.CsrfViewMiddleware',  # CSRF protection
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # Sets request.user
+    'django.contrib.messages.middleware.MessageMiddleware',  # Messages framework
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',  # Clickjacking protection
+    'core.middleware.logging_middleware.RequestLoggingMiddleware',  # Request logging (after auth)
+    'api.middleware.APIKeyMiddleware',  # Custom API key middleware
 ]
 
 ROOT_URLCONF = 'config.urls'
