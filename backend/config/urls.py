@@ -10,6 +10,9 @@ urlpatterns = [
     # Meta Ads (new)
     path('api/meta/', include('meta_ads.urls')),
 
+    # System Logs
+    path('api/system/', include('core.urls')),
+
     # Legacy API (to be migrated)
     path('', include('api.urls')),
 ]

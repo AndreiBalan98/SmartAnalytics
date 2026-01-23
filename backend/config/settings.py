@@ -190,34 +190,39 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',  # Changed from simple to verbose
         },
+        'database': {
+            'class': 'core.logging_handler.DatabaseLogHandler',
+            'formatter': 'verbose',
+            'level': 'INFO',  # Only log INFO and above to database
+        },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console', 'database'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,
         },
         'core.middleware': {
-            'handlers': ['console'],
+            'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,
         },
         'integrations': {
-            'handlers': ['console'],
+            'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,
         },
         'smartanalytics.requests': {
-            'handlers': ['console'],
+            'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,
         },
         'smartanalytics.sync': {
-            'handlers': ['console'],
+            'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,
         },
