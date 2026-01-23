@@ -94,7 +94,8 @@ AUTH_USER_MODEL = 'users.User'
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://localhost:3000',
-    'https://smart-analytics-alpha.vercel.app',  # Production Vercel URL
+    'https://smart-analytics-alpha.vercel.app',
+    'https://conversion-driven.vercel.app',  # Production Vercel URL
 ]
 
 # Dacă ai frontend URL-ul custom (îl adaugi după ce deploiezi pe Vercel)
