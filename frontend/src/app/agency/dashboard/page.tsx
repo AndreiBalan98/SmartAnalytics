@@ -174,7 +174,23 @@ export default function AgencyDashboardPage() {
   }
 
   function handleConnectMeta() {
-    window.location.href = '/api/meta/start'
+    const authUrl = '/api/meta/start'
+
+    // Open popup window
+    const popup = window.open(
+      authUrl,
+      'MetaOAuth',
+      'width=600,height=700,left=300,top=100'
+    )
+
+    // Listen for popup close (callback will update state)
+    const interval = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(interval)
+        // Refresh integration status
+        loadDashboardData()
+      }
+    }, 1000)
   }
 
   async function handleSyncData() {

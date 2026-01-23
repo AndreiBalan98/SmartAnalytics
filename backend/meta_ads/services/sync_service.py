@@ -1,0 +1,558 @@
+"""
+Meta Sync Service - Rewritten for new meta_ads models
+Uses sync_state as source of truth for tracking sync progress
+"""
+import requests
+import logging
+from datetime import datetime, date, timedelta
+from django.conf import settings
+from django.utils import timezone
+from django.core.cache import cache
+from django.db import transaction
+
+from meta_ads.models import (
+    MetaUser,
+    Business,
+    AdAccount,
+    Campaign,
+    AdSet,
+    Ad,
+    AdCreative,
+    Insight,
+    SyncState,
+    AgencyAdAccountAccess,
+)
+
+logger = logging.getLogger('smartanalytics.sync')
+
+GRAPH_API_VERSION = 'v21.0'
+GRAPH_API_BASE = f'https://graph.facebook.com/{GRAPH_API_VERSION}'
+
+
+class MetaSyncService:
+    """
+    Comprehensive Meta Ads sync service
+    Syncs data from Meta Graph API to local database using Meta IDs as primary keys
+    """
+
+    def __init__(self, agency, access_token):
+        self.agency = agency
+        self.access_token = access_token
+
+    # ===== RATE LIMITING =====
+
+    def check_rate_limit(self):
+        """Ensure max 1 sync per minute per agency"""
+        key = f'sync_rate_limit_{self.agency.id}'
+        if cache.get(key):
+            raise Exception('Sync already in progress. Please wait 1 minute.')
+        cache.set(key, True, 60)  # Lock for 60 seconds
+
+    def release_rate_limit(self):
+        """Release rate limit lock"""
+        key = f'sync_rate_limit_{self.agency.id}'
+        cache.delete(key)
+
+    # ===== SYNC STATE MANAGEMENT =====
+
+    def _update_sync_state(self, entity_type, entity_id, status, **kwargs):
+        """
+        Update or create sync state for tracking
+        kwargs can include: error_message, last_insight_date, metadata
+        """
+        defaults = {
+            'status': status,
+            'last_synced_at': timezone.now() if status in ['completed', 'running'] else None,
+        }
+        defaults.update(kwargs)
+
+        SyncState.objects.update_or_create(
+            agency=self.agency,
+            provider='meta',
+            entity_type=entity_type,
+            entity_id=entity_id,
+            defaults=defaults
+        )
+
+    def _get_sync_state(self, entity_type, entity_id):
+        """Get sync state for an entity"""
+        try:
+            return SyncState.objects.get(
+                agency=self.agency,
+                provider='meta',
+                entity_type=entity_type,
+                entity_id=entity_id
+            )
+        except SyncState.DoesNotExist:
+            return None
+
+    # ===== ERROR HANDLING =====
+
+    def handle_api_error(self, error, entity_type, entity_id):
+        """Log error to sync_state"""
+        error_msg = str(error)
+        logger.error(f'Sync failed for {entity_type}/{entity_id}: {error_msg}')
+        self._update_sync_state(
+            entity_type,
+            entity_id,
+            'failed',
+            error_message=error_msg
+        )
+
+    # ===== STRUCTURAL SYNC (Step 2 from plan) =====
+
+    def sync_structural_data(self):
+        """
+        Sync all structural data: user, businesses, ad accounts, campaigns, adsets, ads, creatives
+        This is Step 2 of the sync process (after OAuth connection)
+        """
+        logger.info('=' * 80)
+        logger.info(f'STRUCTURAL SYNC STARTED: Agency {self.agency.name} (ID: {self.agency.id})')
+        logger.info('=' * 80)
+
+        try:
+            logger.info('Step 1/7: Syncing Meta user info...')
+            user_id = self._sync_user()
+            logger.info(f'✓ User synced: {user_id}')
+
+            logger.info('Step 2/7: Syncing businesses...')
+            business_ids = self._sync_businesses()
+            logger.info(f'✓ Businesses synced: {len(business_ids)} businesses')
+
+            logger.info('Step 3/7: Syncing ad accounts...')
+            account_ids = self._sync_ad_accounts()
+            logger.info(f'✓ Ad accounts synced: {len(account_ids)} accounts')
+
+            # Grant agency access to all ad accounts
+            logger.info('Step 3.5/7: Granting agency access to ad accounts...')
+            self._grant_agency_access(account_ids)
+            logger.info(f'✓ Agency access granted to {len(account_ids)} accounts')
+
+            logger.info('Step 4/7: Syncing campaigns...')
+            campaign_count = self._sync_campaigns(account_ids)
+            logger.info(f'✓ Campaigns synced: {campaign_count} campaigns')
+
+            logger.info('Step 5/7: Syncing ad sets...')
+            adset_count = self._sync_adsets()
+            logger.info(f'✓ Ad sets synced: {adset_count} ad sets')
+
+            logger.info('Step 6/7: Syncing ads...')
+            ad_count = self._sync_ads()
+            logger.info(f'✓ Ads synced: {ad_count} ads')
+
+            logger.info('Step 7/7: Syncing ad creatives...')
+            creative_count = self._sync_creatives(account_ids)
+            logger.info(f'✓ Creatives synced: {creative_count} creatives')
+
+            logger.info('=' * 80)
+            logger.info('STRUCTURAL SYNC COMPLETED SUCCESSFULLY')
+            logger.info(f'Summary: {len(account_ids)} accounts, {campaign_count} campaigns, {adset_count} ad sets, {ad_count} ads, {creative_count} creatives')
+            logger.info('=' * 80)
+
+            return {
+                'success': True,
+                'user_id': user_id,
+                'businesses': len(business_ids),
+                'ad_accounts': len(account_ids),
+                'campaigns': campaign_count,
+                'adsets': adset_count,
+                'ads': ad_count,
+                'creatives': creative_count,
+            }
+
+        except Exception as e:
+            logger.error('=' * 80)
+            logger.error(f'STRUCTURAL SYNC FAILED: {str(e)}')
+            logger.error('=' * 80)
+            raise
+
+    def _sync_user(self):
+        """Sync Meta user (/me endpoint)"""
+        try:
+            url = f'{GRAPH_API_BASE}/me'
+            params = {
+                'access_token': self.access_token,
+                'fields': 'id,name,email',
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            # Upsert user
+            MetaUser.objects.update_or_create(
+                id=data['id'],
+                defaults={
+                    'name': data.get('name', ''),
+                    'email': data.get('email'),
+                    'raw': data,
+                }
+            )
+
+            self._update_sync_state('user', data['id'], 'completed')
+            return data['id']
+
+        except Exception as e:
+            self.handle_api_error(e, 'user', 'unknown')
+            raise
+
+    def _sync_businesses(self):
+        """Sync businesses (/me/businesses endpoint)"""
+        try:
+            url = f'{GRAPH_API_BASE}/me/businesses'
+            params = {
+                'access_token': self.access_token,
+                'fields': 'id,name',
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            businesses = response.json().get('data', [])
+
+            business_ids = []
+            for biz in businesses:
+                Business.objects.update_or_create(
+                    id=biz['id'],
+                    defaults={
+                        'name': biz.get('name', ''),
+                        'raw': biz,
+                    }
+                )
+                self._update_sync_state('business', biz['id'], 'completed')
+                business_ids.append(biz['id'])
+
+            return business_ids
+
+        except Exception as e:
+            self.handle_api_error(e, 'business', 'unknown')
+            raise
+
+    def _sync_ad_accounts(self):
+        """Sync ad accounts (/me/adaccounts endpoint)"""
+        try:
+            url = f'{GRAPH_API_BASE}/me/adaccounts'
+            params = {
+                'access_token': self.access_token,
+                'fields': 'id,name,currency,timezone_name,account_status,business',
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            accounts = response.json().get('data', [])
+
+            account_ids = []
+            for acc in accounts:
+                # Get business FK if available
+                business_id = acc.get('business', {}).get('id') if isinstance(acc.get('business'), dict) else None
+                business = Business.objects.filter(id=business_id).first() if business_id else None
+
+                AdAccount.objects.update_or_create(
+                    id=acc['id'],
+                    defaults={
+                        'business': business,
+                        'name': acc.get('name', ''),
+                        'currency': acc.get('currency', ''),
+                        'timezone': acc.get('timezone_name', ''),
+                        'account_status': acc.get('account_status', 1),
+                        'raw': acc,
+                    }
+                )
+                self._update_sync_state('ad_account', acc['id'], 'completed')
+                account_ids.append(acc['id'])
+
+            return account_ids
+
+        except Exception as e:
+            self.handle_api_error(e, 'ad_account', 'unknown')
+            raise
+
+    def _grant_agency_access(self, account_ids):
+        """Grant agency access to ad accounts (multi-tenancy)"""
+        for account_id in account_ids:
+            AgencyAdAccountAccess.objects.get_or_create(
+                agency=self.agency,
+                ad_account_id=account_id,
+            )
+
+    def _sync_campaigns(self, account_ids):
+        """Sync campaigns for all ad accounts"""
+        total = 0
+        for account_id in account_ids:
+            try:
+                url = f'{GRAPH_API_BASE}/{account_id}/campaigns'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,objective,status,buying_type',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                campaigns = response.json().get('data', [])
+
+                for camp in campaigns:
+                    Campaign.objects.update_or_create(
+                        id=camp['id'],
+                        defaults={
+                            'ad_account_id': account_id,
+                            'name': camp.get('name', ''),
+                            'objective': camp.get('objective', ''),
+                            'status': camp.get('status', ''),
+                            'buying_type': camp.get('buying_type', ''),
+                            'raw': camp,
+                        }
+                    )
+                    self._update_sync_state('campaign', camp['id'], 'completed')
+                    total += 1
+
+                logger.info(f'  └─ Account {account_id}: {len(campaigns)} campaigns')
+
+            except Exception as e:
+                logger.error(f'  └─ Account {account_id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'campaign', account_id)
+
+        return total
+
+    def _sync_adsets(self):
+        """Sync ad sets for all campaigns"""
+        campaigns = Campaign.objects.all()
+        total = 0
+
+        for campaign in campaigns:
+            try:
+                url = f'{GRAPH_API_BASE}/{campaign.id}/adsets'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,daily_budget,lifetime_budget,optimization_goal,status,start_time,end_time',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                adsets = response.json().get('data', [])
+
+                for adset in adsets:
+                    # Parse start/end times
+                    start_time = None
+                    end_time = None
+                    if adset.get('start_time'):
+                        start_time = datetime.fromisoformat(adset['start_time'].replace('Z', '+00:00'))
+                    if adset.get('end_time'):
+                        end_time = datetime.fromisoformat(adset['end_time'].replace('Z', '+00:00'))
+
+                    AdSet.objects.update_or_create(
+                        id=adset['id'],
+                        defaults={
+                            'campaign_id': campaign.id,
+                            'ad_account_id': campaign.ad_account_id,
+                            'name': adset.get('name', ''),
+                            'daily_budget': adset.get('daily_budget'),
+                            'lifetime_budget': adset.get('lifetime_budget'),
+                            'optimization_goal': adset.get('optimization_goal', ''),
+                            'status': adset.get('status', ''),
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'raw': adset,
+                        }
+                    )
+                    self._update_sync_state('adset', adset['id'], 'completed')
+                    total += 1
+
+            except Exception as e:
+                logger.error(f'  └─ Campaign {campaign.id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'adset', campaign.id)
+
+        return total
+
+    def _sync_ads(self):
+        """Sync ads for all ad sets"""
+        adsets = AdSet.objects.all()
+        total = 0
+
+        for adset in adsets:
+            try:
+                url = f'{GRAPH_API_BASE}/{adset.id}/ads'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,status,effective_status,creative{id}',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                ads = response.json().get('data', [])
+
+                for ad in ads:
+                    creative_id = ad.get('creative', {}).get('id') if isinstance(ad.get('creative'), dict) else ''
+
+                    Ad.objects.update_or_create(
+                        id=ad['id'],
+                        defaults={
+                            'adset_id': adset.id,
+                            'campaign_id': adset.campaign_id,
+                            'ad_account_id': adset.ad_account_id,
+                            'name': ad.get('name', ''),
+                            'status': ad.get('status', ''),
+                            'effective_status': ad.get('effective_status', ''),
+                            'creative_id': creative_id,
+                            'raw': ad,
+                        }
+                    )
+                    self._update_sync_state('ad', ad['id'], 'completed')
+                    total += 1
+
+            except Exception as e:
+                logger.error(f'  └─ AdSet {adset.id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'ad', adset.id)
+
+        return total
+
+    def _sync_creatives(self, account_ids):
+        """Sync ad creatives for all ad accounts"""
+        total = 0
+        for account_id in account_ids:
+            try:
+                url = f'{GRAPH_API_BASE}/{account_id}/adcreatives'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,object_story_spec,image_url,video_id',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                creatives = response.json().get('data', [])
+
+                for creative in creatives:
+                    AdCreative.objects.update_or_create(
+                        id=creative['id'],
+                        defaults={
+                            'ad_account_id': account_id,
+                            'name': creative.get('name', ''),
+                            'object_story_spec': creative.get('object_story_spec', {}),
+                            'image_url': creative.get('image_url', ''),
+                            'video_url': creative.get('video_id', ''),  # Note: video_id not full URL
+                            'raw': creative,
+                        }
+                    )
+                    self._update_sync_state('creative', creative['id'], 'completed')
+                    total += 1
+
+            except Exception as e:
+                logger.error(f'  └─ Account {account_id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'creative', account_id)
+
+        return total
+
+    # ===== INSIGHTS SYNC (Step 4 from plan) =====
+
+    def sync_insights(self, ad_account_ids, start_date, end_date):
+        """
+        Sync insights for selected ad accounts
+        Fetches insights at all levels: account, campaign, adset, ad
+        """
+        logger.info('=' * 80)
+        logger.info(f'INSIGHTS SYNC STARTED: Agency {self.agency.name}')
+        logger.info(f'Accounts: {len(ad_account_ids)}, Date range: {start_date} to {end_date}')
+        logger.info('=' * 80)
+
+        # Convert strings to dates if needed
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        total_created = 0
+        for account_id in ad_account_ids:
+            try:
+                logger.info(f'Syncing insights for account {account_id}...')
+                count = self._sync_insights_for_account(account_id, start_date, end_date)
+                total_created += count
+                logger.info(f'✓ Account {account_id}: {count} insights synced')
+            except Exception as e:
+                logger.error(f'✗ Account {account_id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'insights', account_id)
+
+        logger.info('=' * 80)
+        logger.info(f'INSIGHTS SYNC COMPLETED: {total_created} total insights')
+        logger.info('=' * 80)
+
+        return {'success': True, 'total_insights': total_created}
+
+    def _sync_insights_for_account(self, ad_account_id, start_date, end_date):
+        """Fetch insights at ALL levels for an account"""
+        total = 0
+
+        # Check sync_state to determine starting point (incremental sync)
+        sync_state = self._get_sync_state('insights', ad_account_id)
+        if sync_state and sync_state.last_insight_date:
+            # Start from day after last sync
+            start_date = max(start_date, sync_state.last_insight_date + timedelta(days=1))
+
+        if start_date > end_date:
+            logger.info(f'  └─ Account {ad_account_id}: Already up to date')
+            return 0
+
+        # Fetch insights at each level
+        for level in ['account', 'campaign', 'adset', 'ad']:
+            count = self._fetch_insights(ad_account_id, level, start_date, end_date)
+            total += count
+            logger.info(f'    └─ Level {level}: {count} insights')
+
+        # Update sync state
+        self._update_sync_state(
+            'insights',
+            ad_account_id,
+            'completed',
+            last_insight_date=end_date
+        )
+
+        return total
+
+    def _fetch_insights(self, ad_account_id, level, start_date, end_date):
+        """Fetch insights for specific level - APPEND ONLY"""
+        try:
+            url = f'{GRAPH_API_BASE}/{ad_account_id}/insights'
+            params = {
+                'access_token': self.access_token,
+                'level': level,
+                'time_range': {
+                    'since': start_date.isoformat(),
+                    'until': end_date.isoformat(),
+                },
+                'time_increment': 1,  # Daily
+                'fields': 'impressions,clicks,spend,reach,actions,cpc,cpm,ctr',
+                'limit': 500,
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            insights = response.json().get('data', [])
+
+            count = 0
+            for insight in insights:
+                # Determine object_id based on level
+                object_id = (
+                    insight.get('ad_id') or
+                    insight.get('adset_id') or
+                    insight.get('campaign_id') or
+                    ad_account_id
+                )
+
+                # APPEND ONLY - no update_or_create, just create
+                Insight.objects.create(
+                    level=level,
+                    object_id=object_id,
+                    ad_account_id=ad_account_id,
+                    date_start=datetime.strptime(insight['date_start'], '%Y-%m-%d').date(),
+                    date_stop=datetime.strptime(insight['date_stop'], '%Y-%m-%d').date(),
+                    metrics=insight,
+                    raw=insight,
+                )
+                count += 1
+
+            return count
+
+        except Exception as e:
+            logger.error(f'Failed to fetch {level} insights for {ad_account_id}: {str(e)}')
+            raise

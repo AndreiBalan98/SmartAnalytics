@@ -569,6 +569,143 @@ export const api = {
     if (!response.ok) throw new Error('Failed to get insights')
     return response.json()
   },
+
+  // ===== NEW META ADS API METHODS =====
+
+  /**
+   * Get sync status for agency
+   */
+  async getSyncStatus() {
+    const response = await fetchWithAuth('/api/meta/sync/status/')
+    if (!response.ok) throw new Error('Failed to get sync status')
+    return response.json()
+  },
+
+  /**
+   * Trigger structural sync (user, businesses, ad accounts, campaigns, adsets, ads, creatives)
+   */
+  async triggerStructuralSync() {
+    const response = await fetchWithAuth('/api/meta/sync/structural/', {
+      method: 'POST',
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to trigger structural sync')
+    }
+    return response.json()
+  },
+
+  /**
+   * Trigger insights sync for selected ad accounts
+   */
+  async triggerInsightsSync(data: {
+    ad_account_ids: string[]
+    start_date: string
+    end_date: string
+  }) {
+    const response = await fetchWithAuth('/api/meta/sync/insights/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to trigger insights sync')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get ad accounts for agency (for selection in sync)
+   */
+  async getAgencyAdAccounts() {
+    const response = await fetchWithAuth('/api/meta/ad-accounts/')
+    if (!response.ok) throw new Error('Failed to get ad accounts')
+    return response.json()
+  },
+
+  /**
+   * Get ad accounts for client (new dashboard)
+   */
+  async getClientAdAccountsNew() {
+    const response = await fetchWithAuth('/api/meta/client/ad-accounts/')
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ad accounts')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get campaigns for client by account ID
+   */
+  async getClientCampaignsNew(accountId: string) {
+    const response = await fetchWithAuth(`/api/meta/client/campaigns/?account_id=${accountId}`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch campaigns')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get ad sets for client by campaign ID
+   */
+  async getClientAdSetsNew(campaignId: string) {
+    const response = await fetchWithAuth(`/api/meta/client/adsets/?campaign_id=${campaignId}`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ad sets')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get ads for client by ad set ID
+   */
+  async getClientAdsNew(adsetId: string) {
+    const response = await fetchWithAuth(`/api/meta/client/ads/?adset_id=${adsetId}`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch ads')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get creatives for client by account ID
+   */
+  async getClientCreativesNew(accountId: string) {
+    const response = await fetchWithAuth(`/api/meta/client/creatives/?account_id=${accountId}`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch creatives')
+    }
+    return response.json()
+  },
+
+  /**
+   * Get insights for client with filters
+   */
+  async getClientInsightsNew(params: {
+    account_id: string
+    level?: string
+    start_date?: string
+    end_date?: string
+  }) {
+    const query = new URLSearchParams({
+      account_id: params.account_id,
+      ...(params.level && { level: params.level }),
+      ...(params.start_date && { start_date: params.start_date }),
+      ...(params.end_date && { end_date: params.end_date }),
+    }).toString()
+
+    const response = await fetchWithAuth(`/api/meta/client/insights/?${query}`)
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch insights')
+    }
+    return response.json()
+  },
 }
 
 export { API_URL }

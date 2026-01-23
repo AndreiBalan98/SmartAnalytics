@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'campaigns',
     'metrics',
     'core',
+    'meta_ads',  # New Meta-aligned models
     # Legacy (will be removed after migration)
     'api',
 ]
@@ -43,7 +44,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Pentru static files
-    'core.middleware.RequestLoggingMiddleware',  # Request logging
+    'core.middleware.logging_middleware.RequestLoggingMiddleware',  # Request logging
     'api.middleware.APIKeyMiddleware',
 ]
 
@@ -176,7 +177,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} [{name}] {message}',
             'style': '{',
         },
         'simple': {
@@ -187,7 +188,7 @@ LOGGING = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+            'formatter': 'verbose',  # Changed from simple to verbose
         },
     },
     'root': {
@@ -206,6 +207,16 @@ LOGGING = {
             'propagate': False,
         },
         'integrations': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'smartanalytics.requests': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'smartanalytics.sync': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,

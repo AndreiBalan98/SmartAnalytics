@@ -50,21 +50,41 @@ function MetaCallbackContent() {
       }
 
       const data = await response.json()
-      
+
       setStatus('success')
       setMessage(`Successfully connected to Meta! ${data.business_name ? `Business: ${data.business_name}` : ''}`)
-      
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        router.push('/agency/dashboard?meta_connected=true')
-      }, 2000)
+
+      // Close popup and notify parent if opened as popup
+      if (window.opener) {
+        window.opener.postMessage({ type: 'META_OAUTH_SUCCESS' }, window.location.origin)
+        setTimeout(() => {
+          window.close()
+        }, 1000)
+      } else {
+        // Fallback: redirect in same window if not a popup
+        setTimeout(() => {
+          router.push('/agency/dashboard?meta_connected=true')
+        }, 2000)
+      }
     } catch (error: any) {
       setStatus('error')
       setMessage(error.message || 'Failed to connect Meta')
-      
-      setTimeout(() => {
-        router.push(`/agency/dashboard?error=${encodeURIComponent(error.message)}`)
-      }, 3000)
+
+      // Close popup and notify parent if opened as popup
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'META_OAUTH_ERROR',
+          error: error.message
+        }, window.location.origin)
+        setTimeout(() => {
+          window.close()
+        }, 2000)
+      } else {
+        // Fallback: redirect in same window if not a popup
+        setTimeout(() => {
+          router.push(`/agency/dashboard?error=${encodeURIComponent(error.message)}`)
+        }, 3000)
+      }
     }
   }
 
