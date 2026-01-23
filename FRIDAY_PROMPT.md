@@ -268,7 +268,29 @@ Clear, concise, and informative backend logs.
 
 ## 7. OBSERVATIONS & REFERENCES
 
-- Check the screenshot for the current database tables
+- Current database tables:
+    ad_sets
+    ads
+    agencies
+    agency_users
+    auth_group
+    auth_group_permissions
+    auth_permission
+    auth_user
+    auth_user_groups
+    auth_user_user_permissions
+    campaigns
+    daily_metrics
+    django_content_type
+    django_migrations
+    ga4_integrations
+    google_ads_integrations
+    meta_integration
+    meta_integrations
+    metric_snapshots
+    users
+    users_groups
+    users_user_permissions
 - Read the documentation related to the database schema - DB_AND_SYNC_GUIDE.md
 
 ---
