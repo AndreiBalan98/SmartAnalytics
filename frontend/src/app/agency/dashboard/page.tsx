@@ -354,31 +354,52 @@ export default function AgencyDashboardPage() {
             color: darkMode ? '#86efac' : '#155724',
             border: darkMode ? '1px solid #166534' : 'none'
           }}>
-            <strong>✅ Sync Completed Successfully!</strong>
+            <strong>✅ {syncResult.message || 'Sync Completed Successfully!'}</strong>
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-              {/* Ad Accounts Details */}
-              {syncResult.ad_accounts && syncResult.ad_accounts.length > 0 && (
+              {/* Structural Sync Results */}
+              {syncResult.structural && !syncResult.structural.skipped && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                  <strong>Ad Accounts ({syncResult.ad_accounts_synced}):</strong>
-                  {syncResult.ad_accounts.map((account: any) => (
-                    <div key={account.id} style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
-                      • {account.name} ({account.id})
-                    </div>
-                  ))}
+                  <strong>📦 Structural Data:</strong>
+                  <div style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
+                    {Object.entries(syncResult.structural).map(([accountId, data]: [string, any]) => {
+                      if (accountId === 'skipped') return null
+                      return (
+                        <div key={accountId} style={{ marginTop: '0.5rem' }}>
+                          <div style={{ fontWeight: '600' }}>Account {accountId}:</div>
+                          {data.error ? (
+                            <div style={{ color: '#dc2626', marginLeft: '1rem' }}>❌ {data.error}</div>
+                          ) : (
+                            <div style={{ marginLeft: '1rem' }}>
+                              {data.campaigns > 0 && <div>• Campaigns: {data.campaigns}</div>}
+                              {data.adsets > 0 && <div>• Ad Sets: {data.adsets}</div>}
+                              {data.ads > 0 && <div>• Ads: {data.ads}</div>}
+                              {data.creatives > 0 && <div>• Creatives: {data.creatives}</div>}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Stats */}
-              <div style={{ borderTop: '1px solid #c3e6cb', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                <div>• Campaigns: {syncResult.campaigns.created} created, {syncResult.campaigns.updated} updated</div>
-                <div>• Ad Sets: {syncResult.ad_sets.created} created, {syncResult.ad_sets.updated} updated</div>
-                <div>• Ads: {syncResult.ads.created} created, {syncResult.ads.updated} updated</div>
-                <div>• Metrics: {syncResult.metrics.created} created, {syncResult.metrics.updated} updated</div>
-              </div>
+              {syncResult.structural?.skipped && (
+                <div style={{ marginBottom: '0.75rem', color: darkMode ? '#9ca3af' : '#666' }}>
+                  ℹ️ Structural sync skipped (all levels synced within 24h)
+                </div>
+              )}
 
-              {syncResult.errors && syncResult.errors.length > 0 && (
-                <div style={{ marginTop: '0.5rem', color: '#856404' }}>
-                  ⚠️ {syncResult.errors.length} warning(s) during sync
+              {/* Insights Results */}
+              {syncResult.insights && (
+                <div style={{ borderTop: darkMode ? '1px solid #166534' : '1px solid #c3e6cb', paddingTop: '0.75rem' }}>
+                  <strong>📊 Insights:</strong>
+                  <div style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
+                    {syncResult.insights.total_insights !== undefined ? (
+                      <div>• Total insights synced: {syncResult.insights.total_insights}</div>
+                    ) : (
+                      <div>• Sync completed</div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
