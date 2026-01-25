@@ -59,8 +59,14 @@ export default function AgencyDashboardPage() {
   // Modal states
   const [showAddClientModal, setShowAddClientModal] = useState(false)
   const [showPermissionsModal, setShowPermissionsModal] = useState(false)
+  const [showSyncModal, setShowSyncModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [newPassword, setNewPassword] = useState<string | null>(null)
+
+  // Sync modal state
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
+  const [syncStartDate, setSyncStartDate] = useState('2026-01-01')
+  const [syncEndDate, setSyncEndDate] = useState(new Date().toISOString().split('T')[0])
 
   // Form state
   const [clientForm, setClientForm] = useState({
@@ -110,8 +116,8 @@ export default function AgencyDashboardPage() {
       // If Meta is connected, load ad accounts
       if (integrationsData.integrations.meta.connected) {
         try {
-          const adAccountsData = await api.getMetaAdAccounts()
-          setMetaAdAccounts(adAccountsData.data || [])
+          const adAccountsData = await api.getAgencyAdAccounts()
+          setMetaAdAccounts(adAccountsData.ad_accounts || [])
         } catch (err) {
           console.error('Failed to load Meta ad accounts:', err)
         }
@@ -194,22 +200,55 @@ export default function AgencyDashboardPage() {
   }
 
   async function handleSyncData() {
+    // OLD: Direct sync - REPLACED with modal
+    // Now we open modal for user to select accounts and date range
+    setShowSyncModal(true)
+  }
+
+  async function handleSyncInsights() {
+    if (selectedAccountIds.length === 0) {
+      setError('Please select at least one ad account')
+      return
+    }
+
     setSyncLoading(true)
     setSyncResult(null)
     setError(null)
 
     try {
-      const result = await api.syncMetaData(30) // Sync last 30 days
-      setSyncResult(result)
+      const result = await api.triggerInsightsSync({
+        ad_account_ids: selectedAccountIds,
+        start_date: syncStartDate,
+        end_date: syncEndDate,
+      })
 
-      // Auto-hide success message after 5 seconds
+      setSyncResult(result)
+      setShowSyncModal(false) // Close modal on success
+
+      // Auto-hide success message after 10 seconds
       setTimeout(() => {
         setSyncResult(null)
       }, 10000)
     } catch (err: any) {
-      setError(err.message || 'Failed to sync data')
+      setError(err.message || 'Failed to sync insights')
     } finally {
       setSyncLoading(false)
+    }
+  }
+
+  function handleToggleAccount(accountId: string) {
+    setSelectedAccountIds(prev =>
+      prev.includes(accountId)
+        ? prev.filter(id => id !== accountId)
+        : [...prev, accountId]
+    )
+  }
+
+  function handleSelectAllAccounts() {
+    if (selectedAccountIds.length === metaAdAccounts.length) {
+      setSelectedAccountIds([])
+    } else {
+      setSelectedAccountIds(metaAdAccounts.map(acc => acc.id))
     }
   }
 
@@ -971,6 +1010,24 @@ export default function AgencyDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Sync Insights Modal */}
+      {showSyncModal && (
+        <SyncInsightsModal
+          darkMode={darkMode}
+          metaAdAccounts={metaAdAccounts}
+          selectedAccountIds={selectedAccountIds}
+          syncStartDate={syncStartDate}
+          syncEndDate={syncEndDate}
+          syncLoading={syncLoading}
+          onToggleAccount={handleToggleAccount}
+          onSelectAll={handleSelectAllAccounts}
+          onStartDateChange={setSyncStartDate}
+          onEndDateChange={setSyncEndDate}
+          onSync={handleSyncInsights}
+          onCancel={() => setShowSyncModal(false)}
+        />
+      )}
     </div>
   )
 }
@@ -1128,6 +1185,264 @@ function PermissionsEditor({
         >
           Save Permissions
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ========== SYNC INSIGHTS MODAL COMPONENT ==========
+function SyncInsightsModal({
+  darkMode,
+  metaAdAccounts,
+  selectedAccountIds,
+  syncStartDate,
+  syncEndDate,
+  syncLoading,
+  onToggleAccount,
+  onSelectAll,
+  onStartDateChange,
+  onEndDateChange,
+  onSync,
+  onCancel,
+}: {
+  darkMode: boolean
+  metaAdAccounts: AdAccount[]
+  selectedAccountIds: string[]
+  syncStartDate: string
+  syncEndDate: string
+  syncLoading: boolean
+  onToggleAccount: (accountId: string) => void
+  onSelectAll: () => void
+  onStartDateChange: (date: string) => void
+  onEndDateChange: (date: string) => void
+  onSync: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '1rem'
+    }}>
+      <div style={{
+        backgroundColor: darkMode ? '#27272a' : 'white',
+        borderRadius: '8px',
+        padding: '2rem',
+        maxWidth: '600px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        border: darkMode ? '1px solid #3f3f46' : 'none'
+      }}>
+        <h2 style={{
+          margin: '0 0 1.5rem 0',
+          color: darkMode ? '#f3f4f6' : '#000'
+        }}>
+          🔄 Sync Insights
+        </h2>
+
+        <p style={{
+          color: darkMode ? '#9ca3af' : '#666',
+          fontSize: '0.875rem',
+          marginBottom: '1.5rem'
+        }}>
+          Select ad accounts and date range to sync insights. We'll first update the structural data (campaigns, ad sets, ads), then fetch insights.
+        </p>
+
+        {/* Select All Checkbox */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}>
+            <input
+              type="checkbox"
+              checked={selectedAccountIds.length === metaAdAccounts.length && metaAdAccounts.length > 0}
+              onChange={onSelectAll}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ color: darkMode ? '#f3f4f6' : '#000' }}>
+              Select All ({selectedAccountIds.length}/{metaAdAccounts.length})
+            </span>
+          </label>
+        </div>
+
+        {/* Ad Accounts List */}
+        <div style={{
+          marginBottom: '1.5rem',
+          maxHeight: '250px',
+          overflowY: 'auto',
+          border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+          borderRadius: '6px',
+          padding: '0.5rem'
+        }}>
+          {metaAdAccounts.length === 0 ? (
+            <p style={{
+              color: darkMode ? '#9ca3af' : '#666',
+              fontSize: '0.875rem',
+              textAlign: 'center',
+              padding: '1rem'
+            }}>
+              No ad accounts available
+            </p>
+          ) : (
+            metaAdAccounts.map((account) => (
+              <label
+                key={account.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedAccountIds.includes(account.id)
+                    ? (darkMode ? '#1e3a5f' : '#e7f3ff')
+                    : 'transparent',
+                  transition: 'background-color 0.2s ease',
+                  marginBottom: '0.5rem'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedAccountIds.includes(account.id)}
+                  onChange={() => onToggleAccount(account.id)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{
+                  flex: 1,
+                  color: darkMode ? '#f3f4f6' : '#000'
+                }}>
+                  {account.name}
+                </span>
+                <span style={{
+                  color: darkMode ? '#9ca3af' : '#666',
+                  fontSize: '0.75rem'
+                }}>
+                  {account.currency}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+
+        {/* Date Range */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h4 style={{
+            margin: '0 0 1rem 0',
+            color: darkMode ? '#f3f4f6' : '#000',
+            fontSize: '0.875rem'
+          }}>
+            📅 Date Range
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.875rem',
+                color: darkMode ? '#9ca3af' : '#666'
+              }}>
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={syncStartDate}
+                onChange={(e) => onStartDateChange(e.target.value)}
+                max={syncEndDate}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: darkMode ? '#1f1f23' : 'white',
+                  color: darkMode ? '#f3f4f6' : '#000'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.875rem',
+                color: darkMode ? '#9ca3af' : '#666'
+              }}>
+                End Date
+              </label>
+              <input
+                type="date"
+                value={syncEndDate}
+                onChange={(e) => onEndDateChange(e.target.value)}
+                min={syncStartDate}
+                max={new Date().toISOString().split('T')[0]}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: darkMode ? '#1f1f23' : 'white',
+                  color: darkMode ? '#f3f4f6' : '#000'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={onCancel}
+            disabled={syncLoading}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              backgroundColor: darkMode ? '#3f3f46' : '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: syncLoading ? 'not-allowed' : 'pointer',
+              opacity: syncLoading ? 0.5 : 1,
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSync}
+            disabled={syncLoading || selectedAccountIds.length === 0}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              backgroundColor: selectedAccountIds.length === 0 || syncLoading
+                ? '#ccc'
+                : '#0070f3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: selectedAccountIds.length === 0 || syncLoading
+                ? 'not-allowed'
+                : 'pointer',
+              fontWeight: '600',
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            {syncLoading ? '⏳ Syncing...' : '🔄 Start Sync'}
+          </button>
+        </div>
       </div>
     </div>
   )

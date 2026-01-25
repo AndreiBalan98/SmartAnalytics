@@ -147,13 +147,18 @@ def trigger_insights_sync(request):
         # Check rate limit
         service.check_rate_limit()
 
-        # Trigger insights sync
-        result = service.sync_insights(ad_account_ids, start_date, end_date)
+        # STEP 1: Sync structural data for selected accounts FIRST
+        # This ensures campaigns/adsets/ads/creatives are up-to-date before insights
+        structural_result = service.sync_structural_for_accounts(ad_account_ids)
+
+        # STEP 2: Sync insights
+        insights_result = service.sync_insights(ad_account_ids, start_date, end_date)
 
         return Response({
             'status': 'success',
-            'message': f'Insights synced for {len(ad_account_ids)} account(s)',
-            'result': result,
+            'message': f'Structural + Insights synced for {len(ad_account_ids)} account(s)',
+            'structural': structural_result,
+            'insights': insights_result,
         })
 
     except Exception as e:

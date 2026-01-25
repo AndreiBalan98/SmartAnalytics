@@ -1,9 +1,9 @@
 # SATURDAY_MADNESS_24-01-2026 - Plan de Executie
 
 ## Currently Working / Last Completed Task
-**Status:** ETAPA 1 COMPLETATA - Tabele legacy sterse cu succes
+**Status:** ETAPA 3 IMPLEMENTARE COMPLETATA - Sync Modal + Structural Before Insights
 **Ultima actualizare:** 25.01.2026
-**Next:** ETAPA 2 - Meta Connect cu Sync Automat
+**Next:** ETAPA 3 - Testare (tasks 3.6-3.9)
 
 ---
 
@@ -147,11 +147,12 @@ message=f'[SYNC] User synced: {user_id}'
 ```
 
 ### Tasks Etapa 2
-- [ ] 2.1 Modificare `exchange_code_for_token()` pentru a apela sync structural
-- [ ] 2.2 Adaugare logging SystemLog in `MetaSyncService.sync_structural_data()`
-- [ ] 2.3 Testare: Disconnect si reconectare Meta
-- [ ] 2.4 Verificare in pgAdmin ca `meta_ads_*` tables au date
-- [ ] 2.5 Verificare in `core_systemlog` ca logurile apar
+- [x] 2.1 Modificare `exchange_code_for_token()` pentru a apela sync structural (COMPLETAT)
+- [x] 2.2 Adaugare logging SystemLog in `MetaSyncService.sync_structural_data()` (COMPLETAT)
+- [x] 2.2.5 Cleanup requirements.txt - redus de la 100 la 25 pachete (BONUS)
+- [x] 2.3 Testare: Disconnect si reconectare Meta (COMPLETAT - testat si functioneaza)
+- [x] 2.4 Verificare in pgAdmin ca `meta_ads_*` tables au date (COMPLETAT)
+- [x] 2.5 Verificare in `core_systemlog` ca logurile apar (COMPLETAT)
 
 ---
 
@@ -164,16 +165,50 @@ message=f'[SYNC] User synced: {user_id}'
 - Buton "Start Sync" porneste sincronizarea
 - Progress/status in timp real
 
-### 3.2 Backend - Endpoint Existent
+### 3.2 Flow Sync Insights (UPDATED)
 
-Endpoint-ul exista deja: `POST /api/meta/sync/insights/`
+**IMPORTANT:** Inainte de a sincroniza insights, TREBUIE sa sincronizam structura pentru ad accounts-urile selectate:
+
+**Flow complet:**
+1. User selecteaza ad accounts + date range
+2. Backend primeste request
+3. **Pentru fiecare ad account:**
+   - Sync structural (campaigns, adsets, ads, creatives) - upsert daca exista deja
+   - LOG: ce e nou vs actualizat
+4. **Apoi pentru fiecare ad account:**
+   - Sync insights (date range selectat)
+   - LOG: cate insights s-au adaugat
+5. Return summary cu rezultate
+
+### 3.3 Backend - Modificari Necesare
 
 **Fisier:** `backend/meta_ads/views.py:trigger_insights_sync()`
 
-**Parametri acceptati:**
-- `ad_account_ids`: lista de account IDs
-- `start_date`: data start (default: -30 zile)
-- `end_date`: data sfarsit (default: azi)
+**Flow VECHI (doar insights):**
+```python
+def trigger_insights_sync(request):
+    # Direct sync insights
+    result = sync_service.sync_insights(ad_account_ids, start_date, end_date)
+```
+
+**Flow NOU (structural + insights):**
+```python
+def trigger_insights_sync(request):
+    # 1. Sync structural pentru ad accounts selectate
+    structural_result = sync_service.sync_structural_for_accounts(ad_account_ids)
+
+    # 2. Sync insights
+    insights_result = sync_service.sync_insights(ad_account_ids, start_date, end_date)
+
+    # 3. Return combined results
+```
+
+**Metoda noua in MetaSyncService:**
+```python
+def sync_structural_for_accounts(self, ad_account_ids):
+    """Sync doar campaigns/adsets/ads/creatives pentru accounts selectate"""
+    # Similar cu sync_structural_data() dar doar pentru ad accounts specifice
+```
 
 ### 3.3 Imbunatatire Backend Logging
 
@@ -251,12 +286,15 @@ setSyncLoading(false)
 - Buton "Start Sync"
 
 ### Tasks Etapa 3
-- [ ] 3.1 Adaugare logging detaliat in `sync_insights()`
-- [ ] 3.2 Creare modal component in agency dashboard
-- [ ] 3.3 Conectare modal la endpoint
-- [ ] 3.4 Testare: selectare accounts, sync insights
-- [ ] 3.5 Verificare in `meta_ads_insight` ca datele apar
-- [ ] 3.6 Verificare in `core_systemlog` ca logurile apar
+- [x] 3.1 Creare metoda `sync_structural_for_accounts()` in MetaSyncService (COMPLETAT)
+- [x] 3.2 Modificare `trigger_insights_sync()` pentru a apela sync structural inainte de insights (COMPLETAT)
+- [x] 3.3 Adaugare logging detaliat in `sync_insights()` si metoda noua (COMPLETAT)
+- [x] 3.4 Creare modal component in agency dashboard (COMPLETAT)
+- [x] 3.5 Conectare modal la endpoint (COMPLETAT)
+- [ ] 3.6 Testare: selectare accounts, verificare sync structural + insights
+- [ ] 3.7 Verificare in `meta_ads_*` tables ca structura e actualizata
+- [ ] 3.8 Verificare in `meta_ads_insight` ca insights-urile apar
+- [ ] 3.9 Verificare in `core_systemlog` ca logurile apar
 
 ---
 

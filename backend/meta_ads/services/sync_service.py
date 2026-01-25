@@ -506,6 +506,180 @@ class MetaSyncService:
 
         return total
 
+    # ===== STRUCTURAL SYNC FOR SPECIFIC ACCOUNTS (Step 3.1) =====
+
+    def sync_structural_for_accounts(self, ad_account_ids):
+        """
+        Sync structural data (campaigns, adsets, ads, creatives) for specific ad accounts
+        This is called BEFORE insights sync to ensure structure is up-to-date
+        Returns: {account_id: {campaigns: N, adsets: N, ads: N, creatives: N}}
+        """
+        logger.info('=' * 80)
+        logger.info(f'STRUCTURAL SYNC FOR SELECTED ACCOUNTS: {len(ad_account_ids)} accounts')
+        logger.info('=' * 80)
+
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.structural.selected',
+            message=f'[SYNC SELECTED] START - {len(ad_account_ids)} accounts: {ad_account_ids}'
+        )
+
+        results = {}
+        total_campaigns = 0
+        total_adsets = 0
+        total_ads = 0
+        total_creatives = 0
+
+        for account_id in ad_account_ids:
+            try:
+                logger.info(f'Syncing structural data for account {account_id}...')
+
+                # Sync campaigns for this account
+                campaign_count = self._sync_campaigns([account_id])
+                total_campaigns += campaign_count
+
+                # Sync adsets for campaigns in this account
+                adset_count = self._sync_adsets_for_account(account_id)
+                total_adsets += adset_count
+
+                # Sync ads for adsets in this account
+                ad_count = self._sync_ads_for_account(account_id)
+                total_ads += ad_count
+
+                # Sync creatives for this account
+                creative_count = self._sync_creatives([account_id])
+                total_creatives += creative_count
+
+                results[account_id] = {
+                    'campaigns': campaign_count,
+                    'adsets': adset_count,
+                    'ads': ad_count,
+                    'creatives': creative_count,
+                }
+
+                logger.info(f'✓ Account {account_id}: {campaign_count} campaigns, {adset_count} adsets, {ad_count} ads, {creative_count} creatives')
+
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.structural.selected',
+                    message=f'[SYNC SELECTED] Account {account_id}: campaigns={campaign_count}, adsets={adset_count}, ads={ad_count}, creatives={creative_count}'
+                )
+
+            except Exception as e:
+                logger.error(f'✗ Account {account_id}: FAILED - {str(e)}')
+                SystemLog.objects.create(
+                    level='ERROR',
+                    logger_name='meta.sync.structural.selected',
+                    message=f'[SYNC SELECTED] Account {account_id} FAILED: {str(e)}'
+                )
+                results[account_id] = {'error': str(e)}
+
+        logger.info('=' * 80)
+        logger.info(f'STRUCTURAL SYNC COMPLETED: {total_campaigns} campaigns, {total_adsets} adsets, {total_ads} ads, {total_creatives} creatives')
+        logger.info('=' * 80)
+
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.structural.selected',
+            message=f'[SYNC SELECTED] COMPLETED - Total: campaigns={total_campaigns}, adsets={total_adsets}, ads={total_ads}, creatives={total_creatives}'
+        )
+
+        return results
+
+    def _sync_adsets_for_account(self, account_id):
+        """Sync ad sets for all campaigns in a specific account"""
+        campaigns = Campaign.objects.filter(ad_account_id=account_id)
+        total = 0
+
+        for campaign in campaigns:
+            try:
+                url = f'{GRAPH_API_BASE}/{campaign.id}/adsets'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,daily_budget,lifetime_budget,optimization_goal,status,start_time,end_time',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                adsets = response.json().get('data', [])
+
+                for adset in adsets:
+                    # Parse start/end times
+                    start_time = None
+                    end_time = None
+                    if adset.get('start_time'):
+                        start_time = datetime.fromisoformat(adset['start_time'].replace('Z', '+00:00'))
+                    if adset.get('end_time'):
+                        end_time = datetime.fromisoformat(adset['end_time'].replace('Z', '+00:00'))
+
+                    AdSet.objects.update_or_create(
+                        id=adset['id'],
+                        defaults={
+                            'campaign_id': campaign.id,
+                            'ad_account_id': account_id,
+                            'name': adset.get('name', ''),
+                            'daily_budget': adset.get('daily_budget'),
+                            'lifetime_budget': adset.get('lifetime_budget'),
+                            'optimization_goal': adset.get('optimization_goal', ''),
+                            'status': adset.get('status', ''),
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'raw': adset,
+                        }
+                    )
+                    self._update_sync_state('adset', adset['id'], 'completed')
+                    total += 1
+
+            except Exception as e:
+                logger.error(f'  └─ Campaign {campaign.id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'adset', campaign.id)
+
+        return total
+
+    def _sync_ads_for_account(self, account_id):
+        """Sync ads for all ad sets in a specific account"""
+        adsets = AdSet.objects.filter(ad_account_id=account_id)
+        total = 0
+
+        for adset in adsets:
+            try:
+                url = f'{GRAPH_API_BASE}/{adset.id}/ads'
+                params = {
+                    'access_token': self.access_token,
+                    'fields': 'id,name,status,effective_status,creative{id}',
+                    'limit': 500,
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                ads = response.json().get('data', [])
+
+                for ad in ads:
+                    creative_id = ad.get('creative', {}).get('id') if isinstance(ad.get('creative'), dict) else ''
+
+                    Ad.objects.update_or_create(
+                        id=ad['id'],
+                        defaults={
+                            'adset_id': adset.id,
+                            'campaign_id': adset.campaign_id,
+                            'ad_account_id': account_id,
+                            'name': ad.get('name', ''),
+                            'status': ad.get('status', ''),
+                            'effective_status': ad.get('effective_status', ''),
+                            'creative_id': creative_id,
+                            'raw': ad,
+                        }
+                    )
+                    self._update_sync_state('ad', ad['id'], 'completed')
+                    total += 1
+
+            except Exception as e:
+                logger.error(f'  └─ AdSet {adset.id}: FAILED - {str(e)}')
+                self.handle_api_error(e, 'ad', adset.id)
+
+        return total
+
     # ===== INSIGHTS SYNC (Step 4 from plan) =====
 
     def sync_insights(self, ad_account_ids, start_date, end_date):
@@ -518,6 +692,13 @@ class MetaSyncService:
         logger.info(f'Accounts: {len(ad_account_ids)}, Date range: {start_date} to {end_date}')
         logger.info('=' * 80)
 
+        # Log to database
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.insights',
+            message=f'[INSIGHTS] START - Accounts: {ad_account_ids}, Range: {start_date} to {end_date}'
+        )
+
         # Convert strings to dates if needed
         if isinstance(start_date, str):
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -528,16 +709,41 @@ class MetaSyncService:
         for account_id in ad_account_ids:
             try:
                 logger.info(f'Syncing insights for account {account_id}...')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Syncing account {account_id}...'
+                )
+
                 count = self._sync_insights_for_account(account_id, start_date, end_date)
                 total_created += count
+
                 logger.info(f'✓ Account {account_id}: {count} insights synced')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {account_id}: {count} insights synced'
+                )
+
             except Exception as e:
                 logger.error(f'✗ Account {account_id}: FAILED - {str(e)}')
+                SystemLog.objects.create(
+                    level='ERROR',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {account_id} FAILED: {str(e)}'
+                )
                 self.handle_api_error(e, 'insights', account_id)
 
         logger.info('=' * 80)
         logger.info(f'INSIGHTS SYNC COMPLETED: {total_created} total insights')
         logger.info('=' * 80)
+
+        # Log completion to database
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.insights',
+            message=f'[INSIGHTS] COMPLETED - Total: {total_created} insights'
+        )
 
         return {'success': True, 'total_insights': total_created}
 
@@ -549,10 +755,23 @@ class MetaSyncService:
         sync_state = self._get_sync_state('insights', ad_account_id)
         if sync_state and sync_state.last_insight_date:
             # Start from day after last sync
+            original_start = start_date
             start_date = max(start_date, sync_state.last_insight_date + timedelta(days=1))
+            if start_date != original_start:
+                logger.info(f'  └─ Account {ad_account_id}: Incremental sync from {start_date}')
+                SystemLog.objects.create(
+                    level='DEBUG',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {ad_account_id}: Incremental sync from {start_date}'
+                )
 
         if start_date > end_date:
             logger.info(f'  └─ Account {ad_account_id}: Already up to date')
+            SystemLog.objects.create(
+                level='DEBUG',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Account {ad_account_id}: Already up to date'
+            )
             return 0
 
         # Fetch insights at each level
@@ -560,6 +779,11 @@ class MetaSyncService:
             count = self._fetch_insights(ad_account_id, level, start_date, end_date)
             total += count
             logger.info(f'    └─ Level {level}: {count} insights')
+            SystemLog.objects.create(
+                level='DEBUG',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Account {ad_account_id} - Level {level}: {count} records'
+            )
 
         # Update sync state
         self._update_sync_state(
