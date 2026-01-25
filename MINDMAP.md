@@ -35,22 +35,26 @@ SmartAnalytics/
 │   │   ├── views.py            # Login, register, profile endpoints
 │   │   └── serializers.py      # User data serialization
 │   ├── agencies/               # Multi-tenancy app
-│   │   ├── models.py           # Agency, AgencyUser, Client models
+│   │   ├── models.py           # Agency, AgencyUser models
 │   │   ├── views.py            # Agency CRUD, client management
 │   │   └── permissions.py      # Row-level access control
 │   ├── integrations/           # External service connections
 │   │   ├── models.py           # MetaIntegration (OAuth tokens)
-│   │   ├── views.py            # OAuth callback, token exchange
+│   │   ├── views.py            # OAuth callback endpoints
 │   │   └── services/
-│   │       └── meta_service.py # Meta API wrapper (sync logic)
-│   ├── campaigns/              # Campaign data structures
-│   │   ├── models.py           # AdAccount, Campaign, AdSet, Ad
-│   │   └── views.py            # Campaign listing endpoints
-│   ├── metrics/                # Performance metrics
-│   │   ├── models.py           # DailyMetric model
-│   │   └── views.py            # Metrics aggregation endpoints
-│   └── core/                   # Shared utilities
-│       └── logging_utils.py    # Database logging helper
+│   │       └── meta_service.py # OAuth token exchange, auto-sync trigger
+│   ├── meta_ads/               # Meta Ads data (PRIMARY app for Meta)
+│   │   ├── models.py           # MetaUser, Business, AdAccount, Campaign, AdSet, Ad, AdCreative, Insight, SyncState
+│   │   ├── views.py            # Sync endpoints, client data endpoints
+│   │   ├── serializers.py      # Data serialization
+│   │   ├── services/
+│   │   │   └── sync_service.py # MetaSyncService (structural + insights sync logic)
+│   │   └── admin.py            # Django admin customizations
+│   ├── core/                   # Shared utilities
+│   │   ├── models.py           # SystemLog model
+│   │   └── logging_utils.py    # Database logging helper
+│   ├── campaigns/              # ⚠️ DEPRECATED - Use meta_ads instead
+│   └── metrics/                # ⚠️ DEPRECATED - Use meta_ads.Insight instead
 │
 ├── frontend/                   # Next.js application
 │   ├── src/
@@ -270,12 +274,17 @@ useEffect(() => {
     │
     ▼ Redirect to: /api/integrations/meta/callback/?code=XXX&state=YYY
     │
-[Backend: integrations/views.py → MetaCallbackView]
+[Backend: integrations/services/meta_service.py → exchange_code_for_token()]
     │
     ├── Exchange code for access_token via Meta Graph API
-    ├── Fetch user's ad accounts via /me/adaccounts
-    ├── Create/Update MetaIntegration record
-    ├── Create AdAccount records for each account
+    ├── Create/Update MetaIntegration record with token
+    │
+    ├── AUTOMATIC STRUCTURAL SYNC (NEW):
+    │   ├── Call MetaSyncService.sync_structural_data()
+    │   ├── Sync Meta User (ID, name, email)
+    │   ├── Sync Businesses
+    │   ├── Sync Ad Accounts only (campaigns/adsets synced separately via modal)
+    │   └── Log all operations to SystemLog
     │
     ▼ Response: HTML page that calls window.opener.postMessage()
     │
@@ -288,62 +297,91 @@ useEffect(() => {
     ▼ Show "Connected" status with Sync button
 ```
 
+**Key Implementation Details:**
+- **Auto-sync at connect:** Structural data (user, businesses, ad accounts) synced immediately
+- **Rate limiting:** 24h cooldown per entity type (user, business, ad_account, campaign, etc.)
+- **SystemLog:** All operations logged to `core_systemlog` table
+- **Token storage:** Access token stored in `meta_integrations` table
+
 **Files Involved:**
 - `frontend/src/app/agency/dashboard/page.tsx` - OAuth trigger
-- `backend/integrations/views.py` - MetaCallbackView
+- `backend/integrations/services/meta_service.py` - Token exchange + auto-sync trigger
+- `backend/meta_ads/services/sync_service.py` - Structural sync logic
 - `backend/integrations/models.py` - MetaIntegration model
-- `backend/campaigns/models.py` - AdAccount model
+- `backend/meta_ads/models.py` - AdAccount, Campaign, etc. models
 
-### 5.3 Sync Meta Data Flow
+### 5.3 Sync Meta Data Flow (Insights Modal)
 
-**User Action:** Click "Sync Data" button
+**User Action:** Click "Sync Insights" button
 
 ```
 [Frontend: /agency/dashboard/page.tsx]
     │
-    ▼ POST /api/integrations/meta/sync/
+    ├── Open Sync Modal (SyncModal component)
+    │   ├── Show list of all ad accounts (with checkboxes)
+    │   ├── Date range pickers (default: 2026-01-01 to today)
+    │   └── "Start Sync" button
+    │
+    ▼ User selects accounts + date range, clicks "Start Sync"
+    │
+    ▼ POST /api/meta/insights-sync/
     │ Headers: Authorization: Bearer <token>
+    │ Body: { ad_account_ids: [...], start_date: "2026-01-01", end_date: "2026-01-25" }
     │
-[Backend: integrations/views.py → MetaSyncView]
+[Backend: meta_ads/views.py → trigger_insights_sync()]
     │
-    ├── Check rate limit (last_sync_at + 5 minutes)
+    ├── Check rate limit (24h cooldown per entity type)
     ├── Get MetaIntegration for agency
-    ├── Call MetaService.sync_all_data()
     │
-    ▼
-[Backend: integrations/services/meta_service.py]
+    ├── STEP 1: Sync structural data for selected accounts
+    │   ├── Call MetaSyncService.sync_structural_for_accounts(ad_account_ids)
+    │   ├── For each selected account:
+    │   │   ├── GET /act_{id}/campaigns → Upsert Campaign records
+    │   │   ├── GET /act_{id}/adsets → Upsert AdSet records
+    │   │   ├── GET /act_{id}/ads → Upsert Ad records
+    │   │   └── GET /act_{id}/adcreatives → Upsert AdCreative records
+    │   └── Log: NEW vs UPDATED entities
     │
-    ├── For each AdAccount:
-    │   │
-    │   ├── GET /act_{id}/campaigns
-    │   │   └── Upsert Campaign records
-    │   │
-    │   ├── GET /act_{id}/adsets
-    │   │   └── Upsert AdSet records
-    │   │
-    │   ├── GET /act_{id}/ads
-    │   │   └── Upsert Ad records
-    │   │
-    │   └── GET /act_{id}/insights
-    │       └── Upsert DailyMetric records
+    ├── STEP 2: Sync insights (INCREMENTAL)
+    │   ├── Call MetaSyncService.sync_insights(ad_account_ids, start_date, end_date)
+    │   ├── For each selected account:
+    │   │   ├── Check last_insight_date in SyncState
+    │   │   ├── Fetch only missing date gaps
+    │   │   ├── For each level (account, campaign, adset, ad):
+    │   │   │   ├── GET /act_{id}/insights?time_range={...}&level={level}
+    │   │   │   └── Insert new Insight records (append-only)
+    │   │   └── Update SyncState.last_insight_date
+    │   └── Log: Total insights added
     │
-    ├── Update MetaIntegration.last_sync_at
-    │
-    ▼ Response: { status: "success", synced_accounts: N }
+    ▼ Response: {
+        status: "success",
+        structural: {...},
+        insights: { total_created: N, accounts_synced: M }
+      }
     │
 [Frontend]
     │
-    ├── Show success toast
+    ├── Close modal
+    ├── Show success toast with summary
     ├── Refresh dashboard data
     │
     ▼ Display updated metrics
 ```
 
 **Key Implementation Details:**
-- **Upsert Pattern:** Uses `update_or_create()` to prevent duplicates
-- **Rate Limiting:** 5-minute cooldown between syncs
-- **Pagination:** Meta API returns paginated results, service handles cursor
-- **Date Range:** Fetches last 30 days of insights by default
+- **Two-Phase Sync:** Structural data first, then insights
+- **Incremental Insights:** Only fetches missing date ranges (checks `SyncState.last_insight_date`)
+- **Rate Limiting:** 24h cooldown per entity type (user, business, ad_account, campaign, adset, ad)
+- **Upsert Pattern:** Structural data uses `update_or_create()`, insights are append-only
+- **Multi-level Insights:** Fetches at account, campaign, adset, and ad levels
+- **Pagination:** Meta API pagination handled automatically
+- **SystemLog:** Detailed logging for debugging (meta.sync.structural, meta.sync.insights)
+
+**Files Involved:**
+- `frontend/src/app/agency/dashboard/page.tsx` - Sync modal UI
+- `backend/meta_ads/views.py` - trigger_insights_sync() endpoint
+- `backend/meta_ads/services/sync_service.py` - Sync logic
+- `backend/meta_ads/models.py` - Insight, SyncState models
 
 ### 5.4 Create Client Flow
 
@@ -493,14 +531,15 @@ CustomUser (extends AbstractUser)
 ├── email (unique, used for login)
 ├── first_name
 ├── last_name
+├── user_type (choices: 'agency', 'client')
 └── date_joined
 
 AgencyUser
 ├── user (FK → CustomUser)
 ├── agency (FK → Agency)
-├── client (FK → Client, nullable)
 ├── user_type (choices: 'agency', 'client')
-└── role (choices: 'owner', 'admin', 'member')
+├── permissions (JSONField) - format: { "meta_accounts": [account_ids...] }
+└── created_at
 ```
 
 ### 7.2 Multi-Tenancy Models
@@ -508,80 +547,173 @@ AgencyUser
 ```
 Agency
 ├── name
-├── slug (URL-safe identifier)
-└── created_at
-
-Client
-├── agency (FK → Agency)
-├── name
-├── email
-└── created_at
+├── created_at
+└── owner (FK → CustomUser)
 ```
 
 ### 7.3 Integration Models
 
 ```
-MetaIntegration
-├── agency (OneToOne → Agency)
-├── access_token (encrypted)
-├── token_expires_at
-├── meta_user_id
-├── last_sync_at
-└── created_at
-```
-
-### 7.4 Campaign Models
-
-```
-AdAccount
+MetaIntegration (in integrations app)
 ├── agency (FK → Agency)
-├── client (FK → Client, nullable)
-├── account_id (Meta's act_XXX ID)
-├── name
-└── currency
+├── access_token (text)
+├── meta_user_id
+├── created_at
+└── updated_at
+```
 
-Campaign
+### 7.4 Meta Ads Structural Models (meta_ads app)
+
+**Important:** These are the PRIMARY tables for Meta data. Legacy tables (`campaigns`, `ad_sets`, `ads`) have been removed.
+
+```
+MetaUser (meta_ads_metauser)
+├── agency (FK → Agency)
+├── meta_user_id (unique, Meta's user ID)
+├── name
+├── email
+└── created_at / updated_at
+
+Business (meta_ads_business)
+├── agency (FK → Agency)
+├── business_id (unique, Meta's business ID)
+├── name
+└── created_at / updated_at
+
+AdAccount (meta_ads_adaccount)
+├── agency (FK → Agency)
+├── account_id (unique, Meta's act_XXX ID)
+├── name
+├── currency
+├── timezone_name
+├── business (FK → Business, nullable)
+└── created_at / updated_at
+
+Campaign (meta_ads_campaign)
+├── agency (FK → Agency)
 ├── ad_account (FK → AdAccount)
-├── campaign_id (Meta's ID)
+├── campaign_id (unique, Meta's campaign ID)
 ├── name
-├── status (ACTIVE, PAUSED, etc.)
-└── objective
+├── status (choices: ACTIVE, PAUSED, ARCHIVED, DELETED)
+├── objective
+├── daily_budget
+├── lifetime_budget
+└── created_at / updated_at
 
-AdSet
+AdSet (meta_ads_adset)
+├── agency (FK → Agency)
 ├── campaign (FK → Campaign)
-├── adset_id (Meta's ID)
+├── adset_id (unique, Meta's adset ID)
 ├── name
 ├── status
 ├── daily_budget
-└── targeting (JSONField)
+├── lifetime_budget
+├── targeting (JSONField)
+└── created_at / updated_at
 
-Ad
+Ad (meta_ads_ad)
+├── agency (FK → Agency)
 ├── adset (FK → AdSet)
-├── ad_id (Meta's ID)
+├── ad_id (unique, Meta's ad ID)
 ├── name
 ├── status
-└── creative (JSONField)
+├── creative (FK → AdCreative, nullable)
+└── created_at / updated_at
+
+AdCreative (meta_ads_adcreative)
+├── agency (FK → Agency)
+├── creative_id (unique, Meta's creative ID)
+├── name
+├── title
+├── body
+├── image_url
+├── video_url
+├── link_url
+├── call_to_action
+└── created_at / updated_at
 ```
 
-### 7.5 Metrics Models
+### 7.5 Meta Ads Insights Models
 
 ```
-DailyMetric
+Insight (meta_ads_insight) - APPEND-ONLY table
+├── agency (FK → Agency)
 ├── ad_account (FK → AdAccount)
 ├── campaign (FK → Campaign, nullable)
 ├── adset (FK → AdSet, nullable)
 ├── ad (FK → Ad, nullable)
-├── date
-├── impressions
-├── clicks
-├── spend (DecimalField)
-├── conversions
-├── reach
-└── frequency
+├── date (date field)
+├── level (choices: 'account', 'campaign', 'adset', 'ad')
+├── impressions (integer)
+├── clicks (integer)
+├── spend (decimal)
+├── reach (integer)
+├── frequency (decimal)
+├── ctr (decimal)
+├── cpc (decimal)
+├── cpm (decimal)
+├── conversions (integer)
+├── created_at
+└── updated_at
 
 Indexes:
-├── (ad_account, date) - primary query pattern
-└── (campaign, date) - campaign breakdown queries
+├── (agency, ad_account, date, level) - main query pattern
+├── (campaign, date) - campaign breakdown
+├── (adset, date) - adset breakdown
+└── (ad, date) - ad breakdown
+
+Constraints:
+├── Unique: (ad_account, campaign, adset, ad, date, level) - prevents duplicates
+```
+
+### 7.6 Sync State Tracking
+
+```
+SyncState (meta_ads_syncstate)
+├── agency (FK → Agency)
+├── entity_type (choices: 'user', 'business', 'ad_account', 'campaign', 'adset', 'ad', 'creative')
+├── entity_id (Meta's ID for this entity)
+├── last_synced_at (timestamp)
+├── last_insight_date (date, nullable) - for incremental insight sync
+└── updated_at
+
+Purpose:
+├── Rate limiting: Check last_synced_at to enforce 24h cooldown
+└── Incremental sync: Track last_insight_date to fetch only new data
+
+Indexes:
+└── (agency, entity_type, entity_id) - unique together
+```
+
+### 7.7 Agency-Client Ad Account Access
+
+```
+AgencyAdAccountAccess (meta_ads_agencyadaccountaccess)
+├── agency (FK → Agency)
+├── ad_account (FK → AdAccount)
+├── granted_at (timestamp)
+└── notes (text, nullable)
+
+Purpose: Track which ad accounts the agency has access to
+```
+
+### 7.8 System Logging
+
+```
+SystemLog (core_systemlog)
+├── level (choices: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+├── logger_name (e.g., 'meta.connect', 'meta.sync.structural', 'meta.sync.insights')
+├── message (text)
+├── timestamp (auto_now_add)
+└── extra_data (JSONField, nullable)
+
+Purpose: Debugging and audit trail for all Meta operations
+
+Common logger_name values:
+├── meta.connect - OAuth connection events
+├── meta.sync.structural - Structural data sync
+├── meta.sync.insights - Insights sync
+└── meta.client - Client permission/access events
 ```
 
 ---
@@ -606,36 +738,177 @@ Indexes:
 | GET | `/api/agencies/{id}/clients/` | List agency's clients |
 | POST | `/api/agencies/{id}/clients/` | Create new client |
 
-### 8.3 Integrations
+### 8.3 Meta Integrations (OAuth & Connection)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/integrations/meta/status/` | Check Meta connection status |
 | GET | `/api/integrations/meta/auth-url/` | Get OAuth URL |
-| GET | `/api/integrations/meta/callback/` | OAuth callback handler |
-| POST | `/api/integrations/meta/sync/` | Trigger data sync |
+| GET | `/api/integrations/meta/callback/` | OAuth callback (triggers auto-sync) |
+| POST | `/api/integrations/meta/disconnect/` | Disconnect Meta account |
 
-### 8.4 Campaigns
+### 8.4 Meta Ads Sync (Agency Endpoints)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/campaigns/accounts/` | List ad accounts |
-| GET | `/api/campaigns/accounts/{id}/campaigns/` | List campaigns |
-| GET | `/api/campaigns/accounts/{id}/adsets/` | List ad sets |
-| GET | `/api/campaigns/accounts/{id}/ads/` | List ads |
+| Method | Endpoint | Description | Request Body |
+|--------|----------|-------------|--------------|
+| GET | `/api/meta/sync-status/` | Get current sync status | - |
+| POST | `/api/meta/structural-sync/` | Trigger full structural sync | - |
+| POST | `/api/meta/insights-sync/` | Trigger insights sync for selected accounts | `{ ad_account_ids: [], start_date: "YYYY-MM-DD", end_date: "YYYY-MM-DD" }` |
+| GET | `/api/meta/ad-accounts/` | List all ad accounts (for sync modal) | - |
 
-### 8.5 Metrics
+**Response Example for `/api/meta/insights-sync/`:**
+```json
+{
+  "status": "success",
+  "message": "Structural + Insights synced for 2 account(s)",
+  "structural": {
+    "campaigns": { "new": 5, "updated": 3 },
+    "adsets": { "new": 12, "updated": 8 },
+    "ads": { "new": 24, "updated": 15 },
+    "creatives": { "new": 18, "updated": 6 }
+  },
+  "insights": {
+    "total_created": 1250,
+    "accounts_synced": 2
+  }
+}
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/metrics/daily/` | Get daily metrics |
-| GET | `/api/metrics/summary/` | Get aggregated summary |
+### 8.5 Meta Ads Client Endpoints
+
+| Method | Endpoint | Description | Query Params |
+|--------|----------|-------------|--------------|
+| GET | `/api/meta/client/ad-accounts/` | Get client's allowed ad accounts | - |
+| GET | `/api/meta/client/campaigns/` | Get campaigns (filtered by permissions) | `account_id` |
+| GET | `/api/meta/client/adsets/` | Get adsets (filtered by permissions) | `account_id`, `campaign_id` (optional) |
+| GET | `/api/meta/client/ads/` | Get ads (filtered by permissions) | `account_id`, `adset_id` (optional) |
+| GET | `/api/meta/client/insights/` | Get insights (filtered by permissions) | `account_id`, `start_date`, `end_date`, `level` |
+
+**Permission Filtering:** All client endpoints check `AgencyUser.permissions['meta_accounts']` to ensure row-level security.
+
+### 8.6 Legacy Endpoints (Deprecated)
+
+These endpoints may still exist but should be migrated to use meta_ads models:
+
+| Method | Endpoint | Status |
+|--------|----------|--------|
+| GET | `/api/campaigns/accounts/` | ⚠️ Deprecated - Use `/api/meta/ad-accounts/` |
+| GET | `/api/metrics/daily/` | ⚠️ Deprecated - Use `/api/meta/client/insights/` |
 
 ---
 
-## 9. Environment Configuration
+## 9. System Logging & Debugging
 
-### 9.1 Backend Environment Variables
+### 9.1 SystemLog Model
+
+All Meta operations are logged to the `core_systemlog` table for debugging and audit purposes.
+
+**Log Levels:**
+- `DEBUG` - Detailed diagnostic information
+- `INFO` - General informational messages
+- `WARNING` - Warning messages (non-critical issues)
+- `ERROR` - Error messages (operation failed)
+- `CRITICAL` - Critical issues (system-level failures)
+
+### 9.2 Logger Name Convention
+
+Logs are categorized by `logger_name` for easy filtering:
+
+| Logger Name | Purpose | Example Messages |
+|-------------|---------|------------------|
+| `meta.connect` | OAuth connection events | `[CONNECT] Token obtained for agency X` |
+| `meta.sync.structural` | Structural data sync | `[SYNC] Campaign 123: NEW` / `[SYNC] Campaign 123: UPDATED` |
+| `meta.sync.insights` | Insights sync | `[INSIGHTS] Account act_123 - Level campaign: 45 records` |
+| `meta.client` | Client permission/access | `[CLIENT] Permissions meta_accounts: [1, 2, 3]` |
+| `meta.rate_limit` | Rate limiting events | `[RATE_LIMIT] campaign level: Last synced 2h ago, can sync` |
+
+### 9.3 Querying Logs in pgAdmin
+
+**Example queries:**
+
+```sql
+-- Get all Meta connection logs
+SELECT * FROM core_systemlog
+WHERE logger_name = 'meta.connect'
+ORDER BY timestamp DESC LIMIT 50;
+
+-- Get all sync errors
+SELECT * FROM core_systemlog
+WHERE logger_name LIKE 'meta.sync%' AND level = 'ERROR'
+ORDER BY timestamp DESC;
+
+-- Get sync summary for a specific date
+SELECT logger_name, level, COUNT(*)
+FROM core_systemlog
+WHERE timestamp::date = '2026-01-25'
+GROUP BY logger_name, level;
+
+-- Get detailed insights sync logs
+SELECT * FROM core_systemlog
+WHERE logger_name = 'meta.sync.insights'
+  AND message LIKE '%INSIGHTS%'
+ORDER BY timestamp DESC LIMIT 100;
+```
+
+### 9.4 Common Debugging Scenarios
+
+**Scenario 1: Client can't see ad accounts**
+```sql
+-- Check client permissions
+SELECT u.email, au.permissions
+FROM users_customuser u
+JOIN agencies_agencyuser au ON au.user_id = u.id
+WHERE u.email = 'client@example.com';
+
+-- Check what ad accounts exist
+SELECT id, account_id, name FROM meta_ads_adaccount;
+
+-- Check client logs
+SELECT * FROM core_systemlog
+WHERE logger_name = 'meta.client'
+ORDER BY timestamp DESC LIMIT 20;
+```
+
+**Scenario 2: Insights not syncing**
+```sql
+-- Check sync state
+SELECT * FROM meta_ads_syncstate
+WHERE entity_type IN ('ad_account', 'campaign', 'adset', 'ad')
+ORDER BY last_synced_at DESC;
+
+-- Check insights sync logs
+SELECT * FROM core_systemlog
+WHERE logger_name = 'meta.sync.insights'
+  AND timestamp > NOW() - INTERVAL '1 hour'
+ORDER BY timestamp DESC;
+
+-- Check actual insights data
+SELECT ad_account_id, level, date, COUNT(*) as insights_count
+FROM meta_ads_insight
+GROUP BY ad_account_id, level, date
+ORDER BY date DESC LIMIT 50;
+```
+
+**Scenario 3: Rate limiting issues**
+```sql
+-- Check rate limit state for all entity types
+SELECT entity_type, entity_id, last_synced_at,
+  NOW() - last_synced_at as time_since_sync
+FROM meta_ads_syncstate
+WHERE agency_id = 1
+ORDER BY last_synced_at DESC;
+
+-- Check rate limit logs
+SELECT * FROM core_systemlog
+WHERE logger_name = 'meta.rate_limit'
+ORDER BY timestamp DESC LIMIT 30;
+```
+
+---
+
+## 10. Environment Configuration
+
+### 10.1 Backend Environment Variables
 
 ```bash
 # Django
@@ -659,7 +932,7 @@ JWT_ACCESS_TOKEN_LIFETIME=60  # minutes
 JWT_REFRESH_TOKEN_LIFETIME=10080  # 7 days in minutes
 ```
 
-### 9.2 Frontend Environment Variables
+### 10.2 Frontend Environment Variables
 
 ```bash
 # API
@@ -671,20 +944,126 @@ NEXT_PUBLIC_META_APP_ID=<facebook-app-id>
 
 ---
 
-## 10. Critical Analysis
+## 11. Performance Optimizations
 
-### 10.1 What's Working Well
+### 11.1 Rate Limiting (24h Cooldown)
+
+**Problem:** Meta API has rate limits. Syncing the same data repeatedly wastes quota and slows down operations.
+
+**Solution:** Granular 24h cooldown per entity type stored in `SyncState`:
+
+```python
+# In MetaSyncService.check_rate_limit()
+last_sync = SyncState.objects.filter(
+    agency=self.agency,
+    entity_type='campaign',  # or 'adset', 'ad', etc.
+).order_by('-last_synced_at').first()
+
+if last_sync and (timezone.now() - last_sync.last_synced_at) < timedelta(hours=24):
+    raise Exception(f"Rate limit: Can sync campaigns again at {last_sync.last_synced_at + timedelta(hours=24)}")
+```
+
+**Benefits:**
+- Prevents unnecessary API calls
+- Respects Meta API quotas
+- Per-entity granularity (can sync ads even if campaigns were recently synced)
+
+### 11.2 Incremental Insights Sync
+
+**Problem:** Re-fetching all historical insights on every sync is slow and wasteful.
+
+**Solution:** Track `last_insight_date` in `SyncState` and only fetch new data:
+
+```python
+# In MetaSyncService.sync_insights()
+sync_state = SyncState.objects.get(entity_type='ad_account', entity_id=account_id)
+
+if sync_state.last_insight_date:
+    # Only fetch from last sync date to end_date
+    actual_start = sync_state.last_insight_date + timedelta(days=1)
+else:
+    # First sync: fetch from requested start_date
+    actual_start = start_date
+
+# Fetch insights from actual_start to end_date
+insights = fetch_from_meta(actual_start, end_date)
+
+# Update last_insight_date
+sync_state.last_insight_date = end_date
+sync_state.save()
+```
+
+**Benefits:**
+- Significantly faster subsequent syncs
+- Reduces Meta API usage
+- Append-only pattern ensures data integrity
+
+### 11.3 Selective Structural Sync
+
+**Problem:** At Meta Connect, syncing all campaigns/adsets/ads for all accounts takes too long.
+
+**Solution:** Two-tier sync strategy:
+
+1. **Meta Connect:** Sync only up to ad_accounts level
+   - User, Businesses, Ad Accounts
+   - Fast connection experience
+
+2. **Insights Modal Sync:** Sync campaigns/adsets/ads for selected accounts only
+   - User selects which accounts need insights
+   - Structural sync happens just-in-time for those accounts
+
+**Benefits:**
+- Faster OAuth connection
+- User controls what data to sync
+- Reduces unnecessary API calls
+
+### 11.4 Append-Only Insights Table
+
+**Problem:** Updating existing insight records can cause race conditions and data inconsistencies.
+
+**Solution:** `meta_ads_insight` is append-only with unique constraint:
+
+```python
+# Unique constraint on (ad_account, campaign, adset, ad, date, level)
+# Database prevents duplicates automatically
+
+insight = Insight(
+    agency=agency,
+    ad_account=account,
+    date=insight_date,
+    level='campaign',
+    impressions=data['impressions'],
+    # ... other fields
+)
+insight.save()  # Fails silently if duplicate (already exists)
+```
+
+**Benefits:**
+- No update race conditions
+- Historical data preserved
+- Simple conflict resolution (duplicates are just skipped)
+
+---
+
+## 12. Critical Analysis
+
+### 12.1 What's Working Well
 
 | Aspect | Implementation | Benefit |
 |--------|---------------|---------|
-| **Separation of Concerns** | 8 modular Django apps | Easy to maintain, test independently |
-| **Row-Level Security** | Permission checks in every ViewSet | Clients can't access other clients' data |
-| **Upsert Pattern** | `update_or_create()` for sync | No duplicate records, idempotent syncs |
-| **Rate Limiting** | 5-min cooldown on sync | Prevents Meta API abuse |
+| **Separation of Concerns** | Modular Django apps (users, agencies, integrations, meta_ads, core) | Easy to maintain, test independently |
+| **Row-Level Security** | Permission checks via `AgencyUser.permissions['meta_accounts']` | Clients can't access other clients' data |
+| **Upsert Pattern** | `update_or_create()` for structural sync | No duplicate records, idempotent syncs |
+| **Granular Rate Limiting** | 24h cooldown per entity type (campaign, adset, ad, etc.) | Efficient API usage, respects Meta quotas |
+| **Incremental Insights** | Track `last_insight_date` per account | Only fetch new data, significantly faster |
+| **Append-Only Insights** | Unique constraint prevents duplicates | Data integrity, no race conditions |
+| **Auto-Sync at Connect** | Structural sync on OAuth callback | Immediate data availability |
+| **Selective Sync** | User chooses accounts + date range | Control over what data to sync |
+| **SystemLog Audit Trail** | All operations logged to `core_systemlog` | Easy debugging, compliance |
 | **JWT Auth** | Access + Refresh tokens | Secure, stateless authentication |
 | **Type Safety** | TypeScript in frontend | Fewer runtime errors |
 
-### 10.2 Areas for Improvement
+### 12.2 Areas for Improvement
 
 | Issue | Current State | Recommended Fix |
 |-------|--------------|-----------------|
@@ -696,7 +1075,7 @@ NEXT_PUBLIC_META_APP_ID=<facebook-app-id>
 | **No Automated Tests** | Manual testing only | Add pytest (backend), Jest (frontend) |
 | **Coming Soon Features** | UI shows disabled features | Either implement or remove |
 
-### 10.3 Security Considerations
+### 12.3 Security Considerations
 
 | Risk | Current Mitigation | Enhancement Needed |
 |------|-------------------|-------------------|
@@ -706,7 +1085,7 @@ NEXT_PUBLIC_META_APP_ID=<facebook-app-id>
 | SQL Injection | Django ORM | Good, no changes needed |
 | XSS | React auto-escapes | Add CSP headers |
 
-### 10.4 Scalability Notes
+### 12.4 Scalability Notes
 
 - **Database:** Consider read replicas for metrics queries at scale
 - **Sync Jobs:** Move to background tasks (Celery) for large accounts
@@ -715,9 +1094,9 @@ NEXT_PUBLIC_META_APP_ID=<facebook-app-id>
 
 ---
 
-## 11. Local Development Setup
+## 13. Local Development Setup
 
-### 11.1 Backend
+### 13.1 Backend
 
 ```bash
 cd backend
@@ -730,7 +1109,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### 11.2 Frontend
+### 13.2 Frontend
 
 ```bash
 cd frontend
@@ -739,7 +1118,7 @@ cp .env.example .env.local  # Edit with your values
 npm run dev
 ```
 
-### 11.3 Running Both
+### 13.3 Running Both
 
 - Backend runs on: `http://localhost:8000`
 - Frontend runs on: `http://localhost:3000`
@@ -747,9 +1126,9 @@ npm run dev
 
 ---
 
-## 12. Deployment
+## 14. Deployment
 
-### 12.1 Backend (Render)
+### 14.1 Backend (Render)
 
 1. Connect GitHub repository
 2. Set environment variables in Render dashboard
@@ -757,7 +1136,7 @@ npm run dev
 4. Start command: `gunicorn config.wsgi:application`
 5. Add PostgreSQL database addon
 
-### 12.2 Frontend (Vercel)
+### 14.2 Frontend (Vercel)
 
 1. Connect GitHub repository
 2. Set environment variables in Vercel dashboard
@@ -767,7 +1146,7 @@ npm run dev
 
 ---
 
-## 13. Glossary
+## 15. Glossary
 
 | Term | Definition |
 |------|------------|
@@ -785,4 +1164,19 @@ npm run dev
 
 ---
 
-*Last updated: January 2025*
+*Last updated: January 25, 2026*
+
+---
+
+## Changelog
+
+### January 25, 2026 - Major Meta Ads Refactor
+- **New Data Models:** Complete migration to `meta_ads_*` tables (removed legacy `campaigns`, `ad_sets`, `ads`)
+- **Auto-Sync on Connect:** OAuth callback now triggers automatic structural sync (user, businesses, ad accounts)
+- **Insights Modal:** New UI for selecting accounts + date range for insights sync
+- **Granular Rate Limiting:** 24h cooldown per entity type instead of global 5-min cooldown
+- **Incremental Insights:** Only fetch missing date ranges, dramatically faster subsequent syncs
+- **Two-Phase Sync:** Structural data synced first, then insights (ensures referential integrity)
+- **SystemLog:** Comprehensive logging for all Meta operations (connect, sync.structural, sync.insights, client)
+- **Client Permissions:** JSONField-based permissions for fine-grained ad account access control
+- **Requirements Cleanup:** Reduced dependencies from 100+ to 25 essential packages
