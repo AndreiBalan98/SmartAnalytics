@@ -4,6 +4,7 @@ Uses sync_state as source of truth for tracking sync progress
 """
 import requests
 import logging
+import json
 from datetime import datetime, date, timedelta
 from django.conf import settings
 from django.utils import timezone
@@ -1028,13 +1029,17 @@ class MetaSyncService:
         """Fetch insights for specific level - APPEND ONLY"""
         try:
             url = f'{GRAPH_API_BASE}/{ad_account_id}/insights'
+
+            # CRITICAL: time_range must be JSON STRING, not dict!
+            time_range_json = json.dumps({
+                'since': start_date.isoformat(),
+                'until': end_date.isoformat(),
+            })
+
             params = {
                 'access_token': self.access_token,
                 'level': level,
-                'time_range': {
-                    'since': start_date.isoformat(),
-                    'until': end_date.isoformat(),
-                },
+                'time_range': time_range_json,  # JSON STRING!
                 'time_increment': 1,  # Daily
                 'fields': 'impressions,clicks,spend,reach,actions,cpc,cpm,ctr',
                 'limit': 500,
@@ -1043,7 +1048,7 @@ class MetaSyncService:
             # Log request details (without token)
             logger.info(f'Fetching {level} insights for {ad_account_id}')
             logger.debug(f'URL: {url}')
-            logger.debug(f'Params: level={level}, time_range={start_date} to {end_date}, fields={params["fields"]}')
+            logger.debug(f'Params: level={level}, time_range={time_range_json}, fields={params["fields"]}')
 
             response = requests.get(url, params=params)
 

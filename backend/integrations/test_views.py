@@ -5,6 +5,7 @@ Development-only endpoints for testing Meta API calls
 
 import requests
 import logging
+import json
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -355,11 +356,19 @@ def test_insights(request):
         'fields': 'spend,impressions,clicks,inline_link_clicks,ctr,cpc,cpm,cpp,reach,frequency,social_spend,unique_clicks,unique_ctr,unique_inline_link_clicks,actions,action_values,conversions,conversion_values,cost_per_action_type,cost_per_conversion,website_ctr,unique_outbound_clicks,outbound_clicks,video_30_sec_watched_actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions',
         'level': 'ad',  # Get detailed breakdown
         'time_increment': 1,  # Daily breakdown
-        'breakdowns': 'age,gender,device_platform,publisher_platform,platform_position',  # FIXED: replaced 'placement' with 'platform_position'
+        # FIXED: Use ONLY placement-related breakdowns (compatible combination)
+        'breakdowns': 'publisher_platform,platform_position,device_platform',
     }
 
+    # Add time_range if dates provided (as JSON string)
     if start_date and end_date:
-        params['time_range'] = f'{{"since":"{start_date}","until":"{end_date}"}}'
+        params['time_range'] = json.dumps({
+            'since': start_date,
+            'until': end_date
+        })
+    else:
+        # Default to last 7 days if no dates provided
+        params['date_preset'] = 'last_7d'
 
     result = make_meta_request(url, integration.access_token, params)
 
