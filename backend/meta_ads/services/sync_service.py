@@ -9,6 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.db import transaction
+from django.db import models
 
 from meta_ads.models import (
     MetaUser,
@@ -87,6 +88,35 @@ class MetaSyncService:
         except SyncState.DoesNotExist:
             return None
 
+    def _should_sync_level(self, entity_type, hours=24):
+        """
+        Check if a level should be synced based on last sync time
+        Returns True if never synced OR last sync was > hours ago
+        """
+        # Get most recent sync for this entity type
+        latest_sync = SyncState.objects.filter(
+            agency=self.agency,
+            provider='meta',
+            entity_type=entity_type,
+            status='completed'
+        ).order_by('-last_synced_at').first()
+
+        if not latest_sync or not latest_sync.last_synced_at:
+            return True  # Never synced, should sync
+
+        # Check if last sync was more than X hours ago
+        time_since_sync = timezone.now() - latest_sync.last_synced_at
+        return time_since_sync.total_seconds() > (hours * 3600)
+
+    def _log_level_skip(self, entity_type, last_sync_time):
+        """Log when a level is skipped due to rate limiting"""
+        logger.info(f'  └─ Skipping {entity_type}: synced {last_sync_time.strftime("%Y-%m-%d %H:%M")} (< 24h ago)')
+        SystemLog.objects.create(
+            level='DEBUG',
+            logger_name='meta.sync.structural',
+            message=f'[SYNC] Skipping {entity_type}: last sync {last_sync_time.strftime("%Y-%m-%d %H:%M")} (< 24h)'
+        )
+
     # ===== ERROR HANDLING =====
 
     def handle_api_error(self, error, entity_type, entity_id):
@@ -101,6 +131,112 @@ class MetaSyncService:
         )
 
     # ===== STRUCTURAL SYNC (Step 2 from plan) =====
+
+    def sync_structural_until_ad_accounts(self):
+        """
+        Sync ONLY user, businesses, and ad accounts (for OAuth connection)
+        Used when user connects Meta - we don't sync campaigns/adsets/ads yet
+        Respects 24h rate limiting per level
+        """
+        logger.info('=' * 80)
+        logger.info(f'STRUCTURAL SYNC (AD ACCOUNTS ONLY): Agency {self.agency.name}')
+        logger.info('=' * 80)
+
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.structural',
+            message=f'[SYNC] START (Ad Accounts Only) - Agency {self.agency.name}'
+        )
+
+        try:
+            user_id = None
+            business_ids = []
+            account_ids = []
+
+            # Step 1: User
+            if self._should_sync_level('user', hours=24):
+                logger.info('Step 1/3: Syncing Meta user info...')
+                user_id = self._sync_user()
+                logger.info(f'✓ User synced: {user_id}')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.structural',
+                    message=f'[SYNC] User synced: {user_id}'
+                )
+            else:
+                latest = SyncState.objects.filter(
+                    agency=self.agency, entity_type='user', status='completed'
+                ).order_by('-last_synced_at').first()
+                self._log_level_skip('user', latest.last_synced_at)
+
+            # Step 2: Businesses
+            if self._should_sync_level('business', hours=24):
+                logger.info('Step 2/3: Syncing businesses...')
+                business_ids = self._sync_businesses()
+                logger.info(f'✓ Businesses synced: {len(business_ids)} businesses')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.structural',
+                    message=f'[SYNC] Businesses synced: {len(business_ids)} businesses'
+                )
+            else:
+                latest = SyncState.objects.filter(
+                    agency=self.agency, entity_type='business', status='completed'
+                ).order_by('-last_synced_at').first()
+                self._log_level_skip('business', latest.last_synced_at)
+
+            # Step 3: Ad Accounts
+            if self._should_sync_level('ad_account', hours=24):
+                logger.info('Step 3/3: Syncing ad accounts...')
+                account_ids = self._sync_ad_accounts()
+                logger.info(f'✓ Ad accounts synced: {len(account_ids)} accounts')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.structural',
+                    message=f'[SYNC] Ad accounts synced: {len(account_ids)} accounts'
+                )
+
+                # Grant agency access
+                logger.info('Step 3.5/3: Granting agency access...')
+                self._grant_agency_access(account_ids)
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.structural',
+                    message=f'[SYNC] Agency access granted to {len(account_ids)} accounts'
+                )
+            else:
+                latest = SyncState.objects.filter(
+                    agency=self.agency, entity_type='ad_account', status='completed'
+                ).order_by('-last_synced_at').first()
+                self._log_level_skip('ad_account', latest.last_synced_at)
+
+            logger.info('=' * 80)
+            logger.info('STRUCTURAL SYNC (AD ACCOUNTS ONLY) COMPLETED')
+            logger.info('=' * 80)
+
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] COMPLETED (Ad Accounts Only)'
+            )
+
+            return {
+                'success': True,
+                'user_id': user_id,
+                'businesses': len(business_ids),
+                'ad_accounts': len(account_ids),
+            }
+
+        except Exception as e:
+            logger.error('=' * 80)
+            logger.error(f'STRUCTURAL SYNC FAILED: {str(e)}')
+            logger.error('=' * 80)
+            SystemLog.objects.create(
+                level='ERROR',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] FAILED - Error: {str(e)}'
+            )
+            raise
 
     def sync_structural_data(self):
         """
@@ -512,6 +648,7 @@ class MetaSyncService:
         """
         Sync structural data (campaigns, adsets, ads, creatives) for specific ad accounts
         This is called BEFORE insights sync to ensure structure is up-to-date
+        Respects 24h rate limiting per level
         Returns: {account_id: {campaigns: N, adsets: N, ads: N, creatives: N}}
         """
         logger.info('=' * 80)
@@ -530,25 +667,75 @@ class MetaSyncService:
         total_ads = 0
         total_creatives = 0
 
+        # Check rate limiting for each level
+        should_sync_campaigns = self._should_sync_level('campaign', hours=24)
+        should_sync_adsets = self._should_sync_level('adset', hours=24)
+        should_sync_ads = self._should_sync_level('ad', hours=24)
+        should_sync_creatives = self._should_sync_level('creative', hours=24)
+
+        # Log skipped levels
+        if not should_sync_campaigns:
+            latest = SyncState.objects.filter(
+                agency=self.agency, entity_type='campaign', status='completed'
+            ).order_by('-last_synced_at').first()
+            self._log_level_skip('campaign', latest.last_synced_at)
+
+        if not should_sync_adsets:
+            latest = SyncState.objects.filter(
+                agency=self.agency, entity_type='adset', status='completed'
+            ).order_by('-last_synced_at').first()
+            self._log_level_skip('adset', latest.last_synced_at)
+
+        if not should_sync_ads:
+            latest = SyncState.objects.filter(
+                agency=self.agency, entity_type='ad', status='completed'
+            ).order_by('-last_synced_at').first()
+            self._log_level_skip('ad', latest.last_synced_at)
+
+        if not should_sync_creatives:
+            latest = SyncState.objects.filter(
+                agency=self.agency, entity_type='creative', status='completed'
+            ).order_by('-last_synced_at').first()
+            self._log_level_skip('creative', latest.last_synced_at)
+
+        # Only sync if at least one level needs syncing
+        if not any([should_sync_campaigns, should_sync_adsets, should_sync_ads, should_sync_creatives]):
+            logger.info('All structural levels synced within 24h - skipping')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural.selected',
+                message=f'[SYNC SELECTED] All levels synced within 24h - skipping structural sync'
+            )
+            return {'skipped': True, 'reason': 'All levels synced within 24h'}
+
         for account_id in ad_account_ids:
             try:
                 logger.info(f'Syncing structural data for account {account_id}...')
 
-                # Sync campaigns for this account
-                campaign_count = self._sync_campaigns([account_id])
-                total_campaigns += campaign_count
+                campaign_count = 0
+                adset_count = 0
+                ad_count = 0
+                creative_count = 0
 
-                # Sync adsets for campaigns in this account
-                adset_count = self._sync_adsets_for_account(account_id)
-                total_adsets += adset_count
+                # Sync campaigns for this account (if needed)
+                if should_sync_campaigns:
+                    campaign_count = self._sync_campaigns([account_id])
+                    total_campaigns += campaign_count
 
-                # Sync ads for adsets in this account
-                ad_count = self._sync_ads_for_account(account_id)
-                total_ads += ad_count
+                # Sync adsets for campaigns in this account (if needed)
+                if should_sync_adsets:
+                    adset_count = self._sync_adsets_for_account(account_id)
+                    total_adsets += adset_count
 
-                # Sync creatives for this account
-                creative_count = self._sync_creatives([account_id])
-                total_creatives += creative_count
+                # Sync ads for adsets in this account (if needed)
+                if should_sync_ads:
+                    ad_count = self._sync_ads_for_account(account_id)
+                    total_ads += ad_count
+
+                # Sync creatives for this account (if needed)
+                if should_sync_creatives:
+                    creative_count = self._sync_creatives([account_id])
+                    total_creatives += creative_count
 
                 results[account_id] = {
                     'campaigns': campaign_count,
@@ -748,42 +935,84 @@ class MetaSyncService:
         return {'success': True, 'total_insights': total_created}
 
     def _sync_insights_for_account(self, ad_account_id, start_date, end_date):
-        """Fetch insights at ALL levels for an account"""
+        """
+        Fetch insights at ALL levels for an account
+        INCREMENTAL: Only fetches missing date ranges (fills gaps)
+        """
         total = 0
 
-        # Check sync_state to determine starting point (incremental sync)
-        sync_state = self._get_sync_state('insights', ad_account_id)
-        if sync_state and sync_state.last_insight_date:
-            # Start from day after last sync
-            original_start = start_date
-            start_date = max(start_date, sync_state.last_insight_date + timedelta(days=1))
-            if start_date != original_start:
-                logger.info(f'  └─ Account {ad_account_id}: Incremental sync from {start_date}')
+        # Check what date ranges we already have in the database
+        existing_insights = Insight.objects.filter(
+            ad_account_id=ad_account_id
+        ).aggregate(
+            min_date=models.Min('date_start'),
+            max_date=models.Max('date_start')
+        )
+
+        min_existing = existing_insights['min_date']
+        max_existing = existing_insights['max_date']
+
+        # Determine what ranges need to be synced
+        ranges_to_sync = []
+
+        if not min_existing or not max_existing:
+            # No data at all, sync entire range
+            ranges_to_sync.append((start_date, end_date))
+            logger.info(f'  └─ Account {ad_account_id}: No existing data, syncing full range {start_date} to {end_date}')
+            SystemLog.objects.create(
+                level='DEBUG',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Account {ad_account_id}: No existing data, syncing {start_date} to {end_date}'
+            )
+        else:
+            # We have some data, identify gaps
+            logger.info(f'  └─ Account {ad_account_id}: Existing data from {min_existing} to {max_existing}')
+
+            # Gap before existing data?
+            if start_date < min_existing:
+                gap_end = min_existing - timedelta(days=1)
+                ranges_to_sync.append((start_date, gap_end))
+                logger.info(f'    └─ Gap BEFORE: {start_date} to {gap_end}')
                 SystemLog.objects.create(
                     level='DEBUG',
                     logger_name='meta.sync.insights',
-                    message=f'[INSIGHTS] Account {ad_account_id}: Incremental sync from {start_date}'
+                    message=f'[INSIGHTS] Account {ad_account_id}: Gap before - {start_date} to {gap_end}'
                 )
 
-        if start_date > end_date:
-            logger.info(f'  └─ Account {ad_account_id}: Already up to date')
-            SystemLog.objects.create(
-                level='DEBUG',
-                logger_name='meta.sync.insights',
-                message=f'[INSIGHTS] Account {ad_account_id}: Already up to date'
-            )
-            return 0
+            # Gap after existing data?
+            if end_date > max_existing:
+                gap_start = max_existing + timedelta(days=1)
+                ranges_to_sync.append((gap_start, end_date))
+                logger.info(f'    └─ Gap AFTER: {gap_start} to {end_date}')
+                SystemLog.objects.create(
+                    level='DEBUG',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {ad_account_id}: Gap after - {gap_start} to {end_date}'
+                )
 
-        # Fetch insights at each level
-        for level in ['account', 'campaign', 'adset', 'ad']:
-            count = self._fetch_insights(ad_account_id, level, start_date, end_date)
-            total += count
-            logger.info(f'    └─ Level {level}: {count} insights')
-            SystemLog.objects.create(
-                level='DEBUG',
-                logger_name='meta.sync.insights',
-                message=f'[INSIGHTS] Account {ad_account_id} - Level {level}: {count} records'
-            )
+            if not ranges_to_sync:
+                logger.info(f'  └─ Account {ad_account_id}: All data already synced!')
+                SystemLog.objects.create(
+                    level='INFO',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {ad_account_id}: All data already synced (no gaps)'
+                )
+                return 0
+
+        # Fetch insights for each missing range
+        for range_start, range_end in ranges_to_sync:
+            logger.info(f'  └─ Syncing range: {range_start} to {range_end}')
+
+            # Fetch insights at each level
+            for level in ['account', 'campaign', 'adset', 'ad']:
+                count = self._fetch_insights(ad_account_id, level, range_start, range_end)
+                total += count
+                logger.info(f'    └─ Level {level}: {count} insights')
+                SystemLog.objects.create(
+                    level='DEBUG',
+                    logger_name='meta.sync.insights',
+                    message=f'[INSIGHTS] Account {ad_account_id} - Level {level} ({range_start} to {range_end}): {count} records'
+                )
 
         # Update sync state
         self._update_sync_state(

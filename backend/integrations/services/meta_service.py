@@ -88,16 +88,16 @@ def exchange_code_for_token(code: str, redirect_uri: str, agency) -> dict:
         message=f'[CONNECT] Token obtained for agency {agency.name} (ID: {agency.id})'
     )
 
-    # Trigger automatic structural sync
-    logger.info('Triggering automatic structural sync...')
+    # Trigger automatic structural sync (ONLY ad accounts level)
+    logger.info('Triggering automatic structural sync (ad accounts only)...')
     try:
         sync_service = MetaSyncService(agency, access_token)
-        sync_result = sync_service.sync_structural_data()
+        sync_result = sync_service.sync_structural_until_ad_accounts()
 
         SystemLog.objects.create(
             level='INFO',
             logger_name='meta.connect',
-            message=f'[CONNECT] Structural sync completed: {sync_result}'
+            message=f'[CONNECT] Structural sync (ad accounts) completed: {sync_result}'
         )
         logger.info(f'✅ Structural sync completed: {sync_result}')
 

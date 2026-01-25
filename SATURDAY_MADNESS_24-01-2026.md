@@ -1,7 +1,7 @@
 # SATURDAY_MADNESS_24-01-2026 - Plan de Executie
 
 ## Currently Working / Last Completed Task
-**Status:** ETAPA 3 IMPLEMENTARE COMPLETATA - Sync Modal + Structural Before Insights
+**Status:** ETAPA 3 OPTIMIZARI COMPLETATE - Rate limiting 24h + Insights incrementale
 **Ultima actualizare:** 25.01.2026
 **Next:** ETAPA 3 - Testare (tasks 3.6-3.9)
 
@@ -291,6 +291,9 @@ setSyncLoading(false)
 - [x] 3.3 Adaugare logging detaliat in `sync_insights()` si metoda noua (COMPLETAT)
 - [x] 3.4 Creare modal component in agency dashboard (COMPLETAT)
 - [x] 3.5 Conectare modal la endpoint (COMPLETAT)
+- [x] 3.5.1 OPTIMIZARI: Rate limiting 24h per nivel (COMPLETAT)
+- [x] 3.5.2 OPTIMIZARI: Conectare Meta sync doar pana la ad_accounts (COMPLETAT)
+- [x] 3.5.3 OPTIMIZARI: Insights incrementale - completeaza doar gap-uri (COMPLETAT)
 - [ ] 3.6 Testare: selectare accounts, verificare sync structural + insights
 - [ ] 3.7 Verificare in `meta_ads_*` tables ca structura e actualizata
 - [ ] 3.8 Verificare in `meta_ads_insight` ca insights-urile apar
