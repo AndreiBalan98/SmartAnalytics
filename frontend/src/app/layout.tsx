@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
-  title: 'SmartMoney - Advertising Analytics',
-  description: 'Smart advertising analytics for agencies and their clients',
+  title: 'ConversionDriven – Atribuire care chiar funcționează',
+  description: 'Înțelege exact de unde provin conversiile tale',
 }
 
 export default function RootLayout({
