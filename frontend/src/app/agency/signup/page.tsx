@@ -317,7 +317,7 @@ export default function AgencySignupPage() {
         }}>
           Already have an account?{' '}
           <Link
-            href="/agency/login"
+            href="/login"
             style={{ color: '#0070f3', textDecoration: 'none', fontWeight: '600' }}
           >
             Login

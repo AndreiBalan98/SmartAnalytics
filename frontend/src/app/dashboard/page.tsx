@@ -37,7 +37,7 @@ export default function ClientDashboard() {
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/client/login')
+      router.push('/login')
     } else if (!authLoading && user && user.user_type !== 'client') {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'client') {

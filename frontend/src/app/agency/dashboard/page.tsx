@@ -77,7 +77,7 @@ export default function AgencyDashboardPage() {
 
     useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/agency/login')
+      router.push('/login')
     } else if (!authLoading && user && user.user_type !== 'agency') {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'agency') {

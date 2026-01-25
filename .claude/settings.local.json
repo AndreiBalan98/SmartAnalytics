@@ -10,7 +10,13 @@
       "Bash(npm run build:*)",
       "Bash(tree:*)",
       "Bash(dir:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout 5 tail:*)",
+      "Bash(timeout 8 cmd:*)",
+      "Bash(timeout:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tailwindcss:*)"
     ],
     "deny": [],
     "ask": []
