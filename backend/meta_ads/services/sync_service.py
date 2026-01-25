@@ -22,6 +22,7 @@ from meta_ads.models import (
     SyncState,
     AgencyAdAccountAccess,
 )
+from core.models import SystemLog
 
 logger = logging.getLogger('smartanalytics.sync')
 
@@ -110,44 +111,98 @@ class MetaSyncService:
         logger.info(f'STRUCTURAL SYNC STARTED: Agency {self.agency.name} (ID: {self.agency.id})')
         logger.info('=' * 80)
 
+        # Log start to database
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.sync.structural',
+            message=f'[SYNC] START - Agency {self.agency.name} (ID: {self.agency.id})'
+        )
+
         try:
             logger.info('Step 1/7: Syncing Meta user info...')
             user_id = self._sync_user()
             logger.info(f'✓ User synced: {user_id}')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] User synced: {user_id}'
+            )
 
             logger.info('Step 2/7: Syncing businesses...')
             business_ids = self._sync_businesses()
             logger.info(f'✓ Businesses synced: {len(business_ids)} businesses')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Businesses synced: {len(business_ids)} businesses - IDs: {business_ids}'
+            )
 
             logger.info('Step 3/7: Syncing ad accounts...')
             account_ids = self._sync_ad_accounts()
             logger.info(f'✓ Ad accounts synced: {len(account_ids)} accounts')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Ad accounts synced: {len(account_ids)} accounts - IDs: {account_ids}'
+            )
 
             # Grant agency access to all ad accounts
             logger.info('Step 3.5/7: Granting agency access to ad accounts...')
             self._grant_agency_access(account_ids)
             logger.info(f'✓ Agency access granted to {len(account_ids)} accounts')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Agency access granted to {len(account_ids)} accounts'
+            )
 
             logger.info('Step 4/7: Syncing campaigns...')
             campaign_count = self._sync_campaigns(account_ids)
             logger.info(f'✓ Campaigns synced: {campaign_count} campaigns')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Campaigns synced: {campaign_count} campaigns'
+            )
 
             logger.info('Step 5/7: Syncing ad sets...')
             adset_count = self._sync_adsets()
             logger.info(f'✓ Ad sets synced: {adset_count} ad sets')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Ad sets synced: {adset_count} ad sets'
+            )
 
             logger.info('Step 6/7: Syncing ads...')
             ad_count = self._sync_ads()
             logger.info(f'✓ Ads synced: {ad_count} ads')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Ads synced: {ad_count} ads'
+            )
 
             logger.info('Step 7/7: Syncing ad creatives...')
             creative_count = self._sync_creatives(account_ids)
             logger.info(f'✓ Creatives synced: {creative_count} creatives')
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] Creatives synced: {creative_count} creatives'
+            )
 
             logger.info('=' * 80)
             logger.info('STRUCTURAL SYNC COMPLETED SUCCESSFULLY')
             logger.info(f'Summary: {len(account_ids)} accounts, {campaign_count} campaigns, {adset_count} ad sets, {ad_count} ads, {creative_count} creatives')
             logger.info('=' * 80)
+
+            # Log success to database
+            SystemLog.objects.create(
+                level='INFO',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] COMPLETED - Accounts: {len(account_ids)}, Campaigns: {campaign_count}, AdSets: {adset_count}, Ads: {ad_count}, Creatives: {creative_count}'
+            )
 
             return {
                 'success': True,
@@ -164,6 +219,13 @@ class MetaSyncService:
             logger.error('=' * 80)
             logger.error(f'STRUCTURAL SYNC FAILED: {str(e)}')
             logger.error('=' * 80)
+
+            # Log error to database
+            SystemLog.objects.create(
+                level='ERROR',
+                logger_name='meta.sync.structural',
+                message=f'[SYNC] FAILED - Error: {str(e)}'
+            )
             raise
 
     def _sync_user(self):

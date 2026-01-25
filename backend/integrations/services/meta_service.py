@@ -76,6 +76,40 @@ def exchange_code_for_token(code: str, redirect_uri: str, agency) -> dict:
 
     logger.info('=' * 80)
 
+    # ===== AUTO-SYNC STRUCTURAL DATA =====
+    # Import sync service and SystemLog
+    from meta_ads.services.sync_service import MetaSyncService
+    from core.models import SystemLog
+
+    # Log connection success
+    SystemLog.objects.create(
+        level='INFO',
+        logger_name='meta.connect',
+        message=f'[CONNECT] Token obtained for agency {agency.name} (ID: {agency.id})'
+    )
+
+    # Trigger automatic structural sync
+    logger.info('Triggering automatic structural sync...')
+    try:
+        sync_service = MetaSyncService(agency, access_token)
+        sync_result = sync_service.sync_structural_data()
+
+        SystemLog.objects.create(
+            level='INFO',
+            logger_name='meta.connect',
+            message=f'[CONNECT] Structural sync completed: {sync_result}'
+        )
+        logger.info(f'✅ Structural sync completed: {sync_result}')
+
+    except Exception as e:
+        SystemLog.objects.create(
+            level='ERROR',
+            logger_name='meta.connect',
+            message=f'[CONNECT] Structural sync FAILED: {str(e)}'
+        )
+        logger.error(f'❌ Structural sync failed: {str(e)}')
+        # Don't raise - connection is still valid even if sync fails
+
     return {
         'success': True,
         'created': created,
