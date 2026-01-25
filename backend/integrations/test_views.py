@@ -355,7 +355,7 @@ def test_insights(request):
         'fields': 'spend,impressions,clicks,inline_link_clicks,ctr,cpc,cpm,cpp,reach,frequency,social_spend,unique_clicks,unique_ctr,unique_inline_link_clicks,actions,action_values,conversions,conversion_values,cost_per_action_type,cost_per_conversion,website_ctr,unique_outbound_clicks,outbound_clicks,video_30_sec_watched_actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions',
         'level': 'ad',  # Get detailed breakdown
         'time_increment': 1,  # Daily breakdown
-        'breakdowns': 'age,gender,device_platform,publisher_platform,placement',  # Add demographic breakdowns
+        'breakdowns': 'age,gender,device_platform,publisher_platform,platform_position',  # FIXED: replaced 'placement' with 'platform_position'
     }
 
     if start_date and end_date:

@@ -1040,34 +1040,95 @@ class MetaSyncService:
                 'limit': 500,
             }
 
+            # Log request details (without token)
+            logger.info(f'Fetching {level} insights for {ad_account_id}')
+            logger.debug(f'URL: {url}')
+            logger.debug(f'Params: level={level}, time_range={start_date} to {end_date}, fields={params["fields"]}')
+
             response = requests.get(url, params=params)
-            response.raise_for_status()
+
+            # Log response status
+            logger.debug(f'Response status: {response.status_code}')
+
+            # Check for errors BEFORE raise_for_status
+            if response.status_code != 200:
+                error_body = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = f'Meta API Error: {error_json}'
+                    logger.error(f'❌ Meta API returned {response.status_code}: {error_json}')
+
+                    SystemLog.objects.create(
+                        level='ERROR',
+                        logger_name='meta.sync.insights',
+                        message=f'[INSIGHTS] Meta API Error {response.status_code} for {ad_account_id} level={level}: {error_json}'
+                    )
+                except:
+                    error_msg = f'Meta API Error {response.status_code}: {error_body}'
+                    logger.error(f'❌ Meta API returned {response.status_code}: {error_body}')
+
+                    SystemLog.objects.create(
+                        level='ERROR',
+                        logger_name='meta.sync.insights',
+                        message=f'[INSIGHTS] Meta API Error {response.status_code} for {ad_account_id} level={level}: {error_body}'
+                    )
+
+                raise Exception(error_msg)
+
             insights = response.json().get('data', [])
+            logger.debug(f'Received {len(insights)} insights from Meta API')
 
             count = 0
             for insight in insights:
-                # Determine object_id based on level
-                object_id = (
-                    insight.get('ad_id') or
-                    insight.get('adset_id') or
-                    insight.get('campaign_id') or
-                    ad_account_id
-                )
+                try:
+                    # Determine object_id based on level
+                    object_id = (
+                        insight.get('ad_id') or
+                        insight.get('adset_id') or
+                        insight.get('campaign_id') or
+                        ad_account_id
+                    )
 
-                # APPEND ONLY - no update_or_create, just create
-                Insight.objects.create(
-                    level=level,
-                    object_id=object_id,
-                    ad_account_id=ad_account_id,
-                    date_start=datetime.strptime(insight['date_start'], '%Y-%m-%d').date(),
-                    date_stop=datetime.strptime(insight['date_stop'], '%Y-%m-%d').date(),
-                    metrics=insight,
-                    raw=insight,
-                )
-                count += 1
+                    # APPEND ONLY - no update_or_create, just create
+                    Insight.objects.create(
+                        level=level,
+                        object_id=object_id,
+                        ad_account_id=ad_account_id,
+                        date_start=datetime.strptime(insight['date_start'], '%Y-%m-%d').date(),
+                        date_stop=datetime.strptime(insight['date_stop'], '%Y-%m-%d').date(),
+                        metrics=insight,
+                        raw=insight,
+                    )
+                    count += 1
+                except Exception as e:
+                    logger.error(f'Failed to save insight: {str(e)}')
+                    logger.error(f'Problematic insight data: {insight}')
+                    SystemLog.objects.create(
+                        level='ERROR',
+                        logger_name='meta.sync.insights',
+                        message=f'[INSIGHTS] Failed to save insight for {ad_account_id}: {str(e)}'
+                    )
+                    # Continue with next insight instead of failing completely
+                    continue
 
+            logger.info(f'Successfully saved {count} insights for {ad_account_id} level={level}')
             return count
 
+        except requests.exceptions.RequestException as e:
+            error_msg = f'Network error fetching {level} insights for {ad_account_id}: {str(e)}'
+            logger.error(f'❌ {error_msg}')
+            SystemLog.objects.create(
+                level='ERROR',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Network error for {ad_account_id} level={level}: {str(e)}'
+            )
+            raise Exception(error_msg)
         except Exception as e:
-            logger.error(f'Failed to fetch {level} insights for {ad_account_id}: {str(e)}')
+            error_msg = f'Failed to fetch {level} insights for {ad_account_id}: {str(e)}'
+            logger.error(f'❌ {error_msg}')
+            SystemLog.objects.create(
+                level='ERROR',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Failed for {ad_account_id} level={level}: {str(e)}'
+            )
             raise
