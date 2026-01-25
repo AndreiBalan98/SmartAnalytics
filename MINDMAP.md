@@ -12,6 +12,8 @@ This document explains the SmartAnalytics project from zero, following a top-to-
 | | Render | - | Backend hosting + PostgreSQL |
 | **Frontend** | Next.js | 14 | SSR React framework with App Router |
 | | React | 18 | UI component library |
+| | Tailwind CSS | 3.4 | Utility-first styling framework |
+| | Framer Motion | Latest | Animation library for smooth transitions |
 | | Recharts | 2.x | Data visualization charts |
 | **Backend** | Django | 5.0.1 | Python web framework |
 | | Django REST Framework | 3.14 | REST API toolkit |
@@ -59,20 +61,38 @@ SmartAnalytics/
 ├── frontend/                   # Next.js application
 │   ├── src/
 │   │   ├── app/                # App Router pages
-│   │   │   ├── page.tsx        # Landing page (/)
+│   │   │   ├── page.tsx        # Landing page (ConversionDriven - dark premium SaaS)
+│   │   │   ├── login/          # Unified login page (agency + client auto-routing)
+│   │   │   │   └── page.tsx    # Single login with user_type detection
 │   │   │   ├── agency/
-│   │   │   │   ├── login/      # Agency login page
-│   │   │   │   └── dashboard/  # Agency dashboard
-│   │   │   ├── client/
-│   │   │   │   └── login/      # Client login page
-│   │   │   └── dashboard/      # Client dashboard (3-panel layout)
+│   │   │   │   ├── dashboard/  # Agency dashboard
+│   │   │   │   ├── signup/     # Agency registration
+│   │   │   │   └── api-tester/ # Meta API testing tool
+│   │   │   ├── dashboard/      # Client dashboard (3-panel layout)
+│   │   │   ├── layout.tsx      # Root layout with Tailwind CSS
+│   │   │   └── globals.css     # Global styles (Tailwind imports + custom classes)
 │   │   ├── components/         # Reusable UI components
-│   │   │   ├── Navbar.tsx      # Navigation bar
+│   │   │   ├── landing/        # Landing page components
+│   │   │   │   ├── HeroSection.tsx        # Hero with animated scroll indicator
+│   │   │   │   ├── KeyCapabilities.tsx    # 6-card feature grid
+│   │   │   │   ├── ProductPreview.tsx     # Screenshot showcase (1.png primary)
+│   │   │   │   ├── HowItWorks.tsx         # 4-step process
+│   │   │   │   ├── FinalCTA.tsx           # Bottom call-to-action
+│   │   │   │   └── Footer.tsx             # Footer with branding
+│   │   │   ├── dashboard/      # Client dashboard panels
 │   │   │   └── ...             # Other components
 │   │   ├── contexts/
 │   │   │   └── AuthContext.tsx # Authentication state management
 │   │   └── lib/
 │   │       └── api.ts          # Axios client with interceptors
+│   ├── public/
+│   │   ├── images/             # Product screenshots
+│   │   │   ├── 1.png           # Primary dashboard screenshot
+│   │   │   ├── 2.png           # Secondary screenshot
+│   │   │   └── 3.png           # Tertiary screenshot
+│   │   └── favicon.ico         # Site favicon
+│   ├── tailwind.config.ts      # Tailwind configuration (custom colors, fonts)
+│   ├── postcss.config.js       # PostCSS configuration
 │   └── next.config.js          # Next.js configuration
 │
 ├── docs/                       # Documentation
@@ -135,12 +155,12 @@ All API requests include: Authorization: Bearer <access_token>
 
 ## 4. Authentication Flow (Detailed)
 
-### 4.1 Agency Login Flow
+### 4.1 Unified Login Flow
 
-**User Action:** Navigate to `/agency/login`, enter email/password, click "Login"
+**User Action:** Navigate to `/login` (single entry point), enter email/password, click "Conectează-te"
 
 ```
-[Frontend: /agency/login/page.tsx]
+[Frontend: /login/page.tsx]
     │
     ▼ POST /api/auth/login/
     │ Body: { email, password }
@@ -148,50 +168,56 @@ All API requests include: Authorization: Bearer <access_token>
 [Backend: users/views.py → LoginView]
     │
     ├── Validate credentials against CustomUser
-    ├── Check user has AgencyUser with user_type="agency"
+    ├── Check user has AgencyUser record
     ├── Generate JWT tokens via SimpleJWT
     │
-    ▼ Response: { access, refresh, user_type, agency_id, agency_name }
+    ▼ Response: { access, refresh, user: { user_type, agency_id, ... } }
     │
 [Frontend: AuthContext.tsx]
     │
     ├── Store tokens in localStorage
     ├── Set user state in React Context
     │
-    ▼ Redirect to /agency/dashboard
+    ▼ useEffect detects user_type change
+    │
+    ├─ If user_type === "agency" → Redirect to /agency/dashboard
+    └─ If user_type === "client" → Redirect to /dashboard
 ```
 
+**Key Features:**
+- **Single URL:** Both agency and client users use `/login`
+- **Auto-routing:** Frontend detects `user_type` from response and redirects accordingly
+- **Romanian UI:** All text in Romanian (e.g., "Conectează-te", "Adresă de email")
+- **Info Notice:** Displays "Conturile trebuie create de către agenție" warning
+- **Design:** Consistent dark navy gradient with electric blue accents (matches landing page)
+
 **Files Involved:**
-- `frontend/src/app/agency/login/page.tsx` - Login form UI
-- `frontend/src/contexts/AuthContext.tsx` - Token storage, user state
+- `frontend/src/app/login/page.tsx` - Unified login form UI
+- `frontend/src/contexts/AuthContext.tsx` - Token storage, user state, auto-routing logic
 - `backend/users/views.py` - LoginView class
 - `backend/users/serializers.py` - LoginSerializer
 
-### 4.2 Client Login Flow
+### 4.2 Landing to Login Flow
 
-**User Action:** Navigate to `/client/login`, enter email/password, click "Login"
+**User Action:** Click "Începe acum" CTA button on landing page
 
 ```
-[Frontend: /client/login/page.tsx]
+[Frontend: / (landing page)]
     │
-    ▼ POST /api/auth/login/
-    │ Body: { email, password }
+    ├── User clicks "Începe acum" button
+    │   OR
+    └── User clicks animated scroll arrow (bounces to #capabilities)
     │
-[Backend: users/views.py → LoginView]
+    ▼ Navigate to /login
     │
-    ├── Validate credentials
-    ├── Check user has AgencyUser with user_type="client"
-    ├── Get associated Client record
+[Frontend: /login]
     │
-    ▼ Response: { access, refresh, user_type, client_id, agency_id }
-    │
-[Frontend: AuthContext.tsx]
-    │
-    ├── Store tokens in localStorage
-    ├── Set user state (including client_id)
-    │
-    ▼ Redirect to /dashboard
+    └── Show unified login form (see 4.1)
 ```
+
+**Alternative Entry Points:**
+- Click "Vezi cum funcționează" → Smooth scroll to #how-it-works section
+- Click "← Înapoi la pagina principală" from login → Navigate to `/`
 
 ### 4.3 Token Auto-Refresh
 
@@ -226,7 +252,7 @@ All API requests include: Authorization: Bearer <access_token>
 // Pattern used in dashboard pages
 useEffect(() => {
   if (!user) {
-    router.push('/agency/login');
+    router.push('/login'); // Updated: unified login
   } else if (user.user_type !== 'agency') {
     router.push('/dashboard');
   }
@@ -235,7 +261,118 @@ useEffect(() => {
 
 ---
 
-## 5. Agency Dashboard Flows
+## 5. Landing Page Structure (ConversionDriven)
+
+### 5.1 Overview
+
+The landing page is a dark premium SaaS design optimized for conversion, featuring:
+- **Brand:** ConversionDriven (English name only, rest in Romanian)
+- **Design:** Navy gradient background (#0a1628 → #1a2332) with electric blue accents
+- **Typography:** Inter font, responsive sizing
+- **Animations:** Framer Motion for smooth scroll effects and fade-ins
+
+### 5.2 Page Sections (Top to Bottom)
+
+**Section 1: Hero Section** (`HeroSection.tsx`)
+```
+┌─────────────────────────────────────────┐
+│ [Badge] AI-powered conversion tracking  │
+│                                          │
+│ ConversionDriven (gradient + glow)      │
+│                                          │
+│ Înțelege exact de unde provin           │
+│ conversiile tale...                      │
+│                                          │
+│ [Începe acum] [Vezi cum funcționează]   │
+│                                          │
+│ Disponibil momentan pentru clienții...  │
+│                                          │
+│       Descoperă                          │
+│          ↓  (animated bounce)            │
+└─────────────────────────────────────────┘
+```
+- **CTAs:** "Începe acum" → `/login`, "Vezi cum funcționează" → scroll to #how-it-works
+- **Scroll indicator:** Animated arrow bounces (y: [0, 10, 0]) infinitely
+
+**Section 2: Key Capabilities** (`KeyCapabilities.tsx`)
+- **Layout:** 3-column grid (responsive: 1 col mobile, 2 col tablet, 3 col desktop)
+- **Content:** 6 cards with emoji + title + subtitle
+  - 🎯 Atribuirea conversiilor
+  - 🔗 Tracking multi-canal
+  - 📊 Dashboard-uri client
+  - ⚡ Tracking server-side
+  - 📈 Analiză în timp real
+  - 🤖 Insights AI
+- **Interaction:** Hover effect changes border color to electric blue
+
+**Section 3: Product Screenshots** (`ProductPreview.tsx`)
+- **Desktop Layout:** Overlapping presentation
+  - 3.png: Left background (50% width, opacity 0.6, z-index 10)
+  - 2.png: Right middle (50% width, opacity 0.7, z-index 20)
+  - 1.png: Center primary (80% width, full opacity, z-index 30) **← MOST PROMINENT**
+  - Blue glow border on 1.png for emphasis
+- **Mobile Layout:** Vertical stack (1.png → 2.png → 3.png in order)
+- **Animations:** Fade-in + scale on scroll
+
+**Section 4: How It Works** (`HowItWorks.tsx`)
+- **Layout:** 2x2 grid (4 numbered steps)
+- **Steps:**
+  - 01: Devino Client (badge with electric blue background)
+  - 02: Creează-ți Contul
+  - 03: Conectează Platformele
+  - 04: Vizualizează & Optimizează
+- **Notice:** Bottom badge "💡 Acces public în curând"
+
+**Section 5: Final CTA** (`FinalCTA.tsx`)
+- **Background:** Navy gradient with decorative blurred circles (electric blue/cyan)
+- **Content:**
+  - Headline: "Pregătit să generezi conversii mai bune?"
+  - Body text: "Alătură-te agențiilor..."
+  - CTA button: "Începe acum" (large, with blue glow)
+  - Notice: "Disponibil momentan pentru clienții agenției"
+
+**Section 6: Footer** (`Footer.tsx`)
+- **Layout:** Simple, dark background with top border
+- **Content:** ConversionDriven branding + © 2026
+- **Style:** Minimal, no distractions
+
+### 5.3 Component Architecture
+
+```
+page.tsx (main landing page)
+    │
+    ├── HeroSection
+    ├── KeyCapabilities
+    ├── ProductPreview
+    ├── HowItWorks
+    ├── FinalCTA
+    └── Footer
+```
+
+**Shared Patterns:**
+- All sections use `motion.div` from Framer Motion
+- Consistent spacing: `py-20` (vertical padding)
+- Responsive: Mobile-first with breakpoints (sm, md, lg)
+- Color scheme: navy-900/800/700 + electric-blue + slate-100/200/300
+
+### 5.4 Design System Reference
+
+**Tailwind Custom Classes** (from `globals.css`):
+- `.btn-primary` - Electric blue button with hover glow
+- `.btn-secondary` - Outline button, fills on hover
+- `.card` - Navy-700 background with border
+- `.input-field` - Dark input with blue focus ring
+- `.text-gradient` - Electric blue → cyan gradient text
+- `.glow-text` - Text with blue glow shadow
+
+**Custom Colors** (from `tailwind.config.ts`):
+- `navy-900` (#0a1628), `navy-800` (#1a2332), `navy-700` (#1e293b)
+- `electric-blue` (#00d4ff), `electric-cyan` (#06b6d4)
+- `slate-100/200/300/400` - Text colors (light to muted)
+
+---
+
+## 6. Agency Dashboard Flows
 
 ### 5.1 Dashboard Structure
 
@@ -418,9 +555,9 @@ useEffect(() => {
 
 ---
 
-## 6. Client Dashboard Flows
+## 7. Client Dashboard Flows
 
-### 6.1 Dashboard Structure
+### 7.1 Dashboard Structure
 
 ```
 /dashboard (client dashboard)
@@ -436,7 +573,7 @@ useEffect(() => {
     └── Right Panel: Navigation / Settings
 ```
 
-### 6.2 Initial Data Loading Flow
+### 7.2 Initial Data Loading Flow
 
 **Trigger:** Client navigates to `/dashboard`
 
@@ -464,7 +601,7 @@ useEffect(() => {
     ▼ Trigger metrics fetch for selected account
 ```
 
-### 6.3 Metrics Loading Flow
+### 7.3 Metrics Loading Flow
 
 **Trigger:** User selects an ad account
 
@@ -501,7 +638,7 @@ useEffect(() => {
     ▼ Dashboard fully loaded
 ```
 
-### 6.4 Permission Filtering (Row-Level Security)
+### 7.4 Permission Filtering (Row-Level Security)
 
 **Implementation:** Every query filters by user's allowed resources
 
@@ -522,9 +659,9 @@ def get_queryset(self):
 
 ---
 
-## 7. Data Models (Database Schema)
+## 8. Data Models (Database Schema)
 
-### 7.1 User & Auth Models
+### 8.1 User & Auth Models
 
 ```
 CustomUser (extends AbstractUser)
@@ -542,7 +679,7 @@ AgencyUser
 └── created_at
 ```
 
-### 7.2 Multi-Tenancy Models
+### 8.2 Multi-Tenancy Models
 
 ```
 Agency
@@ -551,7 +688,7 @@ Agency
 └── owner (FK → CustomUser)
 ```
 
-### 7.3 Integration Models
+### 8.3 Integration Models
 
 ```
 MetaIntegration (in integrations app)
@@ -562,7 +699,7 @@ MetaIntegration (in integrations app)
 └── updated_at
 ```
 
-### 7.4 Meta Ads Structural Models (meta_ads app)
+### 8.4 Meta Ads Structural Models (meta_ads app)
 
 **Important:** These are the PRIMARY tables for Meta data. Legacy tables (`campaigns`, `ad_sets`, `ads`) have been removed.
 
@@ -633,7 +770,7 @@ AdCreative (meta_ads_adcreative)
 └── created_at / updated_at
 ```
 
-### 7.5 Meta Ads Insights Models
+### 8.5 Meta Ads Insights Models
 
 ```
 Insight (meta_ads_insight) - APPEND-ONLY table
@@ -666,7 +803,7 @@ Constraints:
 ├── Unique: (ad_account, campaign, adset, ad, date, level) - prevents duplicates
 ```
 
-### 7.6 Sync State Tracking
+### 8.6 Sync State Tracking
 
 ```
 SyncState (meta_ads_syncstate)
@@ -685,7 +822,7 @@ Indexes:
 └── (agency, entity_type, entity_id) - unique together
 ```
 
-### 7.7 Agency-Client Ad Account Access
+### 8.7 Agency-Client Ad Account Access
 
 ```
 AgencyAdAccountAccess (meta_ads_agencyadaccountaccess)
@@ -697,7 +834,7 @@ AgencyAdAccountAccess (meta_ads_agencyadaccountaccess)
 Purpose: Track which ad accounts the agency has access to
 ```
 
-### 7.8 System Logging
+### 8.8 System Logging
 
 ```
 SystemLog (core_systemlog)
@@ -718,9 +855,9 @@ Common logger_name values:
 
 ---
 
-## 8. API Endpoints Reference
+## 9. API Endpoints Reference
 
-### 8.1 Authentication
+### 9.1 Authentication
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -729,7 +866,7 @@ Common logger_name values:
 | POST | `/api/auth/token/refresh/` | Refresh access token |
 | GET | `/api/auth/me/` | Get current user profile |
 
-### 8.2 Agencies
+### 9.2 Agencies
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -738,7 +875,7 @@ Common logger_name values:
 | GET | `/api/agencies/{id}/clients/` | List agency's clients |
 | POST | `/api/agencies/{id}/clients/` | Create new client |
 
-### 8.3 Meta Integrations (OAuth & Connection)
+### 9.3 Meta Integrations (OAuth & Connection)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -747,7 +884,7 @@ Common logger_name values:
 | GET | `/api/integrations/meta/callback/` | OAuth callback (triggers auto-sync) |
 | POST | `/api/integrations/meta/disconnect/` | Disconnect Meta account |
 
-### 8.4 Meta Ads Sync (Agency Endpoints)
+### 9.4 Meta Ads Sync (Agency Endpoints)
 
 | Method | Endpoint | Description | Request Body |
 |--------|----------|-------------|--------------|
@@ -774,7 +911,7 @@ Common logger_name values:
 }
 ```
 
-### 8.5 Meta Ads Client Endpoints
+### 9.5 Meta Ads Client Endpoints
 
 | Method | Endpoint | Description | Query Params |
 |--------|----------|-------------|--------------|
@@ -786,7 +923,7 @@ Common logger_name values:
 
 **Permission Filtering:** All client endpoints check `AgencyUser.permissions['meta_accounts']` to ensure row-level security.
 
-### 8.6 Legacy Endpoints (Deprecated)
+### 9.6 Legacy Endpoints (Deprecated)
 
 These endpoints may still exist but should be migrated to use meta_ads models:
 
@@ -797,9 +934,9 @@ These endpoints may still exist but should be migrated to use meta_ads models:
 
 ---
 
-## 9. System Logging & Debugging
+## 10. System Logging & Debugging
 
-### 9.1 SystemLog Model
+### 10.1 SystemLog Model
 
 All Meta operations are logged to the `core_systemlog` table for debugging and audit purposes.
 
@@ -810,7 +947,7 @@ All Meta operations are logged to the `core_systemlog` table for debugging and a
 - `ERROR` - Error messages (operation failed)
 - `CRITICAL` - Critical issues (system-level failures)
 
-### 9.2 Logger Name Convention
+### 10.2 Logger Name Convention
 
 Logs are categorized by `logger_name` for easy filtering:
 
@@ -822,7 +959,7 @@ Logs are categorized by `logger_name` for easy filtering:
 | `meta.client` | Client permission/access | `[CLIENT] Permissions meta_accounts: [1, 2, 3]` |
 | `meta.rate_limit` | Rate limiting events | `[RATE_LIMIT] campaign level: Last synced 2h ago, can sync` |
 
-### 9.3 Querying Logs in pgAdmin
+### 10.3 Querying Logs in pgAdmin
 
 **Example queries:**
 
@@ -850,7 +987,7 @@ WHERE logger_name = 'meta.sync.insights'
 ORDER BY timestamp DESC LIMIT 100;
 ```
 
-### 9.4 Common Debugging Scenarios
+### 10.4 Common Debugging Scenarios
 
 **Scenario 1: Client can't see ad accounts**
 ```sql
@@ -906,9 +1043,9 @@ ORDER BY timestamp DESC LIMIT 30;
 
 ---
 
-## 10. Environment Configuration
+## 11. Environment Configuration
 
-### 10.1 Backend Environment Variables
+### 11.1 Backend Environment Variables
 
 ```bash
 # Django
@@ -932,7 +1069,7 @@ JWT_ACCESS_TOKEN_LIFETIME=60  # minutes
 JWT_REFRESH_TOKEN_LIFETIME=10080  # 7 days in minutes
 ```
 
-### 10.2 Frontend Environment Variables
+### 11.2 Frontend Environment Variables
 
 ```bash
 # API
@@ -944,9 +1081,9 @@ NEXT_PUBLIC_META_APP_ID=<facebook-app-id>
 
 ---
 
-## 11. Performance Optimizations
+## 12. Performance Optimizations
 
-### 11.1 Rate Limiting (24h Cooldown)
+### 12.1 Rate Limiting (24h Cooldown)
 
 **Problem:** Meta API has rate limits. Syncing the same data repeatedly wastes quota and slows down operations.
 
@@ -968,7 +1105,7 @@ if last_sync and (timezone.now() - last_sync.last_synced_at) < timedelta(hours=2
 - Respects Meta API quotas
 - Per-entity granularity (can sync ads even if campaigns were recently synced)
 
-### 11.2 Incremental Insights Sync
+### 12.2 Incremental Insights Sync
 
 **Problem:** Re-fetching all historical insights on every sync is slow and wasteful.
 
@@ -998,7 +1135,7 @@ sync_state.save()
 - Reduces Meta API usage
 - Append-only pattern ensures data integrity
 
-### 11.3 Selective Structural Sync
+### 12.3 Selective Structural Sync
 
 **Problem:** At Meta Connect, syncing all campaigns/adsets/ads for all accounts takes too long.
 
@@ -1017,7 +1154,7 @@ sync_state.save()
 - User controls what data to sync
 - Reduces unnecessary API calls
 
-### 11.4 Append-Only Insights Table
+### 12.4 Append-Only Insights Table
 
 **Problem:** Updating existing insight records can cause race conditions and data inconsistencies.
 
@@ -1045,9 +1182,9 @@ insight.save()  # Fails silently if duplicate (already exists)
 
 ---
 
-## 12. Critical Analysis
+## 13. Critical Analysis
 
-### 12.1 What's Working Well
+### 13.1 What's Working Well
 
 | Aspect | Implementation | Benefit |
 |--------|---------------|---------|
@@ -1062,12 +1199,15 @@ insight.save()  # Fails silently if duplicate (already exists)
 | **SystemLog Audit Trail** | All operations logged to `core_systemlog` | Easy debugging, compliance |
 | **JWT Auth** | Access + Refresh tokens | Secure, stateless authentication |
 | **Type Safety** | TypeScript in frontend | Fewer runtime errors |
+| **Tailwind CSS** | Utility-first styling with custom design system | Consistent, maintainable styles |
+| **Unified Login** | Single /login page with auto-routing | Better UX, less code duplication |
+| **Premium Landing** | Dark SaaS design with Romanian UI | Professional, conversion-focused |
+| **Smooth Animations** | Framer Motion for scroll effects | Premium user experience |
 
-### 12.2 Areas for Improvement
+### 13.2 Areas for Improvement
 
 | Issue | Current State | Recommended Fix |
 |-------|--------------|-----------------|
-| **Inline CSS** | All styles are inline in JSX | Adopt Tailwind CSS or CSS Modules |
 | **No Error Boundaries** | React errors crash entire page | Add error boundaries around panels |
 | **Limited Validation** | Basic form validation only | Add Zod/Yup schemas for forms |
 | **No Loading States** | Some actions lack feedback | Add skeleton loaders, spinners |
@@ -1075,7 +1215,7 @@ insight.save()  # Fails silently if duplicate (already exists)
 | **No Automated Tests** | Manual testing only | Add pytest (backend), Jest (frontend) |
 | **Coming Soon Features** | UI shows disabled features | Either implement or remove |
 
-### 12.3 Security Considerations
+### 13.3 Security Considerations
 
 | Risk | Current Mitigation | Enhancement Needed |
 |------|-------------------|-------------------|
@@ -1085,7 +1225,7 @@ insight.save()  # Fails silently if duplicate (already exists)
 | SQL Injection | Django ORM | Good, no changes needed |
 | XSS | React auto-escapes | Add CSP headers |
 
-### 12.4 Scalability Notes
+### 13.4 Scalability Notes
 
 - **Database:** Consider read replicas for metrics queries at scale
 - **Sync Jobs:** Move to background tasks (Celery) for large accounts
@@ -1094,9 +1234,9 @@ insight.save()  # Fails silently if duplicate (already exists)
 
 ---
 
-## 13. Local Development Setup
+## 14. Local Development Setup
 
-### 13.1 Backend
+### 14.1 Backend
 
 ```bash
 cd backend
@@ -1109,7 +1249,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### 13.2 Frontend
+### 14.2 Frontend
 
 ```bash
 cd frontend
@@ -1118,7 +1258,7 @@ cp .env.example .env.local  # Edit with your values
 npm run dev
 ```
 
-### 13.3 Running Both
+### 14.3 Running Both
 
 - Backend runs on: `http://localhost:8000`
 - Frontend runs on: `http://localhost:3000`
@@ -1126,9 +1266,9 @@ npm run dev
 
 ---
 
-## 14. Deployment
+## 15. Deployment
 
-### 14.1 Backend (Render)
+### 15.1 Backend (Render)
 
 1. Connect GitHub repository
 2. Set environment variables in Render dashboard
@@ -1136,7 +1276,7 @@ npm run dev
 4. Start command: `gunicorn config.wsgi:application`
 5. Add PostgreSQL database addon
 
-### 14.2 Frontend (Vercel)
+### 15.2 Frontend (Vercel)
 
 1. Connect GitHub repository
 2. Set environment variables in Vercel dashboard
@@ -1146,7 +1286,7 @@ npm run dev
 
 ---
 
-## 15. Glossary
+## 16. Glossary
 
 | Term | Definition |
 |------|------------|
@@ -1164,11 +1304,38 @@ npm run dev
 
 ---
 
-*Last updated: January 25, 2026*
+*Last updated: January 26, 2026*
 
 ---
 
 ## Changelog
+
+### January 26, 2026 - ConversionDriven Landing & Login Redesign (SUNDAY BLEED)
+- **Brand Rename:** SmartAnalytics → ConversionDriven (brand name only, English)
+- **New Landing Page:** Complete dark premium SaaS redesign with 6 sections:
+  - Hero with animated scroll indicator (bouncing arrow)
+  - Key Capabilities (6-card grid with emojis)
+  - Product Screenshots (overlapping desktop layout, 1.png most prominent)
+  - How It Works (4-step numbered process)
+  - Final CTA with gradient background
+  - Minimal footer with branding
+- **Romanian UI:** All interface text in Romanian except "ConversionDriven" brand name
+- **Unified Login:** Single login page at `/login` with auto-routing:
+  - Agency users → `/agency/dashboard`
+  - Client users → `/dashboard`
+  - Removed separate `/agency/login` and `/client/login` pages
+- **Tailwind CSS Migration:** Replaced inline styles with Tailwind v3.4.0
+  - Custom colors: navy gradient (#0a1628 → #1a2332), electric blue (#00d4ff)
+  - Inter font family via Google Fonts
+  - Custom components: btn-primary, btn-secondary, card, input-field
+- **Framer Motion:** Smooth scroll animations and fade-in effects
+- **Asset Management:** Product screenshots (1.png, 2.png, 3.png) + favicon in `/frontend/public/`
+- **Navigation Updates:** All auth redirects now point to `/login` (4 files updated)
+- **Design System:**
+  - Background: Deep navy gradient with subtle decoration
+  - Accent: Electric blue with glow effects
+  - Typography: Inter font, responsive sizing (text-5xl → text-7xl)
+  - Animations: Fade-in on scroll, bounce arrow, hover scale effects
 
 ### January 25, 2026 - Major Meta Ads Refactor
 - **New Data Models:** Complete migration to `meta_ads_*` tables (removed legacy `campaigns`, `ad_sets`, `ads`)
