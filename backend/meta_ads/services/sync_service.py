@@ -1097,9 +1097,19 @@ class MetaSyncService:
 
             if response.status_code != 200:
                 logger.warning(f'Failed to fetch insights for {level} {entity_id}: {response.status_code}')
+                try:
+                    error_data = response.json()
+                    logger.warning(f'  Error details: {error_data}')
+                except:
+                    logger.warning(f'  Error body: {response.text[:200]}')
                 return 0
 
             insights = response.json().get('data', [])
+
+            if len(insights) == 0:
+                logger.debug(f'No insights returned by Meta API for {level} {entity_id}')
+            else:
+                logger.debug(f'Received {len(insights)} insights from Meta API for {level} {entity_id}')
 
             count = 0
             for insight in insights:
@@ -1126,9 +1136,14 @@ class MetaSyncService:
                             raw=insight,
                         )
                         count += 1
+                    else:
+                        logger.debug(f'Insight already exists for {level} {entity_id} on {date_start}')
                 except Exception as e:
                     logger.error(f'Failed to save insight for {entity_id}: {str(e)}')
                     continue
+
+            if count > 0:
+                logger.debug(f'Saved {count} insights for {level} {entity_id}')
 
             return count
 
