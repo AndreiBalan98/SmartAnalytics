@@ -680,10 +680,14 @@ export const api = {
   },
 
   /**
-   * Get creatives for client by account ID
+   * Get creatives for client by ad IDs
    */
-  async getClientCreativesNew(accountId: string) {
-    const response = await fetchWithAuth(`/api/meta/client/creatives/?account_id=${accountId}`)
+  async getClientCreativesNew(adIds: string[]) {
+    if (adIds.length === 0) {
+      return { creatives: [] }
+    }
+    const params = adIds.map(id => `ad_ids=${id}`).join('&')
+    const response = await fetchWithAuth(`/api/meta/client/creatives/?${params}`)
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to fetch creatives')

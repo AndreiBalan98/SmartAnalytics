@@ -97,6 +97,7 @@ export default function CreativesGrid({ creatives, loading = false }: CreativesG
                 <img
                   src={creative.image_url}
                   alt={creative.name || 'Creative'}
+                  loading="lazy"
                   style={{
                     width: '100%',
                     height: '100%',

@@ -46,7 +46,7 @@ export default function CenterPanel({
     }
 
     loadData()
-  }, [view, accountId, selectedCampaigns, selectedAdSets])
+  }, [view, accountId, selectedCampaigns, selectedAdSets, selectedAds])
 
   async function loadData() {
     if (!accountId) return
@@ -86,7 +86,13 @@ export default function CenterPanel({
           break
 
         case 'creatives':
-          result = await api.getClientCreativesNew(accountId)
+          if (selectedAds.length === 0) {
+            setData([])
+            setError('Te rog selectează cel puțin un ad pentru a vedea creatives')
+            setLoading(false)
+            return
+          }
+          result = await api.getClientCreativesNew(selectedAds)
           setData(result.creatives || [])
           break
 

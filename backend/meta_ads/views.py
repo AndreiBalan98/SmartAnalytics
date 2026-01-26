@@ -336,23 +336,35 @@ def client_ads(request):
 def client_creatives(request):
     """Get creatives for client (filtered by permissions)"""
     user = request.user
-    account_id = request.query_params.get('account_id')
+    ad_ids = request.query_params.getlist('ad_ids')
 
-    if not account_id:
+    if not ad_ids:
         return Response(
-            {'error': 'account_id parameter required'},
+            {'error': 'ad_ids parameter required'},
             status=http_status.HTTP_400_BAD_REQUEST
         )
 
-    # Verify permission
-    if not _has_account_permission(user, account_id):
+    # Verify permissions for all ads
+    ads = Ad.objects.filter(id__in=ad_ids)
+    if ads.count() != len(ad_ids):
         return Response(
-            {'error': 'Permission denied'},
-            status=http_status.HTTP_403_FORBIDDEN
+            {'error': 'One or more ads not found'},
+            status=http_status.HTTP_404_NOT_FOUND
         )
 
-    # Get creatives
-    creatives = AdCreative.objects.filter(ad_account_id=account_id).order_by('-created_at')
+    # Check permissions for each ad's ad account
+    for ad in ads:
+        if not _has_account_permission(user, ad.ad_account_id):
+            return Response(
+                {'error': 'Permission denied'},
+                status=http_status.HTTP_403_FORBIDDEN
+            )
+
+    # Get creative IDs from ads (filter out empty/null creative_ids)
+    creative_ids = [ad.creative_id for ad in ads if ad.creative_id]
+
+    # Get unique creatives (avoid duplicates if multiple ads use same creative)
+    creatives = AdCreative.objects.filter(id__in=creative_ids).distinct().order_by('-created_at')
 
     return Response({
         'creatives': AdCreativeSerializer(creatives, many=True).data
