@@ -43,7 +43,7 @@ export default function HeroSection() {
               }}
             />
 
-            {/* Animated rotating border */}
+            {/* Animated subtle border */}
             <motion.div
               className="absolute inset-0 rounded-full"
               style={{
@@ -54,12 +54,12 @@ export default function HeroSection() {
                 maskComposite: 'exclude',
               }}
               animate={{
-                rotate: 360,
+                rotate: [-5, 5, -5],
               }}
               transition={{
-                duration: 20,
+                duration: 4,
                 repeat: Infinity,
-                ease: 'linear',
+                ease: 'easeInOut',
               }}
             />
 
