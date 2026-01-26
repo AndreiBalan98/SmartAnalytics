@@ -1,11 +1,11 @@
 /**
  * InsightsFilters Component
- * 4 multi-select dropdowns + time range selector for insights
+ * 4 independent multi-select dropdowns + time range selector + Generate button
  */
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface InsightsFiltersProps {
   accounts: Array<{ id: string; name: string }>
@@ -24,12 +24,8 @@ interface InsightsFiltersProps {
   endDate: string
   onStartDateChange: (date: string) => void
   onEndDateChange: (date: string) => void
-  compareMode: boolean
-  onCompareModeChange: (enabled: boolean) => void
-  compareStartDate: string
-  compareEndDate: string
-  onCompareStartDateChange: (date: string) => void
-  onCompareEndDateChange: (date: string) => void
+  onGenerate: () => void
+  loading: boolean
 }
 
 export default function InsightsFilters({
@@ -49,14 +45,25 @@ export default function InsightsFilters({
   endDate,
   onStartDateChange,
   onEndDateChange,
-  compareMode,
-  onCompareModeChange,
-  compareStartDate,
-  compareEndDate,
-  onCompareStartDateChange,
-  onCompareEndDateChange,
+  onGenerate,
+  loading,
 }: InsightsFiltersProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const toggleDropdown = (name: string) => {
     setOpenDropdown(openDropdown === name ? null : name)
@@ -68,14 +75,12 @@ export default function InsightsFilters({
     options,
     selectedIds,
     onSelect,
-    disabled,
   }: {
     label: string
     name: string
     options: Array<{ id: string; name: string }>
     selectedIds: string[]
     onSelect: (ids: string[]) => void
-    disabled?: boolean
   }) => {
     const isOpen = openDropdown === name
 
@@ -96,34 +101,41 @@ export default function InsightsFilters({
     }
 
     return (
-      <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+      <div style={{ position: 'relative', width: '200px', flexShrink: 0 }}>
         <button
-          onClick={() => !disabled && toggleDropdown(name)}
-          disabled={disabled}
+          onClick={() => toggleDropdown(name)}
           style={{
             width: '100%',
             padding: '0.625rem 0.875rem',
-            backgroundColor: disabled ? '#f3f4f6' : 'white',
+            backgroundColor: 'white',
             border: '1px solid #d1d5db',
             borderRadius: '6px',
             textAlign: 'left',
-            cursor: disabled ? 'not-allowed' : 'pointer',
+            cursor: 'pointer',
             fontSize: '0.875rem',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            opacity: disabled ? 0.6 : 1,
           }}
         >
-          <span style={{ color: selectedIds.length > 0 ? '#1f2937' : '#9ca3af' }}>
+          <span
+            style={{
+              color: selectedIds.length > 0 ? '#1f2937' : '#9ca3af',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {selectedIds.length > 0
               ? `${label} (${selectedIds.length})`
               : `Selectează ${label}`}
           </span>
-          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>▼</span>
+          <span style={{ fontSize: '0.75rem', color: '#6b7280', flexShrink: 0, marginLeft: '0.5rem' }}>
+            ▼
+          </span>
         </button>
 
-        {isOpen && !disabled && (
+        {isOpen && (
           <div
             style={{
               position: 'absolute',
@@ -224,6 +236,7 @@ export default function InsightsFilters({
                         height: '16px',
                         cursor: 'pointer',
                         accentColor: '#3b82f6',
+                        flexShrink: 0,
                       }}
                     />
                     <span
@@ -235,6 +248,7 @@ export default function InsightsFilters({
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}
+                      title={option.name}
                     >
                       {option.name}
                     </span>
@@ -257,8 +271,17 @@ export default function InsightsFilters({
         ) + 1
       : 0
 
+  const hasSelections =
+    selectedAccounts.length > 0 ||
+    selectedCampaigns.length > 0 ||
+    selectedAdSets.length > 0 ||
+    selectedAds.length > 0
+
+  const canGenerate = hasSelections && startDate && endDate && !loading
+
   return (
     <div
+      ref={dropdownRef}
       style={{
         padding: '1rem 1.5rem',
         backgroundColor: '#f9fafb',
@@ -275,19 +298,18 @@ export default function InsightsFilters({
         }}
       >
         <MultiSelectDropdown
-          label="Ad Accounts"
+          label="Conturi"
           name="accounts"
           options={accounts}
           selectedIds={selectedAccounts}
           onSelect={onSelectAccounts}
         />
         <MultiSelectDropdown
-          label="Campaigns"
+          label="Campanii"
           name="campaigns"
           options={campaigns}
           selectedIds={selectedCampaigns}
           onSelect={onSelectCampaigns}
-          disabled={selectedAccounts.length === 0}
         />
         <MultiSelectDropdown
           label="Ad Sets"
@@ -295,7 +317,6 @@ export default function InsightsFilters({
           options={adsets}
           selectedIds={selectedAdSets}
           onSelect={onSelectAdSets}
-          disabled={selectedCampaigns.length === 0}
         />
         <MultiSelectDropdown
           label="Ads"
@@ -303,7 +324,6 @@ export default function InsightsFilters({
           options={ads}
           selectedIds={selectedAds}
           onSelect={onSelectAds}
-          disabled={selectedAdSets.length === 0}
         />
       </div>
 
@@ -318,7 +338,7 @@ export default function InsightsFilters({
       >
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <label
-            style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}
+            style={{ fontSize: '0.875rem', color: '#374151', fontWeight: 600 }}
           >
             Start:
           </label>
@@ -331,13 +351,15 @@ export default function InsightsFilters({
               border: '1px solid #d1d5db',
               borderRadius: '6px',
               fontSize: '0.875rem',
+              color: '#1f2937',
+              fontWeight: 500,
             }}
           />
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <label
-            style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}
+            style={{ fontSize: '0.875rem', color: '#374151', fontWeight: 600 }}
           >
             End:
           </label>
@@ -350,6 +372,8 @@ export default function InsightsFilters({
               border: '1px solid #d1d5db',
               borderRadius: '6px',
               fontSize: '0.875rem',
+              color: '#1f2937',
+              fontWeight: 500,
             }}
           />
         </div>
@@ -369,95 +393,36 @@ export default function InsightsFilters({
           </span>
         )}
 
-        {/* Compare Mode Toggle */}
-        <div
+        {/* Generate Button */}
+        <button
+          onClick={onGenerate}
+          disabled={!canGenerate}
           style={{
             marginLeft: 'auto',
-            display: 'flex',
-            gap: '0.5rem',
-            alignItems: 'center',
+            padding: '0.625rem 1.5rem',
+            backgroundColor: canGenerate ? '#3b82f6' : '#d1d5db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: canGenerate ? 'pointer' : 'not-allowed',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            if (canGenerate) {
+              e.currentTarget.style.backgroundColor = '#2563eb'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (canGenerate) {
+              e.currentTarget.style.backgroundColor = '#3b82f6'
+            }
           }}
         >
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={compareMode}
-              onChange={(e) => onCompareModeChange(e.target.checked)}
-              style={{
-                width: '16px',
-                height: '16px',
-                cursor: 'pointer',
-                accentColor: '#3b82f6',
-              }}
-            />
-            <span style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}>
-              Compară cu altă perioadă
-            </span>
-          </label>
-        </div>
+          {loading ? 'Se încarcă...' : 'Generează Insights'}
+        </button>
       </div>
-
-      {/* Compare Period Row */}
-      {compareMode && (
-        <div
-          style={{
-            display: 'flex',
-            gap: '0.75rem',
-            alignItems: 'center',
-            marginTop: '0.75rem',
-            paddingTop: '0.75rem',
-            borderTop: '1px solid #e5e7eb',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '0.875rem',
-              color: '#6b7280',
-              fontWeight: 600,
-            }}
-          >
-            Perioadă de comparație:
-          </span>
-
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label
-              style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}
-            >
-              Start:
-            </label>
-            <input
-              type="date"
-              value={compareStartDate}
-              onChange={(e) => onCompareStartDateChange(e.target.value)}
-              style={{
-                padding: '0.5rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label
-              style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 500 }}
-            >
-              End:
-            </label>
-            <input
-              type="date"
-              value={compareEndDate}
-              onChange={(e) => onCompareEndDateChange(e.target.value)}
-              style={{
-                padding: '0.5rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

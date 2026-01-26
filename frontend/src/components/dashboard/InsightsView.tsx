@@ -36,9 +36,6 @@ export default function InsightsView({
   // Time range state
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [compareMode, setCompareMode] = useState(false)
-  const [compareStartDate, setCompareStartDate] = useState('')
-  const [compareEndDate, setCompareEndDate] = useState('')
 
   // Data state
   const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string }>>([])
@@ -67,38 +64,37 @@ export default function InsightsView({
     }
   }, [accountId])
 
-  // Load campaigns/adsets/ads options from selections
+  // Load ALL campaigns/adsets/ads options for the account
   useEffect(() => {
     const loadFilterOptions = async () => {
-      try {
-        // Load campaigns from selected campaigns
-        if (selectedCampaigns.length > 0) {
-          const result = await api.getClientCampaignsNew(accountId!)
-          const filteredCampaigns = result.campaigns.filter((c: any) =>
-            selectedCampaigns.includes(c.id)
-          )
-          setCampaigns(filteredCampaigns)
-        } else {
-          setCampaigns([])
-        }
+      if (!accountId) {
+        setCampaigns([])
+        setAdsets([])
+        setAds([])
+        return
+      }
 
-        // Load adsets from selected adsets
-        if (selectedAdSets.length > 0 && selectedCampaigns.length > 0) {
-          const result = await api.getClientAdSetsNew(selectedCampaigns)
-          const filteredAdSets = result.adsets.filter((a: any) =>
-            selectedAdSets.includes(a.id)
-          )
-          setAdsets(filteredAdSets)
+      try {
+        // Load ALL campaigns from the account
+        const campaignsResult = await api.getClientCampaignsNew(accountId)
+        setCampaigns(campaignsResult.campaigns || [])
+
+        // Load ALL adsets from all campaigns in this account
+        if (campaignsResult.campaigns && campaignsResult.campaigns.length > 0) {
+          const campaignIds = campaignsResult.campaigns.map((c: any) => c.id)
+          const adsetsResult = await api.getClientAdSetsNew(campaignIds)
+          setAdsets(adsetsResult.adsets || [])
+
+          // Load ALL ads from all adsets
+          if (adsetsResult.adsets && adsetsResult.adsets.length > 0) {
+            const adsetIds = adsetsResult.adsets.map((a: any) => a.id)
+            const adsResult = await api.getClientAdsNew(adsetIds)
+            setAds(adsResult.ads || [])
+          } else {
+            setAds([])
+          }
         } else {
           setAdsets([])
-        }
-
-        // Load ads from selected ads
-        if (selectedAds.length > 0 && selectedAdSets.length > 0) {
-          const result = await api.getClientAdsNew(selectedAdSets)
-          const filteredAds = result.ads.filter((a: any) => selectedAds.includes(a.id))
-          setAds(filteredAds)
-        } else {
           setAds([])
         }
       } catch (err) {
@@ -106,90 +102,70 @@ export default function InsightsView({
       }
     }
 
-    if (accountId) {
-      loadFilterOptions()
-    }
-  }, [accountId, selectedCampaigns, selectedAdSets, selectedAds])
+    loadFilterOptions()
+  }, [accountId])
 
-  // Load insights data when filters change
-  useEffect(() => {
-    const loadInsightsData = async () => {
-      // Verificăm dacă avem selecții
-      const hasSelections =
-        selectedAccounts.length > 0 ||
-        selectedFilterCampaigns.length > 0 ||
-        selectedFilterAdSets.length > 0 ||
-        selectedFilterAds.length > 0
+  // Manual generate function - only loads data when button is clicked
+  const handleGenerate = async () => {
+    // Verificăm dacă avem selecții
+    const hasSelections =
+      selectedAccounts.length > 0 ||
+      selectedFilterCampaigns.length > 0 ||
+      selectedFilterAdSets.length > 0 ||
+      selectedFilterAds.length > 0
 
-      if (!hasSelections || !startDate || !endDate) {
-        setTopPerformers(null)
-        setChartData([])
-        setChartEntities([])
-        return
-      }
-
-      setLoading(true)
-      try {
-        // Build entities list for API call
-        const entities: any[] = []
-
-        selectedAccounts.forEach((id) => {
-          const account = adAccounts.find((a) => a.id === id)
-          if (account) {
-            entities.push({ id, name: account.name, type: 'account' })
-          }
-        })
-
-        selectedFilterCampaigns.forEach((id) => {
-          const campaign = campaigns.find((c) => c.id === id)
-          if (campaign) {
-            entities.push({ id, name: campaign.name, type: 'campaign' })
-          }
-        })
-
-        selectedFilterAdSets.forEach((id) => {
-          const adset = adsets.find((a) => a.id === id)
-          if (adset) {
-            entities.push({ id, name: adset.name, type: 'adset' })
-          }
-        })
-
-        selectedFilterAds.forEach((id) => {
-          const ad = ads.find((a) => a.id === id)
-          if (ad) {
-            entities.push({ id, name: ad.name, type: 'ad' })
-          }
-        })
-
-        setChartEntities(entities)
-
-        // TODO: Real API call pentru insights
-        // Pentru moment, generăm date mock
-        const mockTopPerformers = generateMockTopPerformers(entities)
-        const mockChartData = generateMockChartData(entities, startDate, endDate)
-
-        setTopPerformers(mockTopPerformers)
-        setChartData(mockChartData)
-      } catch (err) {
-        console.error('Failed to load insights:', err)
-      } finally {
-        setLoading(false)
-      }
+    if (!hasSelections || !startDate || !endDate) {
+      return
     }
 
-    loadInsightsData()
-  }, [
-    selectedAccounts,
-    selectedFilterCampaigns,
-    selectedFilterAdSets,
-    selectedFilterAds,
-    startDate,
-    endDate,
-    adAccounts,
-    campaigns,
-    adsets,
-    ads,
-  ])
+    setLoading(true)
+    try {
+      // Build entities list for API call
+      const entities: any[] = []
+
+      selectedAccounts.forEach((id) => {
+        const account = adAccounts.find((a) => a.id === id)
+        if (account) {
+          entities.push({ id, name: account.name, type: 'account' })
+        }
+      })
+
+      selectedFilterCampaigns.forEach((id) => {
+        const campaign = campaigns.find((c) => c.id === id)
+        if (campaign) {
+          entities.push({ id, name: campaign.name, type: 'campaign' })
+        }
+      })
+
+      selectedFilterAdSets.forEach((id) => {
+        const adset = adsets.find((a) => a.id === id)
+        if (adset) {
+          entities.push({ id, name: adset.name, type: 'adset' })
+        }
+      })
+
+      selectedFilterAds.forEach((id) => {
+        const ad = ads.find((a) => a.id === id)
+        if (ad) {
+          entities.push({ id, name: ad.name, type: 'ad' })
+        }
+      })
+
+      setChartEntities(entities)
+
+      // TODO: Real API call pentru insights
+      // Pentru moment, generăm date mock
+      const mockTopPerformers = generateMockTopPerformers(entities)
+      const mockChartData = generateMockChartData(entities, startDate, endDate)
+
+      setTopPerformers(mockTopPerformers)
+      setChartData(mockChartData)
+    } catch (err) {
+      console.error('Failed to load insights:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Mock data generators (replace with real API calls)
   const generateMockTopPerformers = (entities: any[]) => {
@@ -330,12 +306,8 @@ export default function InsightsView({
         endDate={endDate}
         onStartDateChange={setStartDate}
         onEndDateChange={setEndDate}
-        compareMode={compareMode}
-        onCompareModeChange={setCompareMode}
-        compareStartDate={compareStartDate}
-        compareEndDate={compareEndDate}
-        onCompareStartDateChange={setCompareStartDate}
-        onCompareEndDateChange={setCompareEndDate}
+        onGenerate={handleGenerate}
+        loading={loading}
       />
 
       {loading && (
