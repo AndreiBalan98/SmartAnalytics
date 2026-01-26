@@ -46,7 +46,7 @@ export default function CenterPanel({
     }
 
     loadData()
-  }, [view, accountId, selectedCampaigns])
+  }, [view, accountId, selectedCampaigns, selectedAdSets])
 
   async function loadData() {
     if (!accountId) return
@@ -75,9 +75,14 @@ export default function CenterPanel({
           break
 
         case 'ads':
-          // Similar to ad sets
-          setData([])
-          setError('Select an ad set to view ads (feature coming soon)')
+          if (selectedAdSets.length === 0) {
+            setData([])
+            setError('Te rog selectează cel puțin un ad set pentru a vedea ads')
+            setLoading(false)
+            return
+          }
+          result = await api.getClientAdsNew(selectedAdSets)
+          setData(result.ads || [])
           break
 
         case 'creatives':
@@ -210,7 +215,14 @@ export default function CenterPanel({
             onSelectAdSets={onSelectAdSets}
           />
         )}
-        {view === 'ads' && <AdsTable ads={data} loading={loading} />}
+        {view === 'ads' && (
+          <AdsTable
+            ads={data}
+            loading={loading}
+            selectedAds={selectedAds}
+            onSelectAds={onSelectAds}
+          />
+        )}
         {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}
         {view === 'insights' && <InsightsView insights={data} loading={loading} />}
       </div>

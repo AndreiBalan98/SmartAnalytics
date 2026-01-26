@@ -664,10 +664,14 @@ export const api = {
   },
 
   /**
-   * Get ads for client by ad set ID
+   * Get ads for client by ad set IDs
    */
-  async getClientAdsNew(adsetId: string) {
-    const response = await fetchWithAuth(`/api/meta/client/ads/?adset_id=${adsetId}`)
+  async getClientAdsNew(adsetIds: string[]) {
+    if (adsetIds.length === 0) {
+      return { ads: [] }
+    }
+    const params = adsetIds.map(id => `adset_ids=${id}`).join('&')
+    const response = await fetchWithAuth(`/api/meta/client/ads/?${params}`)
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to fetch ads')

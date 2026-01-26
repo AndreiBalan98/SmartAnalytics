@@ -61,14 +61,25 @@ class AdSetSerializer(serializers.ModelSerializer):
 class AdSerializer(serializers.ModelSerializer):
     adset_name = serializers.CharField(source='adset.name', read_only=True)
     campaign_name = serializers.CharField(source='campaign.name', read_only=True)
+    creative_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Ad
         fields = [
             'id', 'adset', 'adset_name', 'campaign', 'campaign_name',
             'ad_account', 'name', 'status', 'effective_status',
-            'creative_id', 'created_at', 'updated_at'
+            'creative_id', 'creative_name', 'created_at', 'updated_at'
         ]
+
+    def get_creative_name(self, obj):
+        """Get creative name from AdCreative model"""
+        if not obj.creative_id:
+            return None
+        try:
+            creative = AdCreative.objects.get(id=obj.creative_id)
+            return creative.name
+        except AdCreative.DoesNotExist:
+            return None
 
 
 class AdCreativeSerializer(serializers.ModelSerializer):
