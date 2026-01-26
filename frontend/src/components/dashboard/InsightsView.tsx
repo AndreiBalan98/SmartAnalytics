@@ -19,6 +19,13 @@ interface SelectionItem {
   ad_account_id: string
 }
 
+interface SelectedEntity {
+  id: string
+  name: string
+  customStartDate?: string
+  customEndDate?: string
+}
+
 interface InsightsViewProps {
   selectedCampaigns: SelectionItem[]
   selectedAdSets: SelectionItem[]
@@ -32,11 +39,11 @@ export default function InsightsView({
   selectedAds,
   adAccounts,
 }: InsightsViewProps) {
-  // Filters state
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
-  const [selectedFilterCampaigns, setSelectedFilterCampaigns] = useState<string[]>([])
-  const [selectedFilterAdSets, setSelectedFilterAdSets] = useState<string[]>([])
-  const [selectedFilterAds, setSelectedFilterAds] = useState<string[]>([])
+  // Filters state - now using SelectedEntity with custom time ranges
+  const [selectedAccounts, setSelectedAccounts] = useState<SelectedEntity[]>([])
+  const [selectedFilterCampaigns, setSelectedFilterCampaigns] = useState<SelectedEntity[]>([])
+  const [selectedFilterAdSets, setSelectedFilterAdSets] = useState<SelectedEntity[]>([])
+  const [selectedFilterAds, setSelectedFilterAds] = useState<SelectedEntity[]>([])
 
   // Time range state
   const [startDate, setStartDate] = useState('')
@@ -107,35 +114,50 @@ export default function InsightsView({
 
     setLoading(true)
     try {
-      // Build entities list for API call
+      // Build entities list for API call with custom time ranges
       const entities: any[] = []
 
-      selectedAccounts.forEach((id) => {
-        const account = adAccounts.find((a) => a.id === id)
+      selectedAccounts.forEach((entity) => {
+        const account = adAccounts.find((a) => a.id === entity.id)
         if (account) {
-          entities.push({ id, name: account.name, type: 'account' })
+          entities.push({
+            id: entity.id,
+            name: entity.name,
+            type: 'account',
+            start_date: entity.customStartDate || startDate,
+            end_date: entity.customEndDate || endDate,
+          })
         }
       })
 
-      selectedFilterCampaigns.forEach((id) => {
-        const campaign = campaigns.find((c) => c.id === id)
-        if (campaign) {
-          entities.push({ id, name: campaign.name, type: 'campaign' })
-        }
+      selectedFilterCampaigns.forEach((entity) => {
+        entities.push({
+          id: entity.id,
+          name: entity.name,
+          type: 'campaign',
+          start_date: entity.customStartDate || startDate,
+          end_date: entity.customEndDate || endDate,
+        })
       })
 
-      selectedFilterAdSets.forEach((id) => {
-        const adset = adsets.find((a) => a.id === id)
-        if (adset) {
-          entities.push({ id, name: adset.name, type: 'adset' })
-        }
+      selectedFilterAdSets.forEach((entity) => {
+        entities.push({
+          id: entity.id,
+          name: entity.name,
+          type: 'adset',
+          start_date: entity.customStartDate || startDate,
+          end_date: entity.customEndDate || endDate,
+        })
       })
 
-      selectedFilterAds.forEach((id) => {
-        const ad = ads.find((a) => a.id === id)
-        if (ad) {
-          entities.push({ id, name: ad.name, type: 'ad' })
-        }
+      selectedFilterAds.forEach((entity) => {
+        entities.push({
+          id: entity.id,
+          name: entity.name,
+          type: 'ad',
+          start_date: entity.customStartDate || startDate,
+          end_date: entity.customEndDate || endDate,
+        })
       })
 
       setChartEntities(entities)
