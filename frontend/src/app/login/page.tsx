@@ -67,10 +67,10 @@ export default function UnifiedLoginPage() {
         <div className="card">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gradient mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gradient mb-2">
               ConversionDriven
             </h1>
-            <p className="text-slate-300 text-lg">
+            <p className="text-slate-300 text-base sm:text-lg">
               Autentificare
             </p>
           </div>
@@ -140,7 +140,7 @@ export default function UnifiedLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Se conectează...' : 'Conectează-te'}
             </button>

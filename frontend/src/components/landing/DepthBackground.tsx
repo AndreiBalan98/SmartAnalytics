@@ -1,10 +1,21 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 export default function DepthBackground() {
-  // Generate random positions for particles
-  const particles = Array.from({ length: 50 }, (_, i) => ({
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Generate random positions for particles (reduced on mobile for performance)
+  const particleCount = isMobile ? 20 : 50;
+  const particles = Array.from({ length: particleCount }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,

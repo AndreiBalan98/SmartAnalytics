@@ -64,7 +64,7 @@ export default function HeroSection() {
             />
 
             {/* Main badge content */}
-            <span className="relative px-4 py-2 bg-electric-blue/10 border border-electric-blue/30 rounded-full text-electric-blue text-sm font-medium inline-block backdrop-blur-sm shadow-[0_0_20px_rgba(0,212,255,0.3)]">
+            <span className="relative px-3 sm:px-4 py-1.5 sm:py-2 bg-electric-blue/10 border border-electric-blue/30 rounded-full text-electric-blue text-xs sm:text-sm font-medium inline-block backdrop-blur-sm shadow-[0_0_20px_rgba(0,212,255,0.3)]">
               AI-powered conversion tracking
             </span>
           </motion.div>
@@ -74,7 +74,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-5xl md:text-7xl font-bold text-white leading-tight"
+            className="text-3xl sm:text-5xl md:text-7xl font-bold text-white leading-tight"
           >
             <span className="text-gradient glow-text">ConversionDriven</span>
           </motion.h1>
@@ -84,7 +84,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="text-xl md:text-2xl text-slate-200 max-w-3xl mx-auto leading-relaxed"
+            className="text-base sm:text-xl md:text-2xl text-slate-200 max-w-3xl mx-auto leading-relaxed px-4"
           >
             Înțelege exact de unde provin conversiile tale.
             Atribuire precisă, tracking server-side și insights bazate pe AI pentru decizii mai bune.
