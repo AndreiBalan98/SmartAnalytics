@@ -84,9 +84,8 @@ export default function LeftPanel({
   }
 
   return (
-    <div style={{
-      width: '280px',
-      borderRight: '1px solid #e5e7eb',
+    <div className="scrollbar-hidden" style={{
+      height: '100%',
       backgroundColor: '#f9fafb',
       overflowY: 'auto',
     }}>
@@ -144,7 +143,8 @@ export default function LeftPanel({
                     fontSize: '0.875rem',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
                   }}>
                     {account.name}
                   </span>

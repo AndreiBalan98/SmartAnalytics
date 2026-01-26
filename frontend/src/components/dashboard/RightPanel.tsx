@@ -48,9 +48,8 @@ export default function RightPanel({
   ]
 
   return (
-    <div style={{
-      width: '240px',
-      borderLeft: '1px solid #e5e7eb',
+    <div className="scrollbar-hidden" style={{
+      height: '100%',
       backgroundColor: '#f9fafb',
       padding: '1rem',
       overflowY: 'auto',

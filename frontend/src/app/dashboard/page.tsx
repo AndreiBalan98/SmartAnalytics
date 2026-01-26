@@ -79,20 +79,24 @@ export default function ClientDashboard() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
       backgroundColor: '#f9fafb',
       display: 'flex',
       flexDirection: 'column',
+      overflow: 'hidden',
     }}>
-      {/* Header */}
+      {/* PARTEA 1: Header - 10% înălțime cu min/max */}
       <header style={{
+        height: 'clamp(60px, 10vh, 80px)',
         backgroundColor: 'white',
         borderBottom: '1px solid #e5e7eb',
-        padding: '1rem 2rem',
+        padding: '0 2rem',
+        display: 'flex',
+        alignItems: 'center',
+        flexShrink: 0,
       }}>
         <div style={{
-          maxWidth: '1600px',
-          margin: '0 auto',
+          width: '100%',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -100,7 +104,7 @@ export default function ClientDashboard() {
           <div>
             <h1 style={{
               margin: 0,
-              fontSize: '1.5rem',
+              fontSize: '1.25rem',
               fontWeight: 700,
               color: '#1f2937',
             }}>
@@ -108,7 +112,7 @@ export default function ClientDashboard() {
             </h1>
             <p style={{
               margin: '0.25rem 0 0 0',
-              fontSize: '0.875rem',
+              fontSize: '0.75rem',
               color: '#6b7280',
             }}>
               {user.first_name} {user.last_name} • {user.email}
@@ -140,108 +144,117 @@ export default function ClientDashboard() {
         </div>
       </header>
 
-      {/* Platform Tabs */}
+      {/* PARTEA 2: Platform Tabs - 5% înălțime cu min/max */}
       <div style={{
+        height: 'clamp(40px, 5vh, 60px)',
         backgroundColor: 'white',
         borderBottom: '1px solid #e5e7eb',
         padding: '0 2rem',
+        display: 'flex',
+        alignItems: 'center',
+        flexShrink: 0,
       }}>
         <div style={{
-          maxWidth: '1600px',
-          margin: '0 auto',
           display: 'flex',
           gap: '1rem',
+          height: '100%',
+          alignItems: 'center',
         }}>
           <button
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.5rem 1rem',
               backgroundColor: selectedPlatform === 'meta' ? '#3b82f6' : 'transparent',
               color: selectedPlatform === 'meta' ? 'white' : '#6b7280',
               border: 'none',
-              borderBottom: selectedPlatform === 'meta' ? '3px solid #2563eb' : '3px solid transparent',
+              borderBottom: selectedPlatform === 'meta' ? '2px solid #2563eb' : '2px solid transparent',
               cursor: 'pointer',
-              fontSize: '0.875rem',
+              fontSize: '0.8125rem',
               fontWeight: 600,
               transition: 'all 0.2s',
+              height: '100%',
             }}
           >
             Meta Ads
           </button>
           <button
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.5rem 1rem',
               backgroundColor: 'transparent',
               color: '#d1d5db',
               border: 'none',
-              borderBottom: '3px solid transparent',
+              borderBottom: '2px solid transparent',
               cursor: 'not-allowed',
-              fontSize: '0.875rem',
+              fontSize: '0.8125rem',
               fontWeight: 600,
+              height: '100%',
             }}
             disabled
           >
-            Google Ads <span style={{ fontSize: '0.75rem' }}>(Soon)</span>
+            Google Ads <span style={{ fontSize: '0.7rem' }}>(Soon)</span>
           </button>
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error Message (if any) */}
       {error && (
         <div style={{
-          maxWidth: '1600px',
-          margin: '1rem auto',
-          padding: '0 2rem',
-          width: '100%',
+          padding: '0.75rem 2rem',
+          backgroundColor: '#fef2f2',
+          borderBottom: '1px solid #fecaca',
+          color: '#991b1b',
+          fontSize: '0.875rem',
         }}>
-          <div style={{
-            padding: '1rem',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            color: '#991b1b',
-            fontSize: '0.875rem',
-          }}>
-            {error}
-          </div>
+          {error}
         </div>
       )}
 
-      {/* 3-Panel Layout */}
+      {/* PARTEA 3: Trei Panele - 85% (restul înălțimii) */}
       <div style={{
         flex: 1,
         display: 'flex',
-        maxWidth: '1600px',
-        width: '100%',
-        margin: '0 auto',
-        backgroundColor: 'white',
-        borderRadius: '12px',
         overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        marginTop: '1rem',
-        marginBottom: '1rem',
-        marginLeft: '2rem',
-        marginRight: '2rem',
       }}>
-        {/* Left Panel - Ad Accounts */}
-        <LeftPanel
-          accounts={adAccounts}
-          selectedAccount={selectedAccount}
-          onSelectAccount={setSelectedAccount}
-          loading={loading}
-        />
+        {/* Left Panel - 12.5% cu min 220px, max 300px */}
+        <div style={{
+          width: '12.5%',
+          minWidth: '220px',
+          maxWidth: '300px',
+          backgroundColor: 'white',
+          borderRight: '1px solid #e5e7eb',
+        }}>
+          <LeftPanel
+            accounts={adAccounts}
+            selectedAccount={selectedAccount}
+            onSelectAccount={setSelectedAccount}
+            loading={loading}
+          />
+        </div>
 
-        {/* Center Panel - Data Display */}
-        <CenterPanel
-          view={selectedView}
-          accountId={selectedAccount}
-        />
+        {/* Center Panel - 75% (flex: 1 ia spațiul rămas) */}
+        <div style={{
+          flex: 1,
+          backgroundColor: '#f9fafb',
+        }}>
+          <CenterPanel
+            view={selectedView}
+            accountId={selectedAccount}
+          />
+        </div>
 
-        {/* Right Panel - Navigation */}
-        <RightPanel
-          selectedView={selectedView}
-          onSelectView={setSelectedView}
-          disabled={!selectedAccount}
-        />
+        {/* Right Panel - 12.5% cu min 200px, max 280px */}
+        <div style={{
+          width: '12.5%',
+          minWidth: '200px',
+          maxWidth: '280px',
+          backgroundColor: 'white',
+          borderLeft: '1px solid #e5e7eb',
+        }}>
+          <RightPanel
+            selectedView={selectedView}
+            onSelectView={setSelectedView}
+            disabled={!selectedAccount}
+          />
+        </div>
       </div>
     </div>
   )

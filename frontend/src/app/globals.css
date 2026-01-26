@@ -55,4 +55,14 @@
   .glow-text {
     text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
   }
+
+  /* Hidden scrollbars for dashboard panels */
+  .scrollbar-hidden {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
+  }
 }

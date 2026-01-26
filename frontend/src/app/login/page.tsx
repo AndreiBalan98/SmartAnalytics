@@ -52,21 +52,21 @@ export default function UnifiedLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy-gradient flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-navy-gradient flex items-center justify-center px-4 sm:px-6 py-12">
+      <div className="w-full max-w-[500px]">
         {/* Back to home link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-electric-blue transition-colors duration-200 mb-8"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-electric-blue transition-colors duration-200 mb-4 sm:mb-8 text-sm sm:text-base"
         >
           <span>←</span>
           <span>Înapoi la pagina principală</span>
         </Link>
 
         {/* Login Card */}
-        <div className="card">
+        <div className="card p-4 sm:p-6">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-gradient mb-2">
               ConversionDriven
             </h1>
@@ -76,7 +76,7 @@ export default function UnifiedLoginPage() {
           </div>
 
           {/* Info Notice */}
-          <div className="mb-6 p-4 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+          <div className="mb-5 sm:mb-6 p-3 sm:p-4 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
             <p className="text-electric-blue text-sm leading-relaxed">
               ℹ️ Conturile trebuie create de către agenție pentru a avea acces.
               Nu se pot crea conturi noi independent.
@@ -84,7 +84,7 @@ export default function UnifiedLoginPage() {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Email Field */}
             <div>
               <label

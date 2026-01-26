@@ -148,20 +148,23 @@ export default function CenterPanel({ view, accountId }: CenterPanelProps) {
   }
 
   return (
-    <div style={{
-      flex: 1,
+    <div className="scrollbar-hidden" style={{
+      height: '100%',
       backgroundColor: 'white',
-      overflow: 'auto',
+      overflowY: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      {/* Header */}
+      {/* Header - reducere înălțime */}
       <div style={{
-        padding: '1.5rem',
+        padding: '0.75rem 1.5rem',
         borderBottom: '1px solid #e5e7eb',
         backgroundColor: '#f9fafb',
+        flexShrink: 0,
       }}>
         <h2 style={{
           margin: 0,
-          fontSize: '1.25rem',
+          fontSize: '1.125rem',
           fontWeight: 600,
           color: '#1f2937',
           textTransform: 'capitalize',
@@ -171,7 +174,7 @@ export default function CenterPanel({ view, accountId }: CenterPanelProps) {
       </div>
 
       {/* Content */}
-      <div>
+      <div style={{ flex: 1, overflow: 'auto' }} className="scrollbar-hidden">
         {view === 'campaigns' && <CampaignsTable campaigns={data} loading={loading} />}
         {view === 'adsets' && <AdSetsTable adsets={data} loading={loading} />}
         {view === 'ads' && <AdsTable ads={data} loading={loading} />}
