@@ -144,15 +144,10 @@ export default function DepthBackground() {
       {shootingStars.map((star) => (
         <motion.div
           key={star.id}
-          className="absolute"
+          className="absolute pointer-events-none"
           style={{
             left: `${star.startX}%`,
             top: `${star.startY}%`,
-            width: '3px',
-            height: '3px',
-            borderRadius: '50%',
-            backgroundColor: '#00d4ff',
-            boxShadow: '0 0 10px 2px rgba(0, 212, 255, 0.8), 0 0 20px 4px rgba(0, 212, 255, 0.4)',
           }}
           initial={{
             opacity: 0,
@@ -161,32 +156,60 @@ export default function DepthBackground() {
           }}
           animate={{
             opacity: [0, 1, 1, 0],
-            x: [0, 200, 300],
-            y: [0, 150, 200],
+            x: 250,
+            y: 180,
           }}
           transition={{
-            duration: 1.5,
-            ease: 'easeOut',
-            times: [0, 0.1, 0.5, 1],
+            duration: 1.2,
+            ease: [0.4, 0, 0.2, 1],
+            opacity: {
+              duration: 1.2,
+              times: [0, 0.1, 0.8, 1],
+            },
           }}
         >
-          {/* Shooting star trail */}
-          <motion.div
-            className="absolute"
+          {/* Star head with glow */}
+          <div
             style={{
-              width: '60px',
-              height: '2px',
-              background: 'linear-gradient(90deg, rgba(0, 212, 255, 0.8) 0%, rgba(0, 212, 255, 0) 100%)',
-              transformOrigin: 'left center',
-              left: '-60px',
-              top: '50%',
-              transform: 'translateY(-50%) rotate(-30deg)',
+              width: '4px',
+              height: '4px',
+              borderRadius: '50%',
+              backgroundColor: '#ffffff',
+              boxShadow: `
+                0 0 6px 2px rgba(0, 212, 255, 1),
+                0 0 12px 4px rgba(0, 212, 255, 0.8),
+                0 0 20px 6px rgba(0, 212, 255, 0.4)
+              `,
             }}
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: [0, 1, 0] }}
-            transition={{
-              duration: 1.5,
-              ease: 'easeOut',
+          />
+
+          {/* Trail effect using gradient box with blur */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '2px',
+              right: '4px',
+              width: '80px',
+              height: '2px',
+              background: 'linear-gradient(to right, rgba(255, 255, 255, 0.9), rgba(0, 212, 255, 0.6), rgba(0, 212, 255, 0.3), transparent)',
+              filter: 'blur(1px)',
+              transformOrigin: 'left center',
+              transform: 'rotate(-35deg)',
+            }}
+          />
+
+          {/* Additional subtle trail for more depth */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '2px',
+              right: '4px',
+              width: '60px',
+              height: '3px',
+              background: 'linear-gradient(to right, rgba(0, 212, 255, 0.5), rgba(0, 212, 255, 0.2), transparent)',
+              filter: 'blur(2px)',
+              transformOrigin: 'left center',
+              transform: 'rotate(-35deg)',
             }}
           />
         </motion.div>
