@@ -76,7 +76,7 @@ export default function InsightsView({
   //   }
   // }, [accountId])
 
-  // Load ALL campaigns/adsets/ads options for the account
+  // Load campaigns/adsets/ads based on selections from main dashboard
   useEffect(() => {
     const loadFilterOptions = async () => {
       if (!accountId) {
@@ -87,26 +87,36 @@ export default function InsightsView({
       }
 
       try {
-        // Load ALL campaigns from the account
-        const campaignsResult = await api.getClientCampaignsNew(accountId)
-        setCampaigns(campaignsResult.campaigns || [])
+        // Load campaigns - show only selected campaigns from main dashboard
+        if (selectedCampaigns.length > 0) {
+          const campaignsResult = await api.getClientCampaignsNew(accountId)
+          const filteredCampaigns = (campaignsResult.campaigns || []).filter((c: any) =>
+            selectedCampaigns.includes(c.id)
+          )
+          setCampaigns(filteredCampaigns)
+        } else {
+          setCampaigns([])
+        }
 
-        // Load ALL adsets from all campaigns in this account
-        if (campaignsResult.campaigns && campaignsResult.campaigns.length > 0) {
-          const campaignIds = campaignsResult.campaigns.map((c: any) => c.id)
-          const adsetsResult = await api.getClientAdSetsNew(campaignIds)
-          setAdsets(adsetsResult.adsets || [])
-
-          // Load ALL ads from all adsets
-          if (adsetsResult.adsets && adsetsResult.adsets.length > 0) {
-            const adsetIds = adsetsResult.adsets.map((a: any) => a.id)
-            const adsResult = await api.getClientAdsNew(adsetIds)
-            setAds(adsResult.ads || [])
-          } else {
-            setAds([])
-          }
+        // Load adsets - show only selected adsets from main dashboard
+        if (selectedAdSets.length > 0 && selectedCampaigns.length > 0) {
+          const adsetsResult = await api.getClientAdSetsNew(selectedCampaigns)
+          const filteredAdsets = (adsetsResult.adsets || []).filter((a: any) =>
+            selectedAdSets.includes(a.id)
+          )
+          setAdsets(filteredAdsets)
         } else {
           setAdsets([])
+        }
+
+        // Load ads - show only selected ads from main dashboard
+        if (selectedAds.length > 0 && selectedAdSets.length > 0) {
+          const adsResult = await api.getClientAdsNew(selectedAdSets)
+          const filteredAds = (adsResult.ads || []).filter((a: any) =>
+            selectedAds.includes(a.id)
+          )
+          setAds(filteredAds)
+        } else {
           setAds([])
         }
       } catch (err) {
@@ -115,7 +125,7 @@ export default function InsightsView({
     }
 
     loadFilterOptions()
-  }, [accountId])
+  }, [accountId, selectedCampaigns, selectedAdSets, selectedAds])
 
   // Manual generate function - only loads data when button is clicked
   const handleGenerate = async () => {

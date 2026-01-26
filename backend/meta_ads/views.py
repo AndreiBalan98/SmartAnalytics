@@ -523,6 +523,49 @@ def client_insights_aggregate(request):
             ).values_list('level', flat=True).distinct()
             logger.warning(f"No insights found. Available levels for {entity_id}: {list(existing_levels)}")
 
+            # Check if ANY insights exist for this ad_account in the date range
+            # Determine ad_account_id based on entity type
+            if entity_type == 'account':
+                check_account_id = entity_id
+            else:
+                # For other types, we need to find the ad_account_id
+                # This is a diagnostic query only
+                check_account_id = None
+                if entity_type == 'campaign':
+                    try:
+                        campaign = Campaign.objects.get(id=entity_id)
+                        check_account_id = campaign.ad_account_id
+                    except Campaign.DoesNotExist:
+                        logger.error(f"Campaign {entity_id} not found in database")
+                elif entity_type == 'adset':
+                    try:
+                        adset = AdSet.objects.get(id=entity_id)
+                        check_account_id = adset.campaign.ad_account_id if adset.campaign else None
+                    except AdSet.DoesNotExist:
+                        logger.error(f"AdSet {entity_id} not found in database")
+                elif entity_type == 'ad':
+                    try:
+                        ad = Ad.objects.get(id=entity_id)
+                        check_account_id = ad.ad_set.campaign.ad_account_id if ad.ad_set and ad.ad_set.campaign else None
+                    except Ad.DoesNotExist:
+                        logger.error(f"Ad {entity_id} not found in database")
+
+            if check_account_id:
+                account_insights_count = Insight.objects.filter(
+                    ad_account_id=check_account_id,
+                    level=level,
+                    date_start__gte=start_date,
+                    date_stop__lte=end_date
+                ).count()
+                logger.warning(f"Total {level} insights for account {check_account_id} in date range: {account_insights_count}")
+
+                # Sample some object_ids that DO exist
+                sample_ids = Insight.objects.filter(
+                    ad_account_id=check_account_id,
+                    level=level
+                ).values_list('object_id', flat=True).distinct()[:5]
+                logger.warning(f"Sample {level} object_ids in database: {list(sample_ids)}")
+
         # Verify permission (check account access)
         if insights.exists():
             first_insight = insights.first()
