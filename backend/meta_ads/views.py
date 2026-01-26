@@ -540,13 +540,13 @@ def client_insights_aggregate(request):
                 elif entity_type == 'adset':
                     try:
                         adset = AdSet.objects.get(id=entity_id)
-                        check_account_id = adset.campaign.ad_account_id if adset.campaign else None
+                        check_account_id = adset.ad_account_id
                     except AdSet.DoesNotExist:
                         logger.error(f"AdSet {entity_id} not found in database")
                 elif entity_type == 'ad':
                     try:
                         ad = Ad.objects.get(id=entity_id)
-                        check_account_id = ad.ad_set.campaign.ad_account_id if ad.ad_set and ad.ad_set.campaign else None
+                        check_account_id = ad.ad_account_id
                     except Ad.DoesNotExist:
                         logger.error(f"Ad {entity_id} not found in database")
 
