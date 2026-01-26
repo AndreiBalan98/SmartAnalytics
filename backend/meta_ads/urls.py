@@ -16,4 +16,5 @@ urlpatterns = [
     path('client/ads/', views.client_ads, name='meta_client_ads'),
     path('client/creatives/', views.client_creatives, name='meta_client_creatives'),
     path('client/insights/', views.client_insights, name='meta_client_insights'),
+    path('client/insights/aggregate/', views.client_insights_aggregate, name='meta_client_insights_aggregate'),
 ]

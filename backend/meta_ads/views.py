@@ -418,6 +418,203 @@ def client_insights(request):
     })
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def client_insights_aggregate(request):
+    """
+    Generate insights for multiple entities (accounts, campaigns, adsets, ads)
+    Request body:
+    {
+        "entities": [
+            {"id": "act_123", "type": "account", "name": "Account Name"},
+            {"id": "123456", "type": "campaign", "name": "Campaign Name"},
+            ...
+        ],
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-31"
+    }
+    """
+    user = request.user
+
+    if user.user_type != 'client':
+        return Response(
+            {'error': 'Only clients can access this endpoint'},
+            status=http_status.HTTP_403_FORBIDDEN
+        )
+
+    entities = request.data.get('entities', [])
+    start_date_str = request.data.get('start_date')
+    end_date_str = request.data.get('end_date')
+
+    if not entities:
+        return Response(
+            {'error': 'entities parameter required'},
+            status=http_status.HTTP_400_BAD_REQUEST
+        )
+
+    if not start_date_str or not end_date_str:
+        return Response(
+            {'error': 'start_date and end_date parameters required'},
+            status=http_status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        start_date = date.fromisoformat(start_date_str)
+        end_date = date.fromisoformat(end_date_str)
+    except ValueError:
+        return Response(
+            {'error': 'Invalid date format. Use YYYY-MM-DD'},
+            status=http_status.HTTP_400_BAD_REQUEST
+        )
+
+    # Verify permissions for all entities
+    try:
+        agency_user = AgencyUser.objects.get(user=user)
+        allowed_accounts = agency_user.permissions.get('meta_accounts', [])
+    except AgencyUser.DoesNotExist:
+        return Response(
+            {'error': 'User is not associated with an agency'},
+            status=http_status.HTTP_403_FORBIDDEN
+        )
+
+    # Process each entity and aggregate insights
+    entity_totals = []
+    chart_data = {}  # {date: {entity_id_metric: value}}
+
+    for entity in entities:
+        entity_id = entity.get('id')
+        entity_type = entity.get('type')
+        entity_name = entity.get('name', entity_id)
+
+        if not entity_id or not entity_type:
+            continue
+
+        # Map frontend type to database level
+        level_map = {
+            'account': 'account',
+            'campaign': 'campaign',
+            'adset': 'adset',
+            'ad': 'ad'
+        }
+        level = level_map.get(entity_type)
+
+        if not level:
+            continue
+
+        # Query insights for this entity
+        insights = Insight.objects.filter(
+            level=level,
+            object_id=entity_id,
+            date_start__gte=start_date,
+            date_stop__lte=end_date
+        )
+
+        # Verify permission (check account access)
+        if insights.exists():
+            first_insight = insights.first()
+            if first_insight.ad_account_id not in allowed_accounts:
+                return Response(
+                    {'error': f'Permission denied for entity {entity_id}'},
+                    status=http_status.HTTP_403_FORBIDDEN
+                )
+
+        # Aggregate totals
+        total_spend = 0
+        total_impressions = 0
+        total_clicks = 0
+        total_reach = 0
+
+        for insight in insights:
+            metrics = insight.metrics or {}
+
+            # Parse metrics (handle both string and numeric values)
+            spend = float(metrics.get('spend', 0) or 0)
+            impressions = int(float(metrics.get('impressions', 0) or 0))
+            clicks = int(float(metrics.get('clicks', 0) or 0))
+            reach = int(float(metrics.get('reach', 0) or 0))
+
+            total_spend += spend
+            total_impressions += impressions
+            total_clicks += clicks
+            total_reach += reach
+
+            # Add to chart data
+            date_key = str(insight.date_start)
+            if date_key not in chart_data:
+                chart_data[date_key] = {'date': date_key}
+
+            chart_data[date_key][f'spend_{entity_id}'] = chart_data[date_key].get(f'spend_{entity_id}', 0) + spend
+            chart_data[date_key][f'impressions_{entity_id}'] = chart_data[date_key].get(f'impressions_{entity_id}', 0) + impressions
+            chart_data[date_key][f'clicks_{entity_id}'] = chart_data[date_key].get(f'clicks_{entity_id}', 0) + clicks
+            chart_data[date_key][f'reach_{entity_id}'] = chart_data[date_key].get(f'reach_{entity_id}', 0) + reach
+
+        # Calculate derived metrics
+        ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
+        cpc = (total_spend / total_clicks) if total_clicks > 0 else 0
+        cpm = (total_spend / total_impressions * 1000) if total_impressions > 0 else 0
+
+        # Add derived metrics to chart data
+        for date_key in chart_data:
+            if f'impressions_{entity_id}' in chart_data[date_key]:
+                impr = chart_data[date_key][f'impressions_{entity_id}']
+                clk = chart_data[date_key][f'clicks_{entity_id}']
+                spnd = chart_data[date_key][f'spend_{entity_id}']
+
+                chart_data[date_key][f'ctr_{entity_id}'] = (clk / impr * 100) if impr > 0 else 0
+                chart_data[date_key][f'cpc_{entity_id}'] = (spnd / clk) if clk > 0 else 0
+                chart_data[date_key][f'cpm_{entity_id}'] = (spnd / impr * 1000) if impr > 0 else 0
+
+        entity_totals.append({
+            'entityId': entity_id,
+            'entityName': entity_name,
+            'entityType': entity_type,
+            'spend': total_spend,
+            'impressions': total_impressions,
+            'clicks': total_clicks,
+            'reach': total_reach,
+            'ctr': ctr,
+            'cpc': cpc,
+            'cpm': cpm,
+        })
+
+    # Sort and extract top performers
+    top_spend = sorted(entity_totals, key=lambda x: x['spend'], reverse=True)[:5]
+    top_impressions = sorted(entity_totals, key=lambda x: x['impressions'], reverse=True)[:5]
+    top_clicks = sorted(entity_totals, key=lambda x: x['clicks'], reverse=True)[:5]
+    top_reach = sorted(entity_totals, key=lambda x: x['reach'], reverse=True)[:5]
+    top_ctr = sorted(entity_totals, key=lambda x: x['ctr'], reverse=True)[:5]
+    top_cpc = sorted(entity_totals, key=lambda x: x['cpc'], reverse=True)[:5]
+    top_cpm = sorted(entity_totals, key=lambda x: x['cpm'], reverse=True)[:5]
+
+    # Format top performers
+    def format_top(items, value_key):
+        return [
+            {
+                'entityId': item['entityId'],
+                'entityName': item['entityName'],
+                'entityType': item['entityType'],
+                'value': item[value_key]
+            }
+            for item in items
+        ]
+
+    # Convert chart_data dict to sorted list
+    chart_data_list = sorted(chart_data.values(), key=lambda x: x['date'])
+
+    return Response({
+        'topPerformers': {
+            'topSpend': format_top(top_spend, 'spend'),
+            'topImpressions': format_top(top_impressions, 'impressions'),
+            'topClicks': format_top(top_clicks, 'clicks'),
+            'topReach': format_top(top_reach, 'reach'),
+            'topCTR': format_top(top_ctr, 'ctr'),
+            'topCPC': format_top(top_cpc, 'cpc'),
+            'topCPM': format_top(top_cpm, 'cpm'),
+        },
+        'chartData': chart_data_list
+    })
+
+
 # ===== HELPER FUNCTIONS =====
 
 def _has_account_permission(user, account_id):

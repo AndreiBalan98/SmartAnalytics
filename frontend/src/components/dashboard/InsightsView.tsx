@@ -153,114 +153,23 @@ export default function InsightsView({
 
       setChartEntities(entities)
 
-      // TODO: Real API call pentru insights
-      // Pentru moment, generăm date mock
-      const mockTopPerformers = generateMockTopPerformers(entities)
-      const mockChartData = generateMockChartData(entities, startDate, endDate)
+      // Real API call pentru insights
+      const result = await api.getClientInsightsAggregate({
+        entities,
+        start_date: startDate,
+        end_date: endDate,
+      })
 
-      setTopPerformers(mockTopPerformers)
-      setChartData(mockChartData)
-    } catch (err) {
+      setTopPerformers(result.topPerformers)
+      setChartData(result.chartData)
+    } catch (err: any) {
       console.error('Failed to load insights:', err)
+      alert(`Eroare la încărcarea insights-urilor: ${err.message}`)
     } finally {
       setLoading(false)
     }
   }
 
-  // Mock data generators (replace with real API calls)
-  const generateMockTopPerformers = (entities: any[]) => {
-    const shuffle = (array: any[]) => [...array].sort(() => Math.random() - 0.5)
-
-    return {
-      topSpend: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.random() * 1000 * (5 - i),
-        })),
-      topImpressions: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.floor(Math.random() * 50000 * (5 - i)),
-        })),
-      topClicks: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.floor(Math.random() * 2000 * (5 - i)),
-        })),
-      topReach: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.floor(Math.random() * 30000 * (5 - i)),
-        })),
-      topCTR: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.random() * 5 * (5 - i),
-        })),
-      topCPC: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.random() * 3 * (5 - i),
-        })),
-      topCPM: shuffle(entities)
-        .slice(0, 5)
-        .map((e, i) => ({
-          entityId: e.id,
-          entityName: e.name,
-          entityType: e.type,
-          value: Math.random() * 50 * (5 - i),
-        })),
-    }
-  }
-
-  const generateMockChartData = (entities: any[], start: string, end: string) => {
-    const days = Math.ceil(
-      (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)
-    )
-
-    const data = []
-    for (let i = 0; i <= days; i++) {
-      const date = new Date(start)
-      date.setDate(date.getDate() + i)
-
-      const dataPoint: any = {
-        date: date.toISOString().split('T')[0],
-      }
-
-      entities.forEach((entity) => {
-        const baseMultiplier = entity.type === 'account' ? 1 : entity.type === 'campaign' ? 0.7 : 0.5
-        dataPoint[`spend_${entity.id}`] = Math.random() * 100 * baseMultiplier
-        dataPoint[`impressions_${entity.id}`] = Math.floor(Math.random() * 5000 * baseMultiplier)
-        dataPoint[`clicks_${entity.id}`] = Math.floor(Math.random() * 100 * baseMultiplier)
-        dataPoint[`reach_${entity.id}`] = Math.floor(Math.random() * 3000 * baseMultiplier)
-        dataPoint[`ctr_${entity.id}`] = Math.random() * 5
-        dataPoint[`cpc_${entity.id}`] = Math.random() * 2
-        dataPoint[`cpm_${entity.id}`] = Math.random() * 50
-      })
-
-      data.push(dataPoint)
-    }
-
-    return data
-  }
 
   if (!accountId) {
     return (

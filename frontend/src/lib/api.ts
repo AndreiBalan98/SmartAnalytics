@@ -718,6 +718,30 @@ export const api = {
     }
     return response.json()
   },
+
+  /**
+   * Get aggregated insights for multiple entities
+   */
+  async getClientInsightsAggregate(params: {
+    entities: Array<{ id: string; type: string; name: string }>
+    start_date: string
+    end_date: string
+  }) {
+    const response = await fetchWithAuth('/api/meta/client/insights/aggregate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to fetch aggregated insights')
+    }
+
+    return response.json()
+  },
 }
 
 export { API_URL }
