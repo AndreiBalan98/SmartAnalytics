@@ -17,9 +17,35 @@ interface Campaign {
 interface CampaignsTableProps {
   campaigns: Campaign[]
   loading?: boolean
+  selectedCampaigns: string[]
+  onSelectCampaigns: (campaigns: string[]) => void
 }
 
-export default function CampaignsTable({ campaigns, loading = false }: CampaignsTableProps) {
+export default function CampaignsTable({
+  campaigns,
+  loading = false,
+  selectedCampaigns,
+  onSelectCampaigns,
+}: CampaignsTableProps) {
+  // Handler pentru toggle individual campaign
+  const toggleCampaign = (campaignId: string) => {
+    if (selectedCampaigns.includes(campaignId)) {
+      onSelectCampaigns(selectedCampaigns.filter(id => id !== campaignId))
+    } else {
+      onSelectCampaigns([...selectedCampaigns, campaignId])
+    }
+  }
+
+  // Handler pentru select all
+  const toggleSelectAll = () => {
+    if (selectedCampaigns.length === campaigns.length) {
+      onSelectCampaigns([])
+    } else {
+      onSelectCampaigns(campaigns.map(c => c.id))
+    }
+  }
+
+  const allSelected = campaigns.length > 0 && selectedCampaigns.length === campaigns.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -53,56 +79,77 @@ export default function CampaignsTable({ campaigns, loading = false }: Campaigns
             backgroundColor: '#f9fafb',
             borderBottom: '2px solid #e5e7eb',
           }}>
-            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-              Campaign Name
-            </th>
-            <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-              Objective
+            <th style={{ padding: '0.75rem', width: '50px', textAlign: 'center' }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  cursor: 'pointer',
+                  accentColor: '#3b82f6',
+                }}
+              />
             </th>
             <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
               Status
             </th>
             <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-              Buying Type
+              Nume Campaign
             </th>
             <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-              Campaign ID
+              Obiectiv
             </th>
           </tr>
         </thead>
         <tbody>
-          {campaigns.map((campaign, index) => (
-            <tr
-              key={campaign.id}
-              style={{
-                borderBottom: '1px solid #e5e7eb',
-                backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
-                transition: 'background-color 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#f9fafb'
-              }}
-            >
-              <td style={{ padding: '0.75rem', fontWeight: 500 }}>
-                {campaign.name}
-              </td>
-              <td style={{ padding: '0.75rem', color: '#6b7280' }}>
-                {campaign.objective || 'N/A'}
-              </td>
-              <td style={{ padding: '0.75rem' }}>
-                <StatusBadge status={campaign.status} />
-              </td>
-              <td style={{ padding: '0.75rem', color: '#6b7280' }}>
-                {campaign.buying_type || 'N/A'}
-              </td>
-              <td style={{ padding: '0.75rem', color: '#9ca3af', fontSize: '0.75rem' }}>
-                {campaign.id}
-              </td>
-            </tr>
-          ))}
+          {campaigns.map((campaign, index) => {
+            const isSelected = selectedCampaigns.includes(campaign.id)
+
+            return (
+              <tr
+                key={campaign.id}
+                title={`Buying Type: ${campaign.buying_type || 'N/A'} | ID: ${campaign.id}`}
+                style={{
+                  borderBottom: '1px solid #e5e7eb',
+                  backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
+                  transition: 'background-color 0.2s',
+                  cursor: 'pointer',
+                }}
+                onClick={() => toggleCampaign(campaign.id)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#f9fafb'
+                }}
+              >
+                <td style={{ padding: '0.75rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleCampaign(campaign.id)}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      cursor: 'pointer',
+                      accentColor: '#3b82f6',
+                    }}
+                  />
+                </td>
+                <td style={{ padding: '0.75rem' }}>
+                  <StatusBadge status={campaign.status} />
+                </td>
+                <td style={{ padding: '0.75rem', fontWeight: 500, color: '#1f2937' }}>
+                  {campaign.name}
+                </td>
+                <td style={{ padding: '0.75rem', color: '#6b7280' }}>
+                  {campaign.objective || 'N/A'}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

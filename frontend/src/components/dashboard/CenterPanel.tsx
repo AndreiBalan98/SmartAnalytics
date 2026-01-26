@@ -17,9 +17,24 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 interface CenterPanelProps {
   view: string
   accountId: string | null
+  selectedCampaigns: string[]
+  onSelectCampaigns: (campaigns: string[]) => void
+  selectedAdSets: string[]
+  onSelectAdSets: (adSets: string[]) => void
+  selectedAds: string[]
+  onSelectAds: (ads: string[]) => void
 }
 
-export default function CenterPanel({ view, accountId }: CenterPanelProps) {
+export default function CenterPanel({
+  view,
+  accountId,
+  selectedCampaigns,
+  onSelectCampaigns,
+  selectedAdSets,
+  onSelectAdSets,
+  selectedAds,
+  onSelectAds,
+}: CenterPanelProps) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -175,7 +190,14 @@ export default function CenterPanel({ view, accountId }: CenterPanelProps) {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto' }} className="scrollbar-hidden">
-        {view === 'campaigns' && <CampaignsTable campaigns={data} loading={loading} />}
+        {view === 'campaigns' && (
+          <CampaignsTable
+            campaigns={data}
+            loading={loading}
+            selectedCampaigns={selectedCampaigns}
+            onSelectCampaigns={onSelectCampaigns}
+          />
+        )}
         {view === 'adsets' && <AdSetsTable adsets={data} loading={loading} />}
         {view === 'ads' && <AdsTable ads={data} loading={loading} />}
         {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}

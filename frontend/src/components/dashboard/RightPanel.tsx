@@ -7,13 +7,25 @@ interface RightPanelProps {
   selectedView: string
   onSelectView: (view: string) => void
   disabled?: boolean
+  selectedCampaignsCount?: number
+  selectedAdSetsCount?: number
+  selectedAdsCount?: number
 }
 
 export default function RightPanel({
   selectedView,
   onSelectView,
   disabled = false,
+  selectedCampaignsCount = 0,
+  selectedAdSetsCount = 0,
+  selectedAdsCount = 0,
 }: RightPanelProps) {
+  // Mapping pentru count-uri
+  const countMap: { [key: string]: number } = {
+    campaigns: selectedCampaignsCount,
+    adsets: selectedAdSetsCount,
+    ads: selectedAdsCount,
+  }
   const navItems = [
     {
       id: 'campaigns',
@@ -123,6 +135,19 @@ export default function RightPanel({
                   fontSize: '0.875rem',
                 }}>
                   {item.label}
+                  {countMap[item.id] > 0 && (
+                    <span style={{
+                      marginLeft: '0.5rem',
+                      backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.2)' : '#3b82f6',
+                      color: isSelected ? 'white' : 'white',
+                      padding: '0.125rem 0.5rem',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                    }}>
+                      {countMap[item.id]}
+                    </span>
+                  )}
                 </span>
               </div>
               <div style={{

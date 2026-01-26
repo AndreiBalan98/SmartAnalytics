@@ -35,6 +35,11 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Selection state pentru campaigns/adsets/ads
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
+  const [selectedAdSets, setSelectedAdSets] = useState<string[]>([])
+  const [selectedAds, setSelectedAds] = useState<string[]>([])
+
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !user) {
@@ -239,6 +244,12 @@ export default function ClientDashboard() {
           <CenterPanel
             view={selectedView}
             accountId={selectedAccount}
+            selectedCampaigns={selectedCampaigns}
+            onSelectCampaigns={setSelectedCampaigns}
+            selectedAdSets={selectedAdSets}
+            onSelectAdSets={setSelectedAdSets}
+            selectedAds={selectedAds}
+            onSelectAds={setSelectedAds}
           />
         </div>
 
@@ -254,6 +265,9 @@ export default function ClientDashboard() {
             selectedView={selectedView}
             onSelectView={setSelectedView}
             disabled={!selectedAccount}
+            selectedCampaignsCount={selectedCampaigns.length}
+            selectedAdSetsCount={selectedAdSets.length}
+            selectedAdsCount={selectedAds.length}
           />
         </div>
       </div>
