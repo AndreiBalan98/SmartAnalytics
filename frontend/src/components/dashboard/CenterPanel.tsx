@@ -97,16 +97,8 @@ export default function CenterPanel({
           break
 
         case 'insights':
-          const endDate = new Date().toISOString().split('T')[0]
-          const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-          result = await api.getClientInsightsNew({
-            account_id: accountId,
-            level: 'account',
-            start_date: startDate,
-            end_date: endDate,
-          })
-          setData(result.insights || [])
+          // InsightsView handles its own data loading
+          setData([])
           break
 
         default:
@@ -230,7 +222,14 @@ export default function CenterPanel({
           />
         )}
         {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}
-        {view === 'insights' && <InsightsView insights={data} loading={loading} />}
+        {view === 'insights' && (
+          <InsightsView
+            accountId={accountId}
+            selectedCampaigns={selectedCampaigns}
+            selectedAdSets={selectedAdSets}
+            selectedAds={selectedAds}
+          />
+        )}
       </div>
     </div>
   )

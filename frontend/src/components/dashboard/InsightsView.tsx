@@ -1,242 +1,221 @@
 /**
- * InsightsView Component
- * Displays insights/metrics with summary cards and optional charts
+ * InsightsView Component - NEW
+ * Complete insights interface with filters, metrics cards, and charts
  */
 
-interface Insight {
-  id: number
-  level: string
-  object_id: string
-  date_start: string
-  date_stop: string
-  metrics: any
-}
+'use client'
+
+import { useState, useEffect } from 'react'
+import InsightsFilters from './insights/InsightsFilters'
+import MetricsCards from './insights/MetricsCards'
+import MetricsCharts from './insights/MetricsCharts'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 interface InsightsViewProps {
-  insights: Insight[]
-  loading?: boolean
+  accountId: string | null
+  selectedCampaigns: string[]
+  selectedAdSets: string[]
+  selectedAds: string[]
 }
 
-export default function InsightsView({ insights, loading = false }: InsightsViewProps) {
-  if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-        Loading insights...
-      </div>
-    )
-  }
+export default function InsightsView({
+  accountId,
+  selectedCampaigns,
+  selectedAdSets,
+  selectedAds,
+}: InsightsViewProps) {
+  // Filters state
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const [selectedFilterCampaigns, setSelectedFilterCampaigns] = useState<string[]>([])
+  const [selectedFilterAdSets, setSelectedFilterAdSets] = useState<string[]>([])
+  const [selectedFilterAds, setSelectedFilterAds] = useState<string[]>([])
 
-  if (insights.length === 0) {
-    return (
-      <div style={{
-        padding: '3rem',
-        textAlign: 'center',
-        color: '#9ca3af',
-      }}>
-        <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>No Insights Available</p>
-        <p style={{ fontSize: '0.875rem' }}>
-          Run insights sync from agency dashboard to populate metrics data.
-        </p>
-      </div>
-    )
-  }
+  // Time range state
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareStartDate, setCompareStartDate] = useState('')
+  const [compareEndDate, setCompareEndDate] = useState('')
 
-  // Calculate summary metrics
-  const summary = insights.reduce(
-    (acc, insight) => {
-      const metrics = insight.metrics || {}
-      return {
-        impressions: acc.impressions + (parseInt(metrics.impressions) || 0),
-        clicks: acc.clicks + (parseInt(metrics.clicks) || 0),
-        spend: acc.spend + (parseFloat(metrics.spend) || 0),
-        reach: acc.reach + (parseInt(metrics.reach) || 0),
+  // Data state
+  const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([])
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string }>>([])
+  const [adsets, setAdsets] = useState<Array<{ id: string; name: string }>>([])
+  const [ads, setAds] = useState<Array<{ id: string; name: string }>>([])
+
+  const [loading, setLoading] = useState(false)
+  const [metricsData, setMetricsData] = useState<any>(null)
+  const [chartData, setChartData] = useState<any[]>([])
+
+  // Initialize default dates (last 30 days)
+  useEffect(() => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - 30)
+
+    setEndDate(end.toISOString().split('T')[0])
+    setStartDate(start.toISOString().split('T')[0])
+  }, [])
+
+  // Auto-select current account
+  useEffect(() => {
+    if (accountId && !selectedAccounts.includes(accountId)) {
+      setSelectedAccounts([accountId])
+    }
+  }, [accountId])
+
+  // Load available options based on selections
+  useEffect(() => {
+    // TODO: Load accounts, campaigns, adsets, ads based on selections
+    // For now, using placeholder data
+    if (accountId) {
+      setAccounts([{ id: accountId, name: 'Current Account' }])
+    }
+  }, [accountId, selectedAccounts])
+
+  // Mock data for now - replace with API call
+  useEffect(() => {
+    if (selectedAccounts.length > 0 && startDate && endDate) {
+      // Mock metrics data
+      setMetricsData({
+        totalSpend: 1234.56,
+        impressions: 45678,
+        clicks: 1234,
+        reach: 23456,
+        ctr: 2.7,
+        cpc: 1.0,
+        cpm: 27.02,
+      })
+
+      // Mock chart data
+      const mockChartData = []
+      const days = Math.ceil(
+        (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+
+      for (let i = 0; i <= days; i++) {
+        const date = new Date(startDate)
+        date.setDate(date.getDate() + i)
+        mockChartData.push({
+          date: date.toISOString().split('T')[0],
+          spend_account1: Math.random() * 100,
+          impressions_account1: Math.random() * 5000,
+          clicks_account1: Math.random() * 100,
+          reach_account1: Math.random() * 3000,
+          ctr_account1: Math.random() * 5,
+          cpc_account1: Math.random() * 2,
+          cpm_account1: Math.random() * 50,
+        })
       }
-    },
-    { impressions: 0, clicks: 0, spend: 0, reach: 0 }
-  )
 
-  const ctr = summary.impressions > 0 ? (summary.clicks / summary.impressions) * 100 : 0
-  const cpc = summary.clicks > 0 ? summary.spend / summary.clicks : 0
-  const cpm = summary.impressions > 0 ? (summary.spend / summary.impressions) * 1000 : 0
+      setChartData(mockChartData)
+    }
+  }, [selectedAccounts, startDate, endDate])
 
-  const statCards = [
-    { label: 'Total Spend', value: `$${summary.spend.toFixed(2)}`, icon: '💰', color: '#3b82f6' },
-    { label: 'Impressions', value: summary.impressions.toLocaleString(), icon: '👁️', color: '#10b981' },
-    { label: 'Clicks', value: summary.clicks.toLocaleString(), icon: '🖱️', color: '#f59e0b' },
-    { label: 'Reach', value: summary.reach.toLocaleString(), icon: '📢', color: '#8b5cf6' },
-    { label: 'CTR', value: `${ctr.toFixed(2)}%`, icon: '📈', color: '#06b6d4' },
-    { label: 'CPC', value: `$${cpc.toFixed(2)}`, icon: '💵', color: '#ec4899' },
-    { label: 'CPM', value: `$${cpm.toFixed(2)}`, icon: '📊', color: '#6366f1' },
-  ]
+  if (!accountId) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'white',
+        }}
+      >
+        <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
+          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem', color: '#6b7280' }}>
+            Selectează un Ad Account
+          </p>
+          <p style={{ fontSize: '0.875rem' }}>
+            Alege un ad account din panoul din stânga pentru a vedea insights
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ padding: '1rem' }}>
-      {/* Summary Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem',
-      }}>
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            style={{
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
-              e.currentTarget.style.borderColor = card.color
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = 'none'
-              e.currentTarget.style.borderColor = '#e5e7eb'
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '0.5rem',
-            }}>
-              <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
-                {card.label}
-              </span>
-              <span style={{ fontSize: '1.5rem' }}>{card.icon}</span>
-            </div>
-            <div style={{
-              fontSize: '1.875rem',
-              fontWeight: 700,
-              color: card.color,
-            }}>
-              {card.value}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div style={{ height: '100%', overflowY: 'auto' }} className="scrollbar-hidden">
+      {/* Filters */}
+      <InsightsFilters
+        accounts={accounts}
+        campaigns={campaigns}
+        adsets={adsets}
+        ads={ads}
+        selectedAccounts={selectedAccounts}
+        selectedCampaigns={selectedFilterCampaigns}
+        selectedAdSets={selectedFilterAdSets}
+        selectedAds={selectedFilterAds}
+        onSelectAccounts={setSelectedAccounts}
+        onSelectCampaigns={setSelectedFilterCampaigns}
+        onSelectAdSets={setSelectedFilterAdSets}
+        onSelectAds={setSelectedFilterAds}
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        compareMode={compareMode}
+        onCompareModeChange={setCompareMode}
+        compareStartDate={compareStartDate}
+        compareEndDate={compareEndDate}
+        onCompareStartDateChange={setCompareStartDate}
+        onCompareEndDateChange={setCompareEndDate}
+      />
 
-      {/* Insights Table */}
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          padding: '1rem',
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: '#f9fafb',
-        }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#1f2937' }}>
-            Daily Breakdown ({insights.length} entries)
-          </h3>
+      {loading && (
+        <div style={{ padding: '2rem' }}>
+          <LoadingSpinner message="Se încarcă insights..." />
         </div>
+      )}
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: '0.875rem',
-          }}>
-            <thead>
-              <tr style={{
-                backgroundColor: '#f9fafb',
-                borderBottom: '2px solid #e5e7eb',
-              }}>
-                <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-                  Date
-                </th>
-                <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>
-                  Level
-                </th>
-                <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: '#374151' }}>
-                  Impressions
-                </th>
-                <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: '#374151' }}>
-                  Clicks
-                </th>
-                <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: '#374151' }}>
-                  Spend
-                </th>
-                <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: '#374151' }}>
-                  CTR
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {insights.slice(0, 50).map((insight, index) => {
-                const metrics = insight.metrics || {}
-                const impressions = parseInt(metrics.impressions) || 0
-                const clicks = parseInt(metrics.clicks) || 0
-                const spend = parseFloat(metrics.spend) || 0
-                const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0
+      {!loading && metricsData && (
+        <>
+          {/* Metrics Cards */}
+          <MetricsCards
+            metrics={metricsData}
+            topPerformers={{
+              totalSpend: {
+                type: 'campaign',
+                name: 'Summer Sale Campaign',
+                value: 456.78,
+              },
+              impressions: {
+                type: 'adset',
+                name: 'Target Audience 25-35',
+                value: 12345,
+              },
+            }}
+          />
 
-                return (
-                  <tr
-                    key={insight.id}
-                    style={{
-                      borderBottom: '1px solid #e5e7eb',
-                      backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb',
-                      transition: 'background-color 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f3f4f6'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#f9fafb'
-                    }}
-                  >
-                    <td style={{ padding: '0.75rem', fontWeight: 500 }}>
-                      {insight.date_start}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        backgroundColor: '#e0e7ff',
-                        color: '#3730a3',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                      }}>
-                        {insight.level.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>
-                      {impressions.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>
-                      {clicks.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>
-                      ${spend.toFixed(2)}
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>
-                      {ctr.toFixed(2)}%
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+          {/* Charts */}
+          <MetricsCharts
+            data={chartData}
+            entities={[
+              { id: 'account1', name: 'Current Account', type: 'account' },
+            ]}
+          />
+        </>
+      )}
 
-        {insights.length > 50 && (
-          <div style={{
-            padding: '1rem',
+      {!loading && !metricsData && (
+        <div
+          style={{
+            padding: '3rem',
             textAlign: 'center',
-            backgroundColor: '#f9fafb',
-            borderTop: '1px solid #e5e7eb',
-            color: '#6b7280',
-            fontSize: '0.875rem',
-          }}>
-            Showing first 50 of {insights.length} entries
-          </div>
-        )}
-      </div>
+            color: '#9ca3af',
+          }}
+        >
+          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+            Selectează criterii de filtrare
+          </p>
+          <p style={{ fontSize: '0.875rem' }}>
+            Alege ad accounts, campaigns, ad sets sau ads pentru a vedea insights
+          </p>
+        </div>
+      )}
     </div>
   )
 }
