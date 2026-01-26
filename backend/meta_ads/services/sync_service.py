@@ -1034,8 +1034,6 @@ class MetaSyncService:
         Fetch insights by making separate requests for each campaign/adset/ad
         This ensures object_id is stored correctly
         """
-        from .models import Campaign, AdSet, Ad
-
         total = 0
 
         # Fetch campaigns for this account
