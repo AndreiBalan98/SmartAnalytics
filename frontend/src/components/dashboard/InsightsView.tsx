@@ -186,7 +186,7 @@ export default function InsightsView({
           entityId: e.id,
           entityName: e.name,
           entityType: e.type,
-          value: Math.random() * 50000 * (5 - i),
+          value: Math.floor(Math.random() * 50000 * (5 - i)),
         })),
       topClicks: shuffle(entities)
         .slice(0, 5)
@@ -194,7 +194,7 @@ export default function InsightsView({
           entityId: e.id,
           entityName: e.name,
           entityType: e.type,
-          value: Math.random() * 2000 * (5 - i),
+          value: Math.floor(Math.random() * 2000 * (5 - i)),
         })),
       topReach: shuffle(entities)
         .slice(0, 5)
@@ -202,7 +202,7 @@ export default function InsightsView({
           entityId: e.id,
           entityName: e.name,
           entityType: e.type,
-          value: Math.random() * 30000 * (5 - i),
+          value: Math.floor(Math.random() * 30000 * (5 - i)),
         })),
       topCTR: shuffle(entities)
         .slice(0, 5)
@@ -248,9 +248,9 @@ export default function InsightsView({
       entities.forEach((entity) => {
         const baseMultiplier = entity.type === 'account' ? 1 : entity.type === 'campaign' ? 0.7 : 0.5
         dataPoint[`spend_${entity.id}`] = Math.random() * 100 * baseMultiplier
-        dataPoint[`impressions_${entity.id}`] = Math.random() * 5000 * baseMultiplier
-        dataPoint[`clicks_${entity.id}`] = Math.random() * 100 * baseMultiplier
-        dataPoint[`reach_${entity.id}`] = Math.random() * 3000 * baseMultiplier
+        dataPoint[`impressions_${entity.id}`] = Math.floor(Math.random() * 5000 * baseMultiplier)
+        dataPoint[`clicks_${entity.id}`] = Math.floor(Math.random() * 100 * baseMultiplier)
+        dataPoint[`reach_${entity.id}`] = Math.floor(Math.random() * 3000 * baseMultiplier)
         dataPoint[`ctr_${entity.id}`] = Math.random() * 5
         dataPoint[`cpc_${entity.id}`] = Math.random() * 2
         dataPoint[`cpm_${entity.id}`] = Math.random() * 50

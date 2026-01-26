@@ -84,7 +84,7 @@ export default function MetricsCards({
       color: '#10b981',
       description: metricDescriptions['Impressions'],
       topPerformers: topImpressions,
-      valueFormatter: (v) => v.toLocaleString(),
+      valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
       label: 'Clicks',
@@ -92,7 +92,7 @@ export default function MetricsCards({
       color: '#f59e0b',
       description: metricDescriptions['Clicks'],
       topPerformers: topClicks,
-      valueFormatter: (v) => v.toLocaleString(),
+      valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
       label: 'Reach',
@@ -100,7 +100,7 @@ export default function MetricsCards({
       color: '#8b5cf6',
       description: metricDescriptions['Reach'],
       topPerformers: topReach,
-      valueFormatter: (v) => v.toLocaleString(),
+      valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
       label: 'CTR',
@@ -286,11 +286,10 @@ export default function MetricsCards({
                             fontSize: '0.8125rem',
                             fontWeight: 600,
                             color: '#1f2937',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            wordBreak: 'break-word',
+                            whiteSpace: 'normal',
+                            lineHeight: '1.3',
                           }}
-                          title={performer.entityName}
                         >
                           {performer.entityName}
                         </div>
@@ -299,6 +298,7 @@ export default function MetricsCards({
                             fontSize: '0.8125rem',
                             fontWeight: 700,
                             color: card.color,
+                            marginTop: '0.25rem',
                           }}
                         >
                           {card.valueFormatter(performer.value)}
