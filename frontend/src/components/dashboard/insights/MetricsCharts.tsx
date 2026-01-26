@@ -18,13 +18,13 @@ import {
 import { getCurrencySymbol } from '@/lib/currency'
 
 interface ChartDataPoint {
-  date: string
+  day: number
   [key: string]: string | number
 }
 
 interface MetricsChartsProps {
   data: ChartDataPoint[]
-  entities: Array<{ id: string; name: string; type: string }>
+  entities: Array<{ id: string; name: string; type: string; start_date?: string; end_date?: string }>
   currency: string
 }
 
@@ -144,9 +144,10 @@ export default function MetricsCharts({ data, entities, currency }: MetricsChart
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis
-                  dataKey="date"
+                  dataKey="day"
                   stroke="#9ca3af"
                   style={{ fontSize: '0.75rem' }}
+                  tickFormatter={(day) => `Ziua ${day}`}
                 />
                 <YAxis
                   stroke="#9ca3af"

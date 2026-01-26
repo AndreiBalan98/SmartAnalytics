@@ -482,7 +482,8 @@ def client_insights_aggregate(request):
 
     # Process each entity and aggregate insights
     entity_totals = []
-    chart_data = {}  # {date: {entity_id_metric: value}}
+    chart_data = {}  # {day_number: {entity_id_metric: value}}
+    max_days = 0  # Track maximum number of days across all entities
 
     for entity in entities:
         entity_id = entity.get('id')
@@ -491,6 +492,17 @@ def client_insights_aggregate(request):
 
         if not entity_id or not entity_type:
             continue
+
+        # Use custom time range if provided, otherwise use general range
+        entity_start_str = entity.get('start_date', start_date_str)
+        entity_end_str = entity.get('end_date', end_date_str)
+
+        try:
+            entity_start = date.fromisoformat(entity_start_str)
+            entity_end = date.fromisoformat(entity_end_str)
+        except (ValueError, AttributeError):
+            entity_start = start_date
+            entity_end = end_date
 
         # Map frontend type to database level
         level_map = {
@@ -504,12 +516,12 @@ def client_insights_aggregate(request):
         if not level:
             continue
 
-        # Query insights for this entity
+        # Query insights for this entity with its specific date range
         insights = Insight.objects.filter(
             level=level,
             object_id=entity_id,
-            date_start__gte=start_date,
-            date_stop__lte=end_date
+            date_start__gte=entity_start,
+            date_stop__lte=entity_end
         )
 
         # Debug logging
@@ -595,15 +607,21 @@ def client_insights_aggregate(request):
             total_clicks += clicks
             total_reach += reach
 
-            # Add to chart data
-            date_key = str(insight.date_start)
-            if date_key not in chart_data:
-                chart_data[date_key] = {'date': date_key}
+            # Calculate relative day number (1-based) from entity start date
+            day_offset = (insight.date_start - entity_start).days + 1
 
-            chart_data[date_key][f'spend_{entity_id}'] = chart_data[date_key].get(f'spend_{entity_id}', 0) + spend
-            chart_data[date_key][f'impressions_{entity_id}'] = chart_data[date_key].get(f'impressions_{entity_id}', 0) + impressions
-            chart_data[date_key][f'clicks_{entity_id}'] = chart_data[date_key].get(f'clicks_{entity_id}', 0) + clicks
-            chart_data[date_key][f'reach_{entity_id}'] = chart_data[date_key].get(f'reach_{entity_id}', 0) + reach
+            # Add to chart data using relative day number
+            if day_offset not in chart_data:
+                chart_data[day_offset] = {'day': day_offset}
+
+            chart_data[day_offset][f'spend_{entity_id}'] = chart_data[day_offset].get(f'spend_{entity_id}', 0) + spend
+            chart_data[day_offset][f'impressions_{entity_id}'] = chart_data[day_offset].get(f'impressions_{entity_id}', 0) + impressions
+            chart_data[day_offset][f'clicks_{entity_id}'] = chart_data[day_offset].get(f'clicks_{entity_id}', 0) + clicks
+            chart_data[day_offset][f'reach_{entity_id}'] = chart_data[day_offset].get(f'reach_{entity_id}', 0) + reach
+
+            # Track maximum day number
+            if day_offset > max_days:
+                max_days = day_offset
 
         # Calculate derived metrics
         ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
@@ -611,15 +629,15 @@ def client_insights_aggregate(request):
         cpm = (total_spend / total_impressions * 1000) if total_impressions > 0 else 0
 
         # Add derived metrics to chart data
-        for date_key in chart_data:
-            if f'impressions_{entity_id}' in chart_data[date_key]:
-                impr = chart_data[date_key][f'impressions_{entity_id}']
-                clk = chart_data[date_key][f'clicks_{entity_id}']
-                spnd = chart_data[date_key][f'spend_{entity_id}']
+        for day_num in chart_data:
+            if f'impressions_{entity_id}' in chart_data[day_num]:
+                impr = chart_data[day_num][f'impressions_{entity_id}']
+                clk = chart_data[day_num][f'clicks_{entity_id}']
+                spnd = chart_data[day_num][f'spend_{entity_id}']
 
-                chart_data[date_key][f'ctr_{entity_id}'] = (clk / impr * 100) if impr > 0 else 0
-                chart_data[date_key][f'cpc_{entity_id}'] = (spnd / clk) if clk > 0 else 0
-                chart_data[date_key][f'cpm_{entity_id}'] = (spnd / impr * 1000) if impr > 0 else 0
+                chart_data[day_num][f'ctr_{entity_id}'] = (clk / impr * 100) if impr > 0 else 0
+                chart_data[day_num][f'cpc_{entity_id}'] = (spnd / clk) if clk > 0 else 0
+                chart_data[day_num][f'cpm_{entity_id}'] = (spnd / impr * 1000) if impr > 0 else 0
 
         entity_totals.append({
             'entityId': entity_id,
@@ -655,8 +673,8 @@ def client_insights_aggregate(request):
             for item in items
         ]
 
-    # Convert chart_data dict to sorted list
-    chart_data_list = sorted(chart_data.values(), key=lambda x: x['date'])
+    # Convert chart_data dict to sorted list by day number
+    chart_data_list = sorted(chart_data.values(), key=lambda x: x['day'])
 
     return Response({
         'topPerformers': {
