@@ -46,7 +46,7 @@ export default function CenterPanel({
     }
 
     loadData()
-  }, [view, accountId])
+  }, [view, accountId, selectedCampaigns])
 
   async function loadData() {
     if (!accountId) return
@@ -64,10 +64,14 @@ export default function CenterPanel({
           break
 
         case 'adsets':
-          // For ad sets, we need a campaign ID (for now, get all for account)
-          // This is a simplified version - you may want campaign selection
-          setData([])
-          setError('Select a campaign to view ad sets (feature coming soon)')
+          if (selectedCampaigns.length === 0) {
+            setData([])
+            setError('Te rog selectează cel puțin un campaign pentru a vedea ad sets')
+            setLoading(false)
+            return
+          }
+          result = await api.getClientAdSetsNew(selectedCampaigns)
+          setData(result.adsets || [])
           break
 
         case 'ads':
@@ -198,7 +202,14 @@ export default function CenterPanel({
             onSelectCampaigns={onSelectCampaigns}
           />
         )}
-        {view === 'adsets' && <AdSetsTable adsets={data} loading={loading} />}
+        {view === 'adsets' && (
+          <AdSetsTable
+            adsets={data}
+            loading={loading}
+            selectedAdSets={selectedAdSets}
+            onSelectAdSets={onSelectAdSets}
+          />
+        )}
         {view === 'ads' && <AdsTable ads={data} loading={loading} />}
         {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}
         {view === 'insights' && <InsightsView insights={data} loading={loading} />}

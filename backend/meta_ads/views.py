@@ -262,30 +262,32 @@ def client_campaigns(request):
 def client_adsets(request):
     """Get ad sets for client (filtered by permissions)"""
     user = request.user
-    campaign_id = request.query_params.get('campaign_id')
+    campaign_ids = request.query_params.getlist('campaign_ids')
 
-    if not campaign_id:
+    if not campaign_ids:
         return Response(
-            {'error': 'campaign_id parameter required'},
+            {'error': 'campaign_ids parameter required'},
             status=http_status.HTTP_400_BAD_REQUEST
         )
 
-    # Get campaign and verify permission
-    try:
-        campaign = Campaign.objects.get(id=campaign_id)
+    # Verify permissions for all campaigns
+    campaigns = Campaign.objects.filter(id__in=campaign_ids)
+    if campaigns.count() != len(campaign_ids):
+        return Response(
+            {'error': 'One or more campaigns not found'},
+            status=http_status.HTTP_404_NOT_FOUND
+        )
+
+    # Check permissions for each campaign's ad account
+    for campaign in campaigns:
         if not _has_account_permission(user, campaign.ad_account_id):
             return Response(
                 {'error': 'Permission denied'},
                 status=http_status.HTTP_403_FORBIDDEN
             )
-    except Campaign.DoesNotExist:
-        return Response(
-            {'error': 'Campaign not found'},
-            status=http_status.HTTP_404_NOT_FOUND
-        )
 
-    # Get ad sets
-    adsets = AdSet.objects.filter(campaign_id=campaign_id).order_by('name')
+    # Get ad sets for all campaigns
+    adsets = AdSet.objects.filter(campaign_id__in=campaign_ids).order_by('name')
 
     return Response({
         'adsets': AdSetSerializer(adsets, many=True).data

@@ -648,10 +648,14 @@ export const api = {
   },
 
   /**
-   * Get ad sets for client by campaign ID
+   * Get ad sets for client by campaign IDs
    */
-  async getClientAdSetsNew(campaignId: string) {
-    const response = await fetchWithAuth(`/api/meta/client/adsets/?campaign_id=${campaignId}`)
+  async getClientAdSetsNew(campaignIds: string[]) {
+    if (campaignIds.length === 0) {
+      return { adsets: [] }
+    }
+    const params = campaignIds.map(id => `campaign_ids=${id}`).join('&')
+    const response = await fetchWithAuth(`/api/meta/client/adsets/?${params}`)
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to fetch ad sets')
