@@ -71,7 +71,7 @@ export default function InsightsView({
   // Get currency from first selected account
   const accountCurrency = useMemo(() => {
     if (selectedAccounts.length > 0) {
-      const account = adAccounts.find(a => a.id === selectedAccounts[0])
+      const account = adAccounts.find(a => a.id === selectedAccounts[0].id)
       return account?.currency || 'USD'
     }
     // Fallback to first available account
