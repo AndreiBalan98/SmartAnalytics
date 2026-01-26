@@ -18,6 +18,7 @@ interface AdAccount {
   id: string
   name: string
   currency: string
+  timezone: string
   account_status: number
   status_display: string
 }

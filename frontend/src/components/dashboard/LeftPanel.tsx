@@ -7,6 +7,7 @@ interface AdAccount {
   id: string
   name: string
   currency: string
+  timezone: string
   account_status: number
   status_display: string
 }
@@ -158,6 +159,18 @@ export default function LeftPanel({
                 }}>
                   {account.id}
                 </div>
+                {account.timezone && (
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: isSelected ? 'rgba(255, 255, 255, 0.7)' : '#9ca3af',
+                    marginTop: '0.25rem',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                  }}>
+                    Timezone: {account.timezone}
+                  </div>
+                )}
                 <div style={{
                   fontSize: '0.75rem',
                   color: isSelected ? 'rgba(255, 255, 255, 0.7)' : '#9ca3af',
