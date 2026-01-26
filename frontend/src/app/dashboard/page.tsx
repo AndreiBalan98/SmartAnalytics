@@ -250,6 +250,7 @@ export default function ClientDashboard() {
             onSelectAdSets={setSelectedAdSets}
             selectedAds={selectedAds}
             onSelectAds={setSelectedAds}
+            adAccounts={adAccounts}
           />
         </div>
 

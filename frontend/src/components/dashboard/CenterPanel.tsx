@@ -23,6 +23,7 @@ interface CenterPanelProps {
   onSelectAdSets: (adSets: string[]) => void
   selectedAds: string[]
   onSelectAds: (ads: string[]) => void
+  adAccounts: Array<{ id: string; name: string }>
 }
 
 export default function CenterPanel({
@@ -34,6 +35,7 @@ export default function CenterPanel({
   onSelectAdSets,
   selectedAds,
   onSelectAds,
+  adAccounts,
 }: CenterPanelProps) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -228,6 +230,7 @@ export default function CenterPanel({
             selectedCampaigns={selectedCampaigns}
             selectedAdSets={selectedAdSets}
             selectedAds={selectedAds}
+            adAccounts={adAccounts}
           />
         )}
       </div>

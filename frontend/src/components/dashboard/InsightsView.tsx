@@ -1,11 +1,12 @@
 /**
  * InsightsView Component - NEW
- * Complete insights interface with filters, metrics cards, and charts
+ * Complete insights interface with filters, top performers, and charts
  */
 
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
 import InsightsFilters from './insights/InsightsFilters'
 import MetricsCards from './insights/MetricsCards'
 import MetricsCharts from './insights/MetricsCharts'
@@ -16,6 +17,7 @@ interface InsightsViewProps {
   selectedCampaigns: string[]
   selectedAdSets: string[]
   selectedAds: string[]
+  adAccounts: Array<{ id: string; name: string }>
 }
 
 export default function InsightsView({
@@ -23,6 +25,7 @@ export default function InsightsView({
   selectedCampaigns,
   selectedAdSets,
   selectedAds,
+  adAccounts,
 }: InsightsViewProps) {
   // Filters state
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
@@ -38,14 +41,14 @@ export default function InsightsView({
   const [compareEndDate, setCompareEndDate] = useState('')
 
   // Data state
-  const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([])
   const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string }>>([])
   const [adsets, setAdsets] = useState<Array<{ id: string; name: string }>>([])
   const [ads, setAds] = useState<Array<{ id: string; name: string }>>([])
 
   const [loading, setLoading] = useState(false)
-  const [metricsData, setMetricsData] = useState<any>(null)
+  const [topPerformers, setTopPerformers] = useState<any>(null)
   const [chartData, setChartData] = useState<any[]>([])
+  const [chartEntities, setChartEntities] = useState<any[]>([])
 
   // Initialize default dates (last 30 days)
   useEffect(() => {
@@ -64,54 +67,224 @@ export default function InsightsView({
     }
   }, [accountId])
 
-  // Load available options based on selections
+  // Load campaigns/adsets/ads options from selections
   useEffect(() => {
-    // TODO: Load accounts, campaigns, adsets, ads based on selections
-    // For now, using placeholder data
-    if (accountId) {
-      setAccounts([{ id: accountId, name: 'Current Account' }])
+    const loadFilterOptions = async () => {
+      try {
+        // Load campaigns from selected campaigns
+        if (selectedCampaigns.length > 0) {
+          const result = await api.getClientCampaignsNew(accountId!)
+          const filteredCampaigns = result.campaigns.filter((c: any) =>
+            selectedCampaigns.includes(c.id)
+          )
+          setCampaigns(filteredCampaigns)
+        } else {
+          setCampaigns([])
+        }
+
+        // Load adsets from selected adsets
+        if (selectedAdSets.length > 0 && selectedCampaigns.length > 0) {
+          const result = await api.getClientAdSetsNew(selectedCampaigns)
+          const filteredAdSets = result.adsets.filter((a: any) =>
+            selectedAdSets.includes(a.id)
+          )
+          setAdsets(filteredAdSets)
+        } else {
+          setAdsets([])
+        }
+
+        // Load ads from selected ads
+        if (selectedAds.length > 0 && selectedAdSets.length > 0) {
+          const result = await api.getClientAdsNew(selectedAdSets)
+          const filteredAds = result.ads.filter((a: any) => selectedAds.includes(a.id))
+          setAds(filteredAds)
+        } else {
+          setAds([])
+        }
+      } catch (err) {
+        console.error('Failed to load filter options:', err)
+      }
     }
-  }, [accountId, selectedAccounts])
 
-  // Mock data for now - replace with API call
+    if (accountId) {
+      loadFilterOptions()
+    }
+  }, [accountId, selectedCampaigns, selectedAdSets, selectedAds])
+
+  // Load insights data when filters change
   useEffect(() => {
-    if (selectedAccounts.length > 0 && startDate && endDate) {
-      // Mock metrics data
-      setMetricsData({
-        totalSpend: 1234.56,
-        impressions: 45678,
-        clicks: 1234,
-        reach: 23456,
-        ctr: 2.7,
-        cpc: 1.0,
-        cpm: 27.02,
-      })
+    const loadInsightsData = async () => {
+      // Verificăm dacă avem selecții
+      const hasSelections =
+        selectedAccounts.length > 0 ||
+        selectedFilterCampaigns.length > 0 ||
+        selectedFilterAdSets.length > 0 ||
+        selectedFilterAds.length > 0
 
-      // Mock chart data
-      const mockChartData = []
-      const days = Math.ceil(
-        (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
-
-      for (let i = 0; i <= days; i++) {
-        const date = new Date(startDate)
-        date.setDate(date.getDate() + i)
-        mockChartData.push({
-          date: date.toISOString().split('T')[0],
-          spend_account1: Math.random() * 100,
-          impressions_account1: Math.random() * 5000,
-          clicks_account1: Math.random() * 100,
-          reach_account1: Math.random() * 3000,
-          ctr_account1: Math.random() * 5,
-          cpc_account1: Math.random() * 2,
-          cpm_account1: Math.random() * 50,
-        })
+      if (!hasSelections || !startDate || !endDate) {
+        setTopPerformers(null)
+        setChartData([])
+        setChartEntities([])
+        return
       }
 
-      setChartData(mockChartData)
+      setLoading(true)
+      try {
+        // Build entities list for API call
+        const entities: any[] = []
+
+        selectedAccounts.forEach((id) => {
+          const account = adAccounts.find((a) => a.id === id)
+          if (account) {
+            entities.push({ id, name: account.name, type: 'account' })
+          }
+        })
+
+        selectedFilterCampaigns.forEach((id) => {
+          const campaign = campaigns.find((c) => c.id === id)
+          if (campaign) {
+            entities.push({ id, name: campaign.name, type: 'campaign' })
+          }
+        })
+
+        selectedFilterAdSets.forEach((id) => {
+          const adset = adsets.find((a) => a.id === id)
+          if (adset) {
+            entities.push({ id, name: adset.name, type: 'adset' })
+          }
+        })
+
+        selectedFilterAds.forEach((id) => {
+          const ad = ads.find((a) => a.id === id)
+          if (ad) {
+            entities.push({ id, name: ad.name, type: 'ad' })
+          }
+        })
+
+        setChartEntities(entities)
+
+        // TODO: Real API call pentru insights
+        // Pentru moment, generăm date mock
+        const mockTopPerformers = generateMockTopPerformers(entities)
+        const mockChartData = generateMockChartData(entities, startDate, endDate)
+
+        setTopPerformers(mockTopPerformers)
+        setChartData(mockChartData)
+      } catch (err) {
+        console.error('Failed to load insights:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [selectedAccounts, startDate, endDate])
+
+    loadInsightsData()
+  }, [
+    selectedAccounts,
+    selectedFilterCampaigns,
+    selectedFilterAdSets,
+    selectedFilterAds,
+    startDate,
+    endDate,
+    adAccounts,
+    campaigns,
+    adsets,
+    ads,
+  ])
+
+  // Mock data generators (replace with real API calls)
+  const generateMockTopPerformers = (entities: any[]) => {
+    const shuffle = (array: any[]) => [...array].sort(() => Math.random() - 0.5)
+
+    return {
+      topSpend: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 1000 * (5 - i),
+        })),
+      topImpressions: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 50000 * (5 - i),
+        })),
+      topClicks: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 2000 * (5 - i),
+        })),
+      topReach: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 30000 * (5 - i),
+        })),
+      topCTR: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 5 * (5 - i),
+        })),
+      topCPC: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 3 * (5 - i),
+        })),
+      topCPM: shuffle(entities)
+        .slice(0, 5)
+        .map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          entityType: e.type,
+          value: Math.random() * 50 * (5 - i),
+        })),
+    }
+  }
+
+  const generateMockChartData = (entities: any[], start: string, end: string) => {
+    const days = Math.ceil(
+      (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    const data = []
+    for (let i = 0; i <= days; i++) {
+      const date = new Date(start)
+      date.setDate(date.getDate() + i)
+
+      const dataPoint: any = {
+        date: date.toISOString().split('T')[0],
+      }
+
+      entities.forEach((entity) => {
+        const baseMultiplier = entity.type === 'account' ? 1 : entity.type === 'campaign' ? 0.7 : 0.5
+        dataPoint[`spend_${entity.id}`] = Math.random() * 100 * baseMultiplier
+        dataPoint[`impressions_${entity.id}`] = Math.random() * 5000 * baseMultiplier
+        dataPoint[`clicks_${entity.id}`] = Math.random() * 100 * baseMultiplier
+        dataPoint[`reach_${entity.id}`] = Math.random() * 3000 * baseMultiplier
+        dataPoint[`ctr_${entity.id}`] = Math.random() * 5
+        dataPoint[`cpc_${entity.id}`] = Math.random() * 2
+        dataPoint[`cpm_${entity.id}`] = Math.random() * 50
+      })
+
+      data.push(dataPoint)
+    }
+
+    return data
+  }
 
   if (!accountId) {
     return (
@@ -141,7 +314,7 @@ export default function InsightsView({
     <div style={{ height: '100%', overflowY: 'auto' }} className="scrollbar-hidden">
       {/* Filters */}
       <InsightsFilters
-        accounts={accounts}
+        accounts={adAccounts}
         campaigns={campaigns}
         adsets={adsets}
         ads={ads}
@@ -171,36 +344,27 @@ export default function InsightsView({
         </div>
       )}
 
-      {!loading && metricsData && (
+      {!loading && topPerformers && (
         <>
-          {/* Metrics Cards */}
+          {/* Metrics Cards cu Top Performers */}
           <MetricsCards
-            metrics={metricsData}
-            topPerformers={{
-              totalSpend: {
-                type: 'campaign',
-                name: 'Summer Sale Campaign',
-                value: 456.78,
-              },
-              impressions: {
-                type: 'adset',
-                name: 'Target Audience 25-35',
-                value: 12345,
-              },
-            }}
+            topSpend={topPerformers.topSpend}
+            topImpressions={topPerformers.topImpressions}
+            topClicks={topPerformers.topClicks}
+            topReach={topPerformers.topReach}
+            topCTR={topPerformers.topCTR}
+            topCPC={topPerformers.topCPC}
+            topCPM={topPerformers.topCPM}
           />
 
           {/* Charts */}
-          <MetricsCharts
-            data={chartData}
-            entities={[
-              { id: 'account1', name: 'Current Account', type: 'account' },
-            ]}
-          />
+          {chartData.length > 0 && chartEntities.length > 0 && (
+            <MetricsCharts data={chartData} entities={chartEntities} />
+          )}
         </>
       )}
 
-      {!loading && !metricsData && (
+      {!loading && !topPerformers && (
         <div
           style={{
             padding: '3rem',
@@ -209,10 +373,10 @@ export default function InsightsView({
           }}
         >
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-            Selectează criterii de filtrare
+            Selectează obiecte pentru a vedea insights
           </p>
           <p style={{ fontSize: '0.875rem' }}>
-            Alege ad accounts, campaigns, ad sets sau ads pentru a vedea insights
+            Alege ad accounts, campaigns, ad sets sau ads din dropdowns pentru a genera rapoarte
           </p>
         </div>
       )}
