@@ -14,16 +14,24 @@ interface Campaign {
   created_at: string
 }
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface CampaignsTableProps {
   campaigns: Campaign[]
   loading?: boolean
-  selectedCampaigns: string[]
-  onSelectCampaigns: (campaigns: string[]) => void
+  accountId: string | null
+  selectedCampaigns: SelectionItem[]
+  onSelectCampaigns: (campaigns: SelectionItem[]) => void
 }
 
 export default function CampaignsTable({
   campaigns,
   loading = false,
+  accountId,
   selectedCampaigns,
   onSelectCampaigns,
 }: CampaignsTableProps) {
@@ -38,25 +46,54 @@ export default function CampaignsTable({
     return aOrder - bOrder
   })
 
+  // Get selected IDs for current account
+  const selectedIdsInCurrentAccount = selectedCampaigns
+    .filter(c => c.ad_account_id === accountId)
+    .map(c => c.id)
+
   // Handler pentru toggle individual campaign
-  const toggleCampaign = (campaignId: string) => {
-    if (selectedCampaigns.includes(campaignId)) {
-      onSelectCampaigns(selectedCampaigns.filter(id => id !== campaignId))
+  const toggleCampaign = (campaign: Campaign) => {
+    const isSelected = selectedIdsInCurrentAccount.includes(campaign.id)
+
+    if (isSelected) {
+      // Remove from selections
+      onSelectCampaigns(selectedCampaigns.filter(c => c.id !== campaign.id))
     } else {
-      onSelectCampaigns([...selectedCampaigns, campaignId])
+      // Add to selections with full info
+      onSelectCampaigns([
+        ...selectedCampaigns,
+        {
+          id: campaign.id,
+          name: campaign.name,
+          ad_account_id: accountId || '',
+        },
+      ])
     }
   }
 
-  // Handler pentru select all
+  // Handler pentru select all (only for current account)
   const toggleSelectAll = () => {
-    if (selectedCampaigns.length === sortedCampaigns.length) {
-      onSelectCampaigns([])
+    if (selectedIdsInCurrentAccount.length === sortedCampaigns.length) {
+      // Deselect all from current account
+      onSelectCampaigns(
+        selectedCampaigns.filter(c => c.ad_account_id !== accountId)
+      )
     } else {
-      onSelectCampaigns(sortedCampaigns.map(c => c.id))
+      // Select all from current account
+      const allFromCurrentAccount = sortedCampaigns.map(c => ({
+        id: c.id,
+        name: c.name,
+        ad_account_id: accountId || '',
+      }))
+      // Keep selections from other accounts and add all from current
+      const otherAccountSelections = selectedCampaigns.filter(
+        c => c.ad_account_id !== accountId
+      )
+      onSelectCampaigns([...otherAccountSelections, ...allFromCurrentAccount])
     }
   }
 
-  const allSelected = sortedCampaigns.length > 0 && selectedCampaigns.length === sortedCampaigns.length
+  const allSelected = sortedCampaigns.length > 0 && selectedIdsInCurrentAccount.length === sortedCampaigns.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -116,7 +153,7 @@ export default function CampaignsTable({
         </thead>
         <tbody>
           {sortedCampaigns.map((campaign, index) => {
-            const isSelected = selectedCampaigns.includes(campaign.id)
+            const isSelected = selectedIdsInCurrentAccount.includes(campaign.id)
 
             return (
               <tr
@@ -128,7 +165,7 @@ export default function CampaignsTable({
                   transition: 'background-color 0.2s',
                   cursor: 'pointer',
                 }}
-                onClick={() => toggleCampaign(campaign.id)}
+                onClick={() => toggleCampaign(campaign)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f3f4f6'
                 }}
@@ -140,7 +177,7 @@ export default function CampaignsTable({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => toggleCampaign(campaign.id)}
+                    onChange={() => toggleCampaign(campaign)}
                     style={{
                       width: '16px',
                       height: '16px',

@@ -13,16 +13,20 @@ import MetricsCards from './insights/MetricsCards'
 import MetricsCharts from './insights/MetricsCharts'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface InsightsViewProps {
-  accountId: string | null
-  selectedCampaigns: string[]
-  selectedAdSets: string[]
-  selectedAds: string[]
+  selectedCampaigns: SelectionItem[]
+  selectedAdSets: SelectionItem[]
+  selectedAds: SelectionItem[]
   adAccounts: Array<{ id: string; name: string; currency?: string }>
 }
 
 export default function InsightsView({
-  accountId,
   selectedCampaigns,
   selectedAdSets,
   selectedAds,
@@ -48,16 +52,28 @@ export default function InsightsView({
   const [chartData, setChartData] = useState<any[]>([])
   const [chartEntities, setChartEntities] = useState<any[]>([])
 
-  // Get currency from first selected account, or fall back to current account
+  // Get unique accounts from selected items
+  const availableAccountIds = useMemo(() => {
+    const accountIds = new Set<string>()
+    selectedCampaigns.forEach(c => accountIds.add(c.ad_account_id))
+    selectedAdSets.forEach(a => accountIds.add(a.ad_account_id))
+    selectedAds.forEach(a => accountIds.add(a.ad_account_id))
+    return Array.from(accountIds)
+  }, [selectedCampaigns, selectedAdSets, selectedAds])
+
+  // Get currency from first selected account
   const accountCurrency = useMemo(() => {
     if (selectedAccounts.length > 0) {
       const account = adAccounts.find(a => a.id === selectedAccounts[0])
       return account?.currency || 'USD'
     }
-    // Fallback to current account if no selections
-    const currentAccount = adAccounts.find(a => a.id === accountId)
-    return currentAccount?.currency || 'USD'
-  }, [selectedAccounts, adAccounts, accountId])
+    // Fallback to first available account
+    if (availableAccountIds.length > 0) {
+      const account = adAccounts.find(a => a.id === availableAccountIds[0])
+      return account?.currency || 'USD'
+    }
+    return 'USD'
+  }, [selectedAccounts, adAccounts, availableAccountIds])
 
   // Initialize default dates (last 30 days)
   useEffect(() => {
@@ -69,63 +85,12 @@ export default function InsightsView({
     setStartDate(start.toISOString().split('T')[0])
   }, [])
 
-  // Auto-select current account - DISABLED: users must explicitly select
-  // useEffect(() => {
-  //   if (accountId && !selectedAccounts.includes(accountId)) {
-  //     setSelectedAccounts([accountId])
-  //   }
-  // }, [accountId])
-
-  // Load campaigns/adsets/ads based on selections from main dashboard
+  // Use selected items directly as filter options (they already have all needed info)
   useEffect(() => {
-    const loadFilterOptions = async () => {
-      if (!accountId) {
-        setCampaigns([])
-        setAdsets([])
-        setAds([])
-        return
-      }
-
-      try {
-        // Load campaigns - show only selected campaigns from main dashboard
-        if (selectedCampaigns.length > 0) {
-          const campaignsResult = await api.getClientCampaignsNew(accountId)
-          const filteredCampaigns = (campaignsResult.campaigns || []).filter((c: any) =>
-            selectedCampaigns.includes(c.id)
-          )
-          setCampaigns(filteredCampaigns)
-        } else {
-          setCampaigns([])
-        }
-
-        // Load adsets - show only selected adsets from main dashboard
-        if (selectedAdSets.length > 0 && selectedCampaigns.length > 0) {
-          const adsetsResult = await api.getClientAdSetsNew(selectedCampaigns)
-          const filteredAdsets = (adsetsResult.adsets || []).filter((a: any) =>
-            selectedAdSets.includes(a.id)
-          )
-          setAdsets(filteredAdsets)
-        } else {
-          setAdsets([])
-        }
-
-        // Load ads - show only selected ads from main dashboard
-        if (selectedAds.length > 0 && selectedAdSets.length > 0) {
-          const adsResult = await api.getClientAdsNew(selectedAdSets)
-          const filteredAds = (adsResult.ads || []).filter((a: any) =>
-            selectedAds.includes(a.id)
-          )
-          setAds(filteredAds)
-        } else {
-          setAds([])
-        }
-      } catch (err) {
-        console.error('Failed to load filter options:', err)
-      }
-    }
-
-    loadFilterOptions()
-  }, [accountId, selectedCampaigns, selectedAdSets, selectedAds])
+    setCampaigns(selectedCampaigns)
+    setAdsets(selectedAdSets)
+    setAds(selectedAds)
+  }, [selectedCampaigns, selectedAdSets, selectedAds])
 
   // Manual generate function - only loads data when button is clicked
   const handleGenerate = async () => {
@@ -193,7 +158,9 @@ export default function InsightsView({
   }
 
 
-  if (!accountId) {
+  const hasAnySelections = selectedCampaigns.length > 0 || selectedAdSets.length > 0 || selectedAds.length > 0
+
+  if (!hasAnySelections) {
     return (
       <div
         style={{
@@ -207,10 +174,10 @@ export default function InsightsView({
         <div style={{ textAlign: 'center', color: '#9ca3af' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem', color: '#6b7280' }}>
-            Selectează un Ad Account
+            Nu există selecții salvate
           </p>
           <p style={{ fontSize: '0.875rem' }}>
-            Alege un ad account din panoul din stânga pentru a vedea insights
+            Navighează la secțiunile Campaigns, Ad Sets sau Ads și selectează obiectele pe care vrei să le analizezi
           </p>
         </div>
       </div>

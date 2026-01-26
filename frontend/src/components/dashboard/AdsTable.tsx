@@ -16,16 +16,24 @@ interface Ad {
   creative_name?: string
 }
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface AdsTableProps {
   ads: Ad[]
   loading?: boolean
-  selectedAds: string[]
-  onSelectAds: (ads: string[]) => void
+  accountId: string | null
+  selectedAds: SelectionItem[]
+  onSelectAds: (ads: SelectionItem[]) => void
 }
 
 export default function AdsTable({
   ads,
   loading = false,
+  accountId,
   selectedAds,
   onSelectAds,
 }: AdsTableProps) {
@@ -40,25 +48,54 @@ export default function AdsTable({
     return aOrder - bOrder
   })
 
+  // Get selected IDs for current account
+  const selectedIdsInCurrentAccount = selectedAds
+    .filter(a => a.ad_account_id === accountId)
+    .map(a => a.id)
+
   // Handler pentru toggle individual ad
-  const toggleAd = (adId: string) => {
-    if (selectedAds.includes(adId)) {
-      onSelectAds(selectedAds.filter(id => id !== adId))
+  const toggleAd = (ad: Ad) => {
+    const isSelected = selectedIdsInCurrentAccount.includes(ad.id)
+
+    if (isSelected) {
+      // Remove from selections
+      onSelectAds(selectedAds.filter(a => a.id !== ad.id))
     } else {
-      onSelectAds([...selectedAds, adId])
+      // Add to selections with full info
+      onSelectAds([
+        ...selectedAds,
+        {
+          id: ad.id,
+          name: ad.name,
+          ad_account_id: accountId || '',
+        },
+      ])
     }
   }
 
-  // Handler pentru select all
+  // Handler pentru select all (only for current account)
   const toggleSelectAll = () => {
-    if (selectedAds.length === sortedAds.length) {
-      onSelectAds([])
+    if (selectedIdsInCurrentAccount.length === sortedAds.length) {
+      // Deselect all from current account
+      onSelectAds(
+        selectedAds.filter(a => a.ad_account_id !== accountId)
+      )
     } else {
-      onSelectAds(sortedAds.map(a => a.id))
+      // Select all from current account
+      const allFromCurrentAccount = sortedAds.map(a => ({
+        id: a.id,
+        name: a.name,
+        ad_account_id: accountId || '',
+      }))
+      // Keep selections from other accounts and add all from current
+      const otherAccountSelections = selectedAds.filter(
+        a => a.ad_account_id !== accountId
+      )
+      onSelectAds([...otherAccountSelections, ...allFromCurrentAccount])
     }
   }
 
-  const allSelected = sortedAds.length > 0 && selectedAds.length === sortedAds.length
+  const allSelected = sortedAds.length > 0 && selectedIdsInCurrentAccount.length === sortedAds.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -118,7 +155,7 @@ export default function AdsTable({
         </thead>
         <tbody>
           {sortedAds.map((ad, index) => {
-            const isSelected = selectedAds.includes(ad.id)
+            const isSelected = selectedIdsInCurrentAccount.includes(ad.id)
             const creativeName = ad.creative_name || ad.creative_id || 'N/A'
 
             return (
@@ -131,7 +168,7 @@ export default function AdsTable({
                   transition: 'background-color 0.2s',
                   cursor: 'pointer',
                 }}
-                onClick={() => toggleAd(ad.id)}
+                onClick={() => toggleAd(ad)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f3f4f6'
                 }}
@@ -143,7 +180,7 @@ export default function AdsTable({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => toggleAd(ad.id)}
+                    onChange={() => toggleAd(ad)}
                     style={{
                       width: '16px',
                       height: '16px',

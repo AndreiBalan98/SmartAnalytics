@@ -17,10 +17,16 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 // Storage key for dashboard selections
 const SELECTIONS_STORAGE_KEY = 'dashboard_selections'
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface DashboardSelections {
-  campaigns: string[]
-  adSets: string[]
-  ads: string[]
+  campaigns: SelectionItem[]
+  adSets: SelectionItem[]
+  ads: SelectionItem[]
 }
 
 // Helper to load selections from localStorage
@@ -79,9 +85,9 @@ export default function ClientDashboard() {
 
   // Selection state - initialize from localStorage
   const initialSelections = loadSelections()
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(initialSelections.campaigns)
-  const [selectedAdSets, setSelectedAdSets] = useState<string[]>(initialSelections.adSets)
-  const [selectedAds, setSelectedAds] = useState<string[]>(initialSelections.ads)
+  const [selectedCampaigns, setSelectedCampaigns] = useState<SelectionItem[]>(initialSelections.campaigns)
+  const [selectedAdSets, setSelectedAdSets] = useState<SelectionItem[]>(initialSelections.adSets)
+  const [selectedAds, setSelectedAds] = useState<SelectionItem[]>(initialSelections.ads)
 
   // Auth redirect
   useEffect(() => {
@@ -329,6 +335,9 @@ export default function ClientDashboard() {
             selectedCampaignsCount={selectedCampaigns.length}
             selectedAdSetsCount={selectedAdSets.length}
             selectedAdsCount={selectedAds.length}
+            selectedAccountsCount={new Set(
+              [...selectedCampaigns, ...selectedAdSets, ...selectedAds].map(item => item.ad_account_id)
+            ).size}
             onClearAllSelections={handleClearAllSelections}
           />
         </div>

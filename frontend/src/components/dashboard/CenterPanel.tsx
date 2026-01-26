@@ -14,15 +14,21 @@ import CreativesGrid from './CreativesGrid'
 import InsightsView from './InsightsView'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface CenterPanelProps {
   view: string
   accountId: string | null
-  selectedCampaigns: string[]
-  onSelectCampaigns: (campaigns: string[]) => void
-  selectedAdSets: string[]
-  onSelectAdSets: (adSets: string[]) => void
-  selectedAds: string[]
-  onSelectAds: (ads: string[]) => void
+  selectedCampaigns: SelectionItem[]
+  onSelectCampaigns: (campaigns: SelectionItem[]) => void
+  selectedAdSets: SelectionItem[]
+  onSelectAdSets: (adSets: SelectionItem[]) => void
+  selectedAds: SelectionItem[]
+  onSelectAds: (ads: SelectionItem[]) => void
   adAccounts: Array<{ id: string; name: string; currency?: string }>
 }
 
@@ -66,35 +72,50 @@ export default function CenterPanel({
           break
 
         case 'adsets':
-          if (selectedCampaigns.length === 0) {
+          // Filter campaigns for current account only
+          const campaignIdsForAccount = selectedCampaigns
+            .filter(c => c.ad_account_id === accountId)
+            .map(c => c.id)
+
+          if (campaignIdsForAccount.length === 0) {
             setData([])
-            setError('Te rog selectează cel puțin un campaign pentru a vedea ad sets')
+            setError('Te rog selectează cel puțin un campaign din acest cont pentru a vedea ad sets')
             setLoading(false)
             return
           }
-          result = await api.getClientAdSetsNew(selectedCampaigns)
+          result = await api.getClientAdSetsNew(campaignIdsForAccount)
           setData(result.adsets || [])
           break
 
         case 'ads':
-          if (selectedAdSets.length === 0) {
+          // Filter ad sets for current account only
+          const adSetIdsForAccount = selectedAdSets
+            .filter(a => a.ad_account_id === accountId)
+            .map(a => a.id)
+
+          if (adSetIdsForAccount.length === 0) {
             setData([])
-            setError('Te rog selectează cel puțin un ad set pentru a vedea ads')
+            setError('Te rog selectează cel puțin un ad set din acest cont pentru a vedea ads')
             setLoading(false)
             return
           }
-          result = await api.getClientAdsNew(selectedAdSets)
+          result = await api.getClientAdsNew(adSetIdsForAccount)
           setData(result.ads || [])
           break
 
         case 'creatives':
-          if (selectedAds.length === 0) {
+          // Filter ads for current account only
+          const adIdsForAccount = selectedAds
+            .filter(a => a.ad_account_id === accountId)
+            .map(a => a.id)
+
+          if (adIdsForAccount.length === 0) {
             setData([])
-            setError('Te rog selectează cel puțin un ad pentru a vedea creatives')
+            setError('Te rog selectează cel puțin un ad din acest cont pentru a vedea creatives')
             setLoading(false)
             return
           }
-          result = await api.getClientCreativesNew(selectedAds)
+          result = await api.getClientCreativesNew(adIdsForAccount)
           setData(result.creatives || [])
           break
 
@@ -203,6 +224,7 @@ export default function CenterPanel({
           <CampaignsTable
             campaigns={data}
             loading={loading}
+            accountId={accountId}
             selectedCampaigns={selectedCampaigns}
             onSelectCampaigns={onSelectCampaigns}
           />
@@ -211,6 +233,7 @@ export default function CenterPanel({
           <AdSetsTable
             adsets={data}
             loading={loading}
+            accountId={accountId}
             selectedAdSets={selectedAdSets}
             onSelectAdSets={onSelectAdSets}
           />
@@ -219,6 +242,7 @@ export default function CenterPanel({
           <AdsTable
             ads={data}
             loading={loading}
+            accountId={accountId}
             selectedAds={selectedAds}
             onSelectAds={onSelectAds}
           />
@@ -226,7 +250,6 @@ export default function CenterPanel({
         {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}
         {view === 'insights' && (
           <InsightsView
-            accountId={accountId}
             selectedCampaigns={selectedCampaigns}
             selectedAdSets={selectedAdSets}
             selectedAds={selectedAds}

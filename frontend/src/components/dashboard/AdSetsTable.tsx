@@ -17,16 +17,24 @@ interface AdSet {
   end_time: string | null
 }
 
+interface SelectionItem {
+  id: string
+  name: string
+  ad_account_id: string
+}
+
 interface AdSetsTableProps {
   adsets: AdSet[]
   loading?: boolean
-  selectedAdSets: string[]
-  onSelectAdSets: (adsets: string[]) => void
+  accountId: string | null
+  selectedAdSets: SelectionItem[]
+  onSelectAdSets: (adsets: SelectionItem[]) => void
 }
 
 export default function AdSetsTable({
   adsets,
   loading = false,
+  accountId,
   selectedAdSets,
   onSelectAdSets,
 }: AdSetsTableProps) {
@@ -41,25 +49,54 @@ export default function AdSetsTable({
     return aOrder - bOrder
   })
 
+  // Get selected IDs for current account
+  const selectedIdsInCurrentAccount = selectedAdSets
+    .filter(a => a.ad_account_id === accountId)
+    .map(a => a.id)
+
   // Handler pentru toggle individual ad set
-  const toggleAdSet = (adsetId: string) => {
-    if (selectedAdSets.includes(adsetId)) {
-      onSelectAdSets(selectedAdSets.filter(id => id !== adsetId))
+  const toggleAdSet = (adset: AdSet) => {
+    const isSelected = selectedIdsInCurrentAccount.includes(adset.id)
+
+    if (isSelected) {
+      // Remove from selections
+      onSelectAdSets(selectedAdSets.filter(a => a.id !== adset.id))
     } else {
-      onSelectAdSets([...selectedAdSets, adsetId])
+      // Add to selections with full info
+      onSelectAdSets([
+        ...selectedAdSets,
+        {
+          id: adset.id,
+          name: adset.name,
+          ad_account_id: accountId || '',
+        },
+      ])
     }
   }
 
-  // Handler pentru select all
+  // Handler pentru select all (only for current account)
   const toggleSelectAll = () => {
-    if (selectedAdSets.length === sortedAdSets.length) {
-      onSelectAdSets([])
+    if (selectedIdsInCurrentAccount.length === sortedAdSets.length) {
+      // Deselect all from current account
+      onSelectAdSets(
+        selectedAdSets.filter(a => a.ad_account_id !== accountId)
+      )
     } else {
-      onSelectAdSets(sortedAdSets.map(a => a.id))
+      // Select all from current account
+      const allFromCurrentAccount = sortedAdSets.map(a => ({
+        id: a.id,
+        name: a.name,
+        ad_account_id: accountId || '',
+      }))
+      // Keep selections from other accounts and add all from current
+      const otherAccountSelections = selectedAdSets.filter(
+        a => a.ad_account_id !== accountId
+      )
+      onSelectAdSets([...otherAccountSelections, ...allFromCurrentAccount])
     }
   }
 
-  const allSelected = sortedAdSets.length > 0 && selectedAdSets.length === sortedAdSets.length
+  const allSelected = sortedAdSets.length > 0 && selectedIdsInCurrentAccount.length === sortedAdSets.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -147,7 +184,7 @@ export default function AdSetsTable({
         </thead>
         <tbody>
           {sortedAdSets.map((adset, index) => {
-            const isSelected = selectedAdSets.includes(adset.id)
+            const isSelected = selectedIdsInCurrentAccount.includes(adset.id)
 
             return (
               <tr
@@ -159,7 +196,7 @@ export default function AdSetsTable({
                   transition: 'background-color 0.2s',
                   cursor: 'pointer',
                 }}
-                onClick={() => toggleAdSet(adset.id)}
+                onClick={() => toggleAdSet(adset)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f3f4f6'
                 }}
@@ -171,7 +208,7 @@ export default function AdSetsTable({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => toggleAdSet(adset.id)}
+                    onChange={() => toggleAdSet(adset)}
                     style={{
                       width: '16px',
                       height: '16px',

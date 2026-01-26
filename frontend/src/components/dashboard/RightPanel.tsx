@@ -10,6 +10,7 @@ interface RightPanelProps {
   selectedCampaignsCount?: number
   selectedAdSetsCount?: number
   selectedAdsCount?: number
+  selectedAccountsCount?: number
   onClearAllSelections: () => void
 }
 
@@ -20,6 +21,7 @@ export default function RightPanel({
   selectedCampaignsCount = 0,
   selectedAdSetsCount = 0,
   selectedAdsCount = 0,
+  selectedAccountsCount = 0,
   onClearAllSelections,
 }: RightPanelProps) {
   // Calculate total selections
@@ -73,23 +75,35 @@ export default function RightPanel({
       padding: '1rem',
       overflowY: 'auto',
     }}>
-      <div style={{ position: 'relative', marginBottom: '1rem' }}>
-        <h3 style={{
-          margin: 0,
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          color: '#6b7280',
+      {/* Selections Summary */}
+      {totalSelections > 0 && (
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '8px',
+          fontSize: '0.75rem',
         }}>
-          NAVIGATION
-        </h3>
-        {totalSelections > 0 && (
+          <div style={{ fontWeight: 600, color: '#1e40af', marginBottom: '0.5rem' }}>
+            Selecții Salvate
+          </div>
+          {selectedAccountsCount > 0 && (
+            <div style={{ color: '#3b82f6', marginBottom: '0.25rem' }}>
+              📊 Conturi: {selectedAccountsCount}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', color: '#1e40af' }}>
+            {selectedCampaignsCount > 0 && <div>🎯 Campanii: {selectedCampaignsCount}</div>}
+            {selectedAdSetsCount > 0 && <div>📢 Ad Sets: {selectedAdSetsCount}</div>}
+            {selectedAdsCount > 0 && <div>🎨 Ads: {selectedAdsCount}</div>}
+          </div>
           <button
             onClick={onClearAllSelections}
             style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
+              marginTop: '0.5rem',
               padding: '0.375rem 0.625rem',
+              width: '100%',
               fontSize: '0.75rem',
               backgroundColor: '#fee2e2',
               color: '#991b1b',
@@ -100,11 +114,21 @@ export default function RightPanel({
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fecaca'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
-            title="Clear all selections"
           >
-            × Clear ({totalSelections})
+            × Șterge Tot
           </button>
-        )}
+        </div>
+      )}
+
+      <div style={{ position: 'relative', marginBottom: '1rem' }}>
+        <h3 style={{
+          margin: 0,
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: '#6b7280',
+        }}>
+          NAVIGATION
+        </h3>
       </div>
 
       {disabled && (
