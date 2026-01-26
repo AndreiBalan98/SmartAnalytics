@@ -14,6 +14,48 @@ import CenterPanel from '@/components/dashboard/CenterPanel'
 import RightPanel from '@/components/dashboard/RightPanel'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
+// Storage key for dashboard selections
+const SELECTIONS_STORAGE_KEY = 'dashboard_selections'
+
+interface DashboardSelections {
+  campaigns: string[]
+  adSets: string[]
+  ads: string[]
+}
+
+// Helper to load selections from localStorage
+function loadSelections(): DashboardSelections {
+  if (typeof window === 'undefined') {
+    return { campaigns: [], adSets: [], ads: [] }
+  }
+
+  try {
+    const stored = localStorage.getItem(SELECTIONS_STORAGE_KEY)
+    if (!stored) return { campaigns: [], adSets: [], ads: [] }
+
+    const parsed = JSON.parse(stored)
+    return {
+      campaigns: Array.isArray(parsed.campaigns) ? parsed.campaigns : [],
+      adSets: Array.isArray(parsed.adSets) ? parsed.adSets : [],
+      ads: Array.isArray(parsed.ads) ? parsed.ads : [],
+    }
+  } catch (err) {
+    console.error('Failed to load selections from localStorage:', err)
+    return { campaigns: [], adSets: [], ads: [] }
+  }
+}
+
+// Helper to save selections to localStorage
+function saveSelections(selections: DashboardSelections): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.setItem(SELECTIONS_STORAGE_KEY, JSON.stringify(selections))
+  } catch (err) {
+    console.error('Failed to save selections to localStorage:', err)
+  }
+}
+
 interface AdAccount {
   id: string
   name: string
@@ -35,10 +77,11 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Selection state pentru campaigns/adsets/ads
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
-  const [selectedAdSets, setSelectedAdSets] = useState<string[]>([])
-  const [selectedAds, setSelectedAds] = useState<string[]>([])
+  // Selection state - initialize from localStorage
+  const initialSelections = loadSelections()
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(initialSelections.campaigns)
+  const [selectedAdSets, setSelectedAdSets] = useState<string[]>(initialSelections.adSets)
+  const [selectedAds, setSelectedAds] = useState<string[]>(initialSelections.ads)
 
   // Auth redirect
   useEffect(() => {
@@ -69,6 +112,23 @@ export default function ClientDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Save selections to localStorage whenever they change
+  useEffect(() => {
+    saveSelections({
+      campaigns: selectedCampaigns,
+      adSets: selectedAdSets,
+      ads: selectedAds,
+    })
+  }, [selectedCampaigns, selectedAdSets, selectedAds])
+
+  // Handler to clear all selections
+  function handleClearAllSelections() {
+    setSelectedCampaigns([])
+    setSelectedAdSets([])
+    setSelectedAds([])
+    // No need to call saveSelections - useEffect will handle it
   }
 
   if (authLoading || loading) {
@@ -269,6 +329,7 @@ export default function ClientDashboard() {
             selectedCampaignsCount={selectedCampaigns.length}
             selectedAdSetsCount={selectedAdSets.length}
             selectedAdsCount={selectedAds.length}
+            onClearAllSelections={handleClearAllSelections}
           />
         </div>
       </div>

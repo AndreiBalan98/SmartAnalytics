@@ -1,10 +1,13 @@
 """API views for Meta Ads sync and client dashboard"""
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status as http_status
 from datetime import date, timedelta
 from django.db.models import Sum, Avg, Q
+
+logger = logging.getLogger(__name__)
 
 from integrations.models import MetaIntegration
 from agencies.models import AgencyUser
@@ -508,6 +511,17 @@ def client_insights_aggregate(request):
             date_start__gte=start_date,
             date_stop__lte=end_date
         )
+
+        # Debug logging
+        insight_count = insights.count()
+        logger.info(f"Entity {entity_id} (type: {entity_type}, level: {level}): found {insight_count} insights")
+
+        if insight_count == 0:
+            # Check what levels exist for this object_id
+            existing_levels = Insight.objects.filter(
+                object_id=entity_id
+            ).values_list('level', flat=True).distinct()
+            logger.warning(f"No insights found. Available levels for {entity_id}: {list(existing_levels)}")
 
         # Verify permission (check account access)
         if insights.exists():

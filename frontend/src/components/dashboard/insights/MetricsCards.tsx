@@ -6,6 +6,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatCurrency } from '@/lib/currency'
 
 interface TopPerformer {
   entityId: string
@@ -31,6 +32,7 @@ interface MetricsCardsProps {
   topCTR: TopPerformer[]
   topCPC: TopPerformer[]
   topCPM: TopPerformer[]
+  currency: string
 }
 
 export default function MetricsCards({
@@ -41,6 +43,7 @@ export default function MetricsCards({
   topCTR,
   topCPC,
   topCPM,
+  currency,
 }: MetricsCardsProps) {
   const [showTooltip, setShowTooltip] = useState<string | null>(null)
 
@@ -76,7 +79,7 @@ export default function MetricsCards({
       color: '#3b82f6',
       description: metricDescriptions['Total Spend'],
       topPerformers: topSpend,
-      valueFormatter: (v) => `$${v.toFixed(2)}`,
+      valueFormatter: (v) => formatCurrency(v, currency),
     },
     {
       label: 'Impressions',
@@ -116,7 +119,7 @@ export default function MetricsCards({
       color: '#ec4899',
       description: metricDescriptions['CPC'],
       topPerformers: topCPC,
-      valueFormatter: (v) => `$${v.toFixed(2)}`,
+      valueFormatter: (v) => formatCurrency(v, currency),
     },
     {
       label: 'CPM',
@@ -124,7 +127,7 @@ export default function MetricsCards({
       color: '#6366f1',
       description: metricDescriptions['CPM'],
       topPerformers: topCPM,
-      valueFormatter: (v) => `$${v.toFixed(2)}`,
+      valueFormatter: (v) => formatCurrency(v, currency),
     },
   ]
 

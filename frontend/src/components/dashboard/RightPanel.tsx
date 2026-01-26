@@ -10,6 +10,7 @@ interface RightPanelProps {
   selectedCampaignsCount?: number
   selectedAdSetsCount?: number
   selectedAdsCount?: number
+  onClearAllSelections: () => void
 }
 
 export default function RightPanel({
@@ -19,7 +20,13 @@ export default function RightPanel({
   selectedCampaignsCount = 0,
   selectedAdSetsCount = 0,
   selectedAdsCount = 0,
+  onClearAllSelections,
 }: RightPanelProps) {
+  // Calculate total selections
+  const totalSelections = (selectedCampaignsCount || 0) +
+                          (selectedAdSetsCount || 0) +
+                          (selectedAdsCount || 0)
+
   // Mapping pentru count-uri
   const countMap: { [key: string]: number } = {
     campaigns: selectedCampaignsCount,
@@ -66,14 +73,39 @@ export default function RightPanel({
       padding: '1rem',
       overflowY: 'auto',
     }}>
-      <h3 style={{
-        margin: '0 0 1rem 0',
-        fontSize: '0.875rem',
-        fontWeight: 600,
-        color: '#6b7280',
-      }}>
-        NAVIGATION
-      </h3>
+      <div style={{ position: 'relative', marginBottom: '1rem' }}>
+        <h3 style={{
+          margin: 0,
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: '#6b7280',
+        }}>
+          NAVIGATION
+        </h3>
+        {totalSelections > 0 && (
+          <button
+            onClick={onClearAllSelections}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              padding: '0.375rem 0.625rem',
+              fontSize: '0.75rem',
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              border: '1px solid #fecaca',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fecaca'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+            title="Clear all selections"
+          >
+            × Clear ({totalSelections})
+          </button>
+        )}
+      </div>
 
       {disabled && (
         <div style={{

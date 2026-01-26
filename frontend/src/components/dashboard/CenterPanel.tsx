@@ -48,7 +48,7 @@ export default function CenterPanel({
     }
 
     loadData()
-  }, [view, accountId, selectedCampaigns, selectedAdSets, selectedAds])
+  }, [view, accountId]) // Only reload on view/account change, not on selections
 
   async function loadData() {
     if (!accountId) return

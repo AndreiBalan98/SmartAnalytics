@@ -5,8 +5,9 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '@/lib/api'
+import { formatCurrency, getCurrencySymbol } from '@/lib/currency'
 import InsightsFilters from './insights/InsightsFilters'
 import MetricsCards from './insights/MetricsCards'
 import MetricsCharts from './insights/MetricsCharts'
@@ -47,6 +48,17 @@ export default function InsightsView({
   const [chartData, setChartData] = useState<any[]>([])
   const [chartEntities, setChartEntities] = useState<any[]>([])
 
+  // Get currency from first selected account, or fall back to current account
+  const accountCurrency = useMemo(() => {
+    if (selectedAccounts.length > 0) {
+      const account = adAccounts.find(a => a.id === selectedAccounts[0])
+      return account?.currency || 'USD'
+    }
+    // Fallback to current account if no selections
+    const currentAccount = adAccounts.find(a => a.id === accountId)
+    return currentAccount?.currency || 'USD'
+  }, [selectedAccounts, adAccounts, accountId])
+
   // Initialize default dates (last 30 days)
   useEffect(() => {
     const end = new Date()
@@ -57,12 +69,12 @@ export default function InsightsView({
     setStartDate(start.toISOString().split('T')[0])
   }, [])
 
-  // Auto-select current account
-  useEffect(() => {
-    if (accountId && !selectedAccounts.includes(accountId)) {
-      setSelectedAccounts([accountId])
-    }
-  }, [accountId])
+  // Auto-select current account - DISABLED: users must explicitly select
+  // useEffect(() => {
+  //   if (accountId && !selectedAccounts.includes(accountId)) {
+  //     setSelectedAccounts([accountId])
+  //   }
+  // }, [accountId])
 
   // Load ALL campaigns/adsets/ads options for the account
   useEffect(() => {
@@ -236,11 +248,12 @@ export default function InsightsView({
             topCTR={topPerformers.topCTR}
             topCPC={topPerformers.topCPC}
             topCPM={topPerformers.topCPM}
+            currency={accountCurrency}
           />
 
           {/* Charts */}
           {chartData.length > 0 && chartEntities.length > 0 && (
-            <MetricsCharts data={chartData} entities={chartEntities} />
+            <MetricsCharts data={chartData} entities={chartEntities} currency={accountCurrency} />
           )}
         </>
       )}

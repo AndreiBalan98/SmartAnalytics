@@ -8,6 +8,21 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
+  // Handle null, undefined, or non-string status
+  if (!status || typeof status !== 'string') {
+    return (
+      <span
+        className="px-2 py-1 rounded text-xs font-medium border bg-gray-100 text-gray-800 border-gray-300"
+        style={{
+          display: 'inline-block',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        UNKNOWN
+      </span>
+    )
+  }
+
   const statusLower = status.toLowerCase()
 
   const colors: Record<string, string> = {

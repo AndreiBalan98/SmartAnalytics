@@ -15,6 +15,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { getCurrencySymbol } from '@/lib/currency'
 
 interface ChartDataPoint {
   date: string
@@ -24,9 +25,12 @@ interface ChartDataPoint {
 interface MetricsChartsProps {
   data: ChartDataPoint[]
   entities: Array<{ id: string; name: string; type: string }>
+  currency: string
 }
 
-export default function MetricsCharts({ data, entities }: MetricsChartsProps) {
+export default function MetricsCharts({ data, entities, currency }: MetricsChartsProps) {
+  const currencySymbol = getCurrencySymbol(currency)
+
   // Paleta de culori pentru linii
   const colors = [
     '#3b82f6', // blue
@@ -41,22 +45,22 @@ export default function MetricsCharts({ data, entities }: MetricsChartsProps) {
 
   const charts = [
     {
-      title: 'Total Spend (USD)',
+      title: `Total Spend (${currency})`,
       dataKey: 'spend',
-      valueFormatter: (value: number) => `$${value.toFixed(2)}`,
+      valueFormatter: (value: number) => `${currencySymbol}${value.toFixed(2)}`,
     },
     {
-      title: 'Impressions',
+      title: 'Total Impressions',
       dataKey: 'impressions',
       valueFormatter: (value: number) => value.toLocaleString(),
     },
     {
-      title: 'Clicks',
+      title: 'Total Clicks',
       dataKey: 'clicks',
       valueFormatter: (value: number) => value.toLocaleString(),
     },
     {
-      title: 'Reach',
+      title: 'Total Reach',
       dataKey: 'reach',
       valueFormatter: (value: number) => value.toLocaleString(),
     },
@@ -66,14 +70,14 @@ export default function MetricsCharts({ data, entities }: MetricsChartsProps) {
       valueFormatter: (value: number) => `${value.toFixed(2)}%`,
     },
     {
-      title: 'CPC (USD)',
+      title: `CPC (${currency})`,
       dataKey: 'cpc',
-      valueFormatter: (value: number) => `$${value.toFixed(2)}`,
+      valueFormatter: (value: number) => `${currencySymbol}${value.toFixed(2)}`,
     },
     {
-      title: 'CPM (USD)',
+      title: `CPM (${currency})`,
       dataKey: 'cpm',
-      valueFormatter: (value: number) => `$${value.toFixed(2)}`,
+      valueFormatter: (value: number) => `${currencySymbol}${value.toFixed(2)}`,
     },
   ]
 
