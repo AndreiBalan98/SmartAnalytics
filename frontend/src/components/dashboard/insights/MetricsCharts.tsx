@@ -156,7 +156,9 @@ export default function MetricsCharts({ data, entities }: MetricsChartsProps) {
                     borderRadius: '6px',
                     fontSize: '0.875rem',
                   }}
-                  formatter={(value: number) => chart.valueFormatter(value)}
+                  formatter={(value: number | undefined) =>
+                    value !== undefined ? chart.valueFormatter(value) : 'N/A'
+                  }
                 />
                 <Legend
                   wrapperStyle={{ fontSize: '0.75rem' }}
