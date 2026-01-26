@@ -18,7 +18,7 @@ interface InsightsViewProps {
   selectedCampaigns: string[]
   selectedAdSets: string[]
   selectedAds: string[]
-  adAccounts: Array<{ id: string; name: string }>
+  adAccounts: Array<{ id: string; name: string; currency?: string }>
 }
 
 export default function InsightsView({

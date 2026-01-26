@@ -23,7 +23,7 @@ interface CenterPanelProps {
   onSelectAdSets: (adSets: string[]) => void
   selectedAds: string[]
   onSelectAds: (ads: string[]) => void
-  adAccounts: Array<{ id: string; name: string }>
+  adAccounts: Array<{ id: string; name: string; currency?: string }>
 }
 
 export default function CenterPanel({
