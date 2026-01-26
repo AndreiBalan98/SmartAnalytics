@@ -11,12 +11,12 @@ export default function HeroSection() {
       <DepthBackground />
 
       {/* Bottom light glow effect */}
-      <div className="absolute bottom-0 left-0 right-0 h-96 pointer-events-none z-0">
+      <div className="absolute bottom-0 left-0 right-0 h-[500px] pointer-events-none z-0">
         <div
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-full"
+          className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-full max-w-5xl h-full"
           style={{
-            background: 'radial-gradient(ellipse at bottom, rgba(0, 212, 255, 0.15) 0%, rgba(6, 182, 212, 0.08) 35%, transparent 70%)',
-            filter: 'blur(40px)',
+            background: 'radial-gradient(ellipse at center, rgba(0, 212, 255, 0.35) 0%, rgba(6, 182, 212, 0.2) 30%, rgba(0, 212, 255, 0.1) 50%, transparent 70%)',
+            filter: 'blur(60px)',
           }}
         />
       </div>
