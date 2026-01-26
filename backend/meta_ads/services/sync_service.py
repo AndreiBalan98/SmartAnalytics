@@ -1005,15 +1005,19 @@ class MetaSyncService:
             logger.info(f'  └─ Syncing range: {range_start} to {range_end}')
 
             # Fetch insights at each level
-            for level in ['account', 'campaign', 'adset', 'ad']:
-                count = self._fetch_insights(ad_account_id, level, range_start, range_end)
-                total += count
-                logger.info(f'    └─ Level {level}: {count} insights')
-                SystemLog.objects.create(
-                    level='DEBUG',
-                    logger_name='meta.sync.insights',
-                    message=f'[INSIGHTS] Account {ad_account_id} - Level {level} ({range_start} to {range_end}): {count} records'
-                )
+            # Account level - direct request
+            count = self._fetch_insights(ad_account_id, 'account', range_start, range_end)
+            total += count
+            logger.info(f'    └─ Level account: {count} insights')
+            SystemLog.objects.create(
+                level='DEBUG',
+                logger_name='meta.sync.insights',
+                message=f'[INSIGHTS] Account {ad_account_id} - Level account ({range_start} to {range_end}): {count} records'
+            )
+
+            # Campaign/AdSet/Ad levels - fetch per entity to get correct object_id
+            count = self._fetch_insights_per_entity(ad_account_id, range_start, range_end)
+            total += count
 
         # Update sync state
         self._update_sync_state(
@@ -1024,6 +1028,115 @@ class MetaSyncService:
         )
 
         return total
+
+    def _fetch_insights_per_entity(self, ad_account_id, start_date, end_date):
+        """
+        Fetch insights by making separate requests for each campaign/adset/ad
+        This ensures object_id is stored correctly
+        """
+        from .models import Campaign, AdSet, Ad
+
+        total = 0
+
+        # Fetch campaigns for this account
+        campaigns = Campaign.objects.filter(ad_account_id=ad_account_id)
+        logger.info(f'  └─ Fetching insights for {campaigns.count()} campaigns')
+
+        for campaign in campaigns:
+            try:
+                count = self._fetch_entity_insights(campaign.id, 'campaign', ad_account_id, start_date, end_date)
+                total += count
+            except Exception as e:
+                logger.error(f'Failed to fetch insights for campaign {campaign.id}: {str(e)}')
+                continue
+
+        # Fetch adsets for this account
+        adsets = AdSet.objects.filter(ad_account_id=ad_account_id)
+        logger.info(f'  └─ Fetching insights for {adsets.count()} adsets')
+
+        for adset in adsets:
+            try:
+                count = self._fetch_entity_insights(adset.id, 'adset', ad_account_id, start_date, end_date)
+                total += count
+            except Exception as e:
+                logger.error(f'Failed to fetch insights for adset {adset.id}: {str(e)}')
+                continue
+
+        # Fetch ads for this account
+        ads = Ad.objects.filter(ad_account_id=ad_account_id)
+        logger.info(f'  └─ Fetching insights for {ads.count()} ads')
+
+        for ad in ads:
+            try:
+                count = self._fetch_entity_insights(ad.id, 'ad', ad_account_id, start_date, end_date)
+                total += count
+            except Exception as e:
+                logger.error(f'Failed to fetch insights for ad {ad.id}: {str(e)}')
+                continue
+
+        logger.info(f'  └─ Total entity insights fetched: {total}')
+        return total
+
+    def _fetch_entity_insights(self, entity_id, level, ad_account_id, start_date, end_date):
+        """Fetch insights for a specific entity (campaign/adset/ad)"""
+        try:
+            url = f'{GRAPH_API_BASE}/{entity_id}/insights'
+
+            time_range_json = json.dumps({
+                'since': start_date.isoformat(),
+                'until': end_date.isoformat(),
+            })
+
+            params = {
+                'access_token': self.access_token,
+                'time_range': time_range_json,
+                'time_increment': 1,
+                'fields': 'impressions,clicks,spend,reach,actions,cpc,cpm,ctr',
+                'limit': 500,
+            }
+
+            response = requests.get(url, params=params)
+
+            if response.status_code != 200:
+                logger.warning(f'Failed to fetch insights for {level} {entity_id}: {response.status_code}')
+                return 0
+
+            insights = response.json().get('data', [])
+
+            count = 0
+            for insight in insights:
+                try:
+                    date_start = datetime.strptime(insight['date_start'], '%Y-%m-%d').date()
+                    date_stop = datetime.strptime(insight['date_stop'], '%Y-%m-%d').date()
+
+                    # Check if this insight already exists (avoid duplicates)
+                    if not Insight.objects.filter(
+                        level=level,
+                        object_id=entity_id,
+                        ad_account_id=ad_account_id,
+                        date_start=date_start,
+                        date_stop=date_stop
+                    ).exists():
+                        # Use entity_id as object_id - this is correct!
+                        Insight.objects.create(
+                            level=level,
+                            object_id=entity_id,  # Correct object_id!
+                            ad_account_id=ad_account_id,
+                            date_start=date_start,
+                            date_stop=date_stop,
+                            metrics=insight,
+                            raw=insight,
+                        )
+                        count += 1
+                except Exception as e:
+                    logger.error(f'Failed to save insight for {entity_id}: {str(e)}')
+                    continue
+
+            return count
+
+        except Exception as e:
+            logger.error(f'Error fetching insights for {level} {entity_id}: {str(e)}')
+            return 0
 
     def _fetch_insights(self, ad_account_id, level, start_date, end_date):
         """Fetch insights for specific level - APPEND ONLY"""
@@ -1086,6 +1199,11 @@ class MetaSyncService:
             count = 0
             for insight in insights:
                 try:
+                    # Log first insight to see what fields Meta API returns
+                    if count == 0:
+                        logger.info(f'Sample insight keys for level={level}: {list(insight.keys())}')
+                        logger.info(f'Sample insight data: {insight}')
+
                     # Determine object_id based on level
                     object_id = (
                         insight.get('ad_id') or
@@ -1093,6 +1211,10 @@ class MetaSyncService:
                         insight.get('campaign_id') or
                         ad_account_id
                     )
+
+                    # Log what we're using as object_id
+                    if count == 0:
+                        logger.info(f'Using object_id: {object_id} for level={level}')
 
                     # APPEND ONLY - no update_or_create, just create
                     Insight.objects.create(
