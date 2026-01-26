@@ -17,7 +17,8 @@
       "Bash(timeout:*)",
       "Bash(npm uninstall:*)",
       "Bash(npx tailwindcss:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

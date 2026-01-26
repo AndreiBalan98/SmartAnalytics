@@ -14,7 +14,7 @@ export default function DepthBackground() {
   }, []);
 
   // Generate random positions for particles (reduced on mobile for performance)
-  const particleCount = isMobile ? 20 : 50;
+  const particleCount = isMobile ? 40 : 100;
   const particles = Array.from({ length: particleCount }, (_, i) => ({
     id: i,
     x: Math.random() * 100,

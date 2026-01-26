@@ -30,6 +30,17 @@ export default function AdSetsTable({
   selectedAdSets,
   onSelectAdSets,
 }: AdSetsTableProps) {
+  // Sortare ad sets: ACTIVE primele, apoi PAUSED, apoi restul
+  const sortedAdSets = [...adsets].sort((a, b) => {
+    const statusOrder: { [key: string]: number } = {
+      'ACTIVE': 0,
+      'PAUSED': 1,
+    }
+    const aOrder = statusOrder[a.status] ?? 999
+    const bOrder = statusOrder[b.status] ?? 999
+    return aOrder - bOrder
+  })
+
   // Handler pentru toggle individual ad set
   const toggleAdSet = (adsetId: string) => {
     if (selectedAdSets.includes(adsetId)) {
@@ -41,14 +52,14 @@ export default function AdSetsTable({
 
   // Handler pentru select all
   const toggleSelectAll = () => {
-    if (selectedAdSets.length === adsets.length) {
+    if (selectedAdSets.length === sortedAdSets.length) {
       onSelectAdSets([])
     } else {
-      onSelectAdSets(adsets.map(a => a.id))
+      onSelectAdSets(sortedAdSets.map(a => a.id))
     }
   }
 
-  const allSelected = adsets.length > 0 && selectedAdSets.length === adsets.length
+  const allSelected = sortedAdSets.length > 0 && selectedAdSets.length === sortedAdSets.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -57,7 +68,7 @@ export default function AdSetsTable({
     )
   }
 
-  if (adsets.length === 0) {
+  if (sortedAdSets.length === 0) {
     return (
       <div style={{
         padding: '3rem',
@@ -135,7 +146,7 @@ export default function AdSetsTable({
           </tr>
         </thead>
         <tbody>
-          {adsets.map((adset, index) => {
+          {sortedAdSets.map((adset, index) => {
             const isSelected = selectedAdSets.includes(adset.id)
 
             return (

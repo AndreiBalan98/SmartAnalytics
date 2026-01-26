@@ -29,6 +29,17 @@ export default function AdsTable({
   selectedAds,
   onSelectAds,
 }: AdsTableProps) {
+  // Sortare ads: ACTIVE primele, apoi PAUSED, apoi restul
+  const sortedAds = [...ads].sort((a, b) => {
+    const statusOrder: { [key: string]: number } = {
+      'ACTIVE': 0,
+      'PAUSED': 1,
+    }
+    const aOrder = statusOrder[a.status] ?? 999
+    const bOrder = statusOrder[b.status] ?? 999
+    return aOrder - bOrder
+  })
+
   // Handler pentru toggle individual ad
   const toggleAd = (adId: string) => {
     if (selectedAds.includes(adId)) {
@@ -40,14 +51,14 @@ export default function AdsTable({
 
   // Handler pentru select all
   const toggleSelectAll = () => {
-    if (selectedAds.length === ads.length) {
+    if (selectedAds.length === sortedAds.length) {
       onSelectAds([])
     } else {
-      onSelectAds(ads.map(a => a.id))
+      onSelectAds(sortedAds.map(a => a.id))
     }
   }
 
-  const allSelected = ads.length > 0 && selectedAds.length === ads.length
+  const allSelected = sortedAds.length > 0 && selectedAds.length === sortedAds.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -56,7 +67,7 @@ export default function AdsTable({
     )
   }
 
-  if (ads.length === 0) {
+  if (sortedAds.length === 0) {
     return (
       <div style={{
         padding: '3rem',
@@ -106,7 +117,7 @@ export default function AdsTable({
           </tr>
         </thead>
         <tbody>
-          {ads.map((ad, index) => {
+          {sortedAds.map((ad, index) => {
             const isSelected = selectedAds.includes(ad.id)
             const creativeName = ad.creative_name || ad.creative_id || 'N/A'
 

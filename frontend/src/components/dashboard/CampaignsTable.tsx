@@ -27,6 +27,17 @@ export default function CampaignsTable({
   selectedCampaigns,
   onSelectCampaigns,
 }: CampaignsTableProps) {
+  // Sortare campanii: ACTIVE primele, apoi PAUSED, apoi restul
+  const sortedCampaigns = [...campaigns].sort((a, b) => {
+    const statusOrder: { [key: string]: number } = {
+      'ACTIVE': 0,
+      'PAUSED': 1,
+    }
+    const aOrder = statusOrder[a.status] ?? 999
+    const bOrder = statusOrder[b.status] ?? 999
+    return aOrder - bOrder
+  })
+
   // Handler pentru toggle individual campaign
   const toggleCampaign = (campaignId: string) => {
     if (selectedCampaigns.includes(campaignId)) {
@@ -38,14 +49,14 @@ export default function CampaignsTable({
 
   // Handler pentru select all
   const toggleSelectAll = () => {
-    if (selectedCampaigns.length === campaigns.length) {
+    if (selectedCampaigns.length === sortedCampaigns.length) {
       onSelectCampaigns([])
     } else {
-      onSelectCampaigns(campaigns.map(c => c.id))
+      onSelectCampaigns(sortedCampaigns.map(c => c.id))
     }
   }
 
-  const allSelected = campaigns.length > 0 && selectedCampaigns.length === campaigns.length
+  const allSelected = sortedCampaigns.length > 0 && selectedCampaigns.length === sortedCampaigns.length
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
@@ -54,7 +65,7 @@ export default function CampaignsTable({
     )
   }
 
-  if (campaigns.length === 0) {
+  if (sortedCampaigns.length === 0) {
     return (
       <div style={{
         padding: '3rem',
@@ -104,7 +115,7 @@ export default function CampaignsTable({
           </tr>
         </thead>
         <tbody>
-          {campaigns.map((campaign, index) => {
+          {sortedCampaigns.map((campaign, index) => {
             const isSelected = selectedCampaigns.includes(campaign.id)
 
             return (

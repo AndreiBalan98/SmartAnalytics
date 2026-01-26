@@ -10,6 +10,17 @@ export default function HeroSection() {
       {/* Depth background layer */}
       <DepthBackground />
 
+      {/* Bottom light glow effect */}
+      <div className="absolute bottom-0 left-0 right-0 h-96 pointer-events-none z-0">
+        <div
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-full"
+          style={{
+            background: 'radial-gradient(ellipse at bottom, rgba(0, 212, 255, 0.15) 0%, rgba(6, 182, 212, 0.08) 35%, transparent 70%)',
+            filter: 'blur(40px)',
+          }}
+        />
+      </div>
+
       {/* Main content layer */}
       <div className="relative z-10 max-w-6xl mx-auto text-center">
         <motion.div
@@ -54,7 +65,7 @@ export default function HeroSection() {
                 maskComposite: 'exclude',
               }}
               animate={{
-                rotate: [-5, 5, -5],
+                rotate: [-2.5, 2.5, -2.5],
               }}
               transition={{
                 duration: 4,
