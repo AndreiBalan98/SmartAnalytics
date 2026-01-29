@@ -194,7 +194,7 @@ export default function DepthBackground() {
               background: 'linear-gradient(to right, rgba(255, 255, 255, 0.9), rgba(0, 212, 255, 0.6), rgba(0, 212, 255, 0.3), transparent)',
               filter: 'blur(1px)',
               transformOrigin: 'left center',
-              transform: 'rotate(-35deg)',
+              transform: 'rotate(+35deg)',
             }}
           />
 
