@@ -355,6 +355,25 @@ export const api = {
   },
 
   /**
+   * Exchange Google Ads OAuth code for token
+   */
+  async exchangeGoogleAdsCode(code: string, redirectUri: string) {
+    const response = await fetchWithAuth('/api/integrations/google-ads/exchange-code/', {
+      method: 'POST',
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to exchange Google Ads code')
+    }
+    return response.json()
+  },
+
+  /**
    * Sync Meta data (campaigns, ad sets, ads, metrics)
    */
   async syncMetaData(days: number = 30) {

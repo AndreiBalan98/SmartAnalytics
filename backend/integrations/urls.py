@@ -12,6 +12,9 @@ urlpatterns = [
     path('meta/insights/', views.get_meta_insights, name='meta_insights'),
     path('meta/sync/', views.sync_meta_data, name='sync_meta_data'),
 
+    # Google Ads
+    path('google-ads/exchange-code/', views.exchange_google_ads_code, name='exchange_google_ads_code'),
+
     # Meta API Testing Endpoints (Development Only)
     path('meta/test/users/', test_views.list_oauth_users, name='test_oauth_users'),
     path('meta/test/user-info/', test_views.test_user_info, name='test_user_info'),

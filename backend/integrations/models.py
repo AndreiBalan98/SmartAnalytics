@@ -68,6 +68,9 @@ class GoogleAdsIntegration(models.Model):
     # Customer ID (Google Ads account)
     customer_id = models.CharField(max_length=50, blank=True)
 
+    # Google account email (from userinfo endpoint)
+    account_email = models.CharField(max_length=255, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

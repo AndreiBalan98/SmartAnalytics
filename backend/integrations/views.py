@@ -41,6 +41,7 @@ def get_integrations_status(request):
     google_ads_status = {
         'connected': google_ads_integration is not None,
         'customer_id': google_ads_integration.customer_id if google_ads_integration else None,
+        'account_email': google_ads_integration.account_email if google_ads_integration else None,
     }
 
     # Check GA4 integration
@@ -131,6 +132,95 @@ def exchange_meta_code(request):
     except Exception as e:
         return Response({
             'error': 'Failed to connect Meta',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def exchange_google_ads_code(request):
+    """
+    Exchange Google Ads OAuth code for access + refresh tokens.
+    Called from frontend OAuth callback.
+    """
+    import requests as http_requests
+    from django.utils import timezone
+    from datetime import timedelta
+
+    if request.user.user_type != 'agency':
+        return Response({
+            'error': 'Only agency users can connect platforms'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        agency = Agency.objects.get(owner=request.user)
+    except Agency.DoesNotExist:
+        return Response({
+            'error': 'No agency found for this user'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    code = request.data.get('code')
+    redirect_uri = request.data.get('redirect_uri')
+
+    if not code or not redirect_uri:
+        return Response({
+            'error': 'code and redirect_uri are required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Exchange authorization code for tokens
+        token_response = http_requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'code': code,
+                'client_id': settings.GOOGLE_CLIENT_ID,
+                'client_secret': settings.GOOGLE_CLIENT_SECRET,
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code',
+            }
+        )
+
+        if token_response.status_code != 200:
+            raise Exception(f'Token exchange failed: {token_response.text}')
+
+        token_data = token_response.json()
+
+        if 'access_token' not in token_data:
+            raise Exception('No access_token in token response')
+
+        # Fetch account email via userinfo endpoint
+        account_email = ''
+        userinfo_response = http_requests.get(
+            'https://oauth2.googleapis.com/userinfo',
+            headers={'Authorization': f'Bearer {token_data["access_token"]}'}
+        )
+        if userinfo_response.status_code == 200:
+            account_email = userinfo_response.json().get('email', '')
+
+        # Calculate token expiry
+        expires_at = timezone.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+
+        # Save or update integration
+        GoogleAdsIntegration.objects.update_or_create(
+            agency=agency,
+            defaults={
+                'access_token': token_data['access_token'],
+                'refresh_token': token_data.get('refresh_token', ''),
+                'token_type': token_data.get('token_type', 'Bearer'),
+                'expires_at': expires_at,
+                'account_email': account_email,
+            }
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Google Ads connected successfully',
+            'account_email': account_email,
+        })
+
+    except Exception as e:
+        return Response({
+            'error': 'Failed to connect Google Ads',
             'message': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
