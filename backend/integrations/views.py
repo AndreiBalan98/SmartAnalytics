@@ -369,3 +369,585 @@ def sync_meta_data(request):
             'error': 'Sync failed',
             'message': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==================================
+# NEW OAUTH VIEWS - USER-BASED AUTH
+# ==================================
+from django.http import HttpResponse
+from .services.oauth_service import (
+    generate_meta_oauth_url,
+    meta_exchange_code,
+    verify_state,
+    generate_google_ads_oauth_url,
+    google_ads_exchange_code,
+    generate_ga4_oauth_url,
+    ga4_exchange_code,
+)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def oauth_meta_start(request):
+    """
+    Generează URL-ul OAuth pentru Meta și îl returnează ca JSON
+    Frontend-ul va deschide acest URL într-un pop-up
+    """
+    redirect_uri = request.GET.get('redirect_uri')
+    if not redirect_uri:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/meta/callback"
+
+    try:
+        result = generate_meta_oauth_url(request.user, redirect_uri)
+        return Response({
+            'success': True,
+            'url': result['url'],
+            'state': result['state'],
+        })
+    except Exception as e:
+        return Response({
+            'error': 'Failed to generate OAuth URL',
+            'message': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def oauth_meta_callback(request):
+    """
+    Callback OAuth pentru Meta
+    Verifică state, exchange code pentru token, salvează în DB
+    Returnează HTML cu postMessage pentru a închide pop-up-ul
+    """
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    error = request.GET.get('error')
+
+    if error:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>Meta OAuth Error</h1>
+            <p>{error}</p>
+            <p>{request.GET.get('error_description', '')}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'META_OAUTH_ERROR',
+                    error: '{error}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """)
+
+    if not code or not state:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing code or state parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'META_OAUTH_ERROR',
+                    error: 'missing_parameters'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    # Extragem user din JWT token din query params sau session
+    # Pentru simplitate, presupunem că frontend-ul trimite user_id în query
+    user_id = request.GET.get('user_id')
+    if not user_id:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing user_id parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'META_OAUTH_ERROR',
+                    error: 'missing_user_id'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    try:
+        from users.models import User
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>User not found</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'META_OAUTH_ERROR',
+                    error: 'user_not_found'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=404)
+
+    # Verifică state
+    if not verify_state(state, user, 'meta'):
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Invalid or expired state</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'META_OAUTH_ERROR',
+                    error: 'invalid_state'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    # Exchange code
+    try:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/meta/callback"
+        result = meta_exchange_code(code, redirect_uri, user)
+
+        return HttpResponse(f"""
+        <html>
+        <head>
+            <title>Meta Connected</title>
+        </head>
+        <body>
+            <h1>Meta Connected Successfully</h1>
+            <p>Welcome, {result['user_name']}!</p>
+            <p>This window will close automatically...</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'META_OAUTH_SUCCESS',
+                    userName: '{result['user_name']}',
+                    userId: '{result['meta_user_id']}'
+                }}, '{settings.FRONTEND_URL}');
+                setTimeout(() => window.close(), 1000);
+            </script>
+        </body>
+        </html>
+        """)
+
+    except Exception as e:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Failed to connect Meta: {str(e)}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'META_OAUTH_ERROR',
+                    error: '{str(e)}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def oauth_google_ads_start(request):
+    """
+    Generează URL-ul OAuth pentru Google Ads
+    """
+    redirect_uri = request.GET.get('redirect_uri')
+    if not redirect_uri:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/google-ads/callback"
+
+    try:
+        result = generate_google_ads_oauth_url(request.user, redirect_uri)
+        return Response({
+            'success': True,
+            'url': result['url'],
+            'state': result['state'],
+        })
+    except Exception as e:
+        return Response({
+            'error': 'Failed to generate OAuth URL',
+            'message': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def oauth_google_ads_callback(request):
+    """
+    Callback OAuth pentru Google Ads
+    """
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    error = request.GET.get('error')
+
+    if error:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>Google Ads OAuth Error</h1>
+            <p>{error}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: '{error}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """)
+
+    if not code or not state:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing code or state parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: 'missing_parameters'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    user_id = request.GET.get('user_id')
+    if not user_id:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing user_id parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: 'missing_user_id'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    try:
+        from users.models import User
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>User not found</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: 'user_not_found'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=404)
+
+    if not verify_state(state, user, 'google_ads'):
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Invalid or expired state</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: 'invalid_state'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    try:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/google-ads/callback"
+        result = google_ads_exchange_code(code, redirect_uri, user)
+
+        return HttpResponse(f"""
+        <html>
+        <head>
+            <title>Google Ads Connected</title>
+        </head>
+        <body>
+            <h1>Google Ads Connected Successfully</h1>
+            <p>Welcome, {result['user_name']}!</p>
+            <p>This window will close automatically...</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GOOGLE_ADS_OAUTH_SUCCESS',
+                    userName: '{result['user_name']}',
+                    userOpenId: '{result['user_openid']}'
+                }}, '{settings.FRONTEND_URL}');
+                setTimeout(() => window.close(), 1000);
+            </script>
+        </body>
+        </html>
+        """)
+
+    except Exception as e:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Failed to connect Google Ads: {str(e)}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GOOGLE_ADS_OAUTH_ERROR',
+                    error: '{str(e)}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def oauth_ga4_start(request):
+    """
+    Generează URL-ul OAuth pentru GA4
+    """
+    redirect_uri = request.GET.get('redirect_uri')
+    if not redirect_uri:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/ga4/callback"
+
+    try:
+        result = generate_ga4_oauth_url(request.user, redirect_uri)
+        return Response({
+            'success': True,
+            'url': result['url'],
+            'state': result['state'],
+        })
+    except Exception as e:
+        return Response({
+            'error': 'Failed to generate OAuth URL',
+            'message': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def oauth_ga4_callback(request):
+    """
+    Callback OAuth pentru GA4
+    """
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    error = request.GET.get('error')
+
+    if error:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>GA4 OAuth Error</h1>
+            <p>{error}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GA4_OAUTH_ERROR',
+                    error: '{error}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """)
+
+    if not code or not state:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing code or state parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GA4_OAUTH_ERROR',
+                    error: 'missing_parameters'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    user_id = request.GET.get('user_id')
+    if not user_id:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Missing user_id parameter</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GA4_OAUTH_ERROR',
+                    error: 'missing_user_id'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    try:
+        from users.models import User
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>User not found</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GA4_OAUTH_ERROR',
+                    error: 'user_not_found'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=404)
+
+    if not verify_state(state, user, 'ga4'):
+        return HttpResponse("""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Invalid or expired state</p>
+            <script>
+                window.opener.postMessage({
+                    type: 'GA4_OAUTH_ERROR',
+                    error: 'invalid_state'
+                }, '*');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=400)
+
+    try:
+        redirect_uri = f"{settings.FRONTEND_URL}/oauth/ga4/callback"
+        result = ga4_exchange_code(code, redirect_uri, user)
+
+        return HttpResponse(f"""
+        <html>
+        <head>
+            <title>GA4 Connected</title>
+        </head>
+        <body>
+            <h1>GA4 Connected Successfully</h1>
+            <p>Welcome, {result['user_name']}!</p>
+            <p>This window will close automatically...</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GA4_OAUTH_SUCCESS',
+                    userName: '{result['user_name']}',
+                    userOpenId: '{result['user_openid']}'
+                }}, '{settings.FRONTEND_URL}');
+                setTimeout(() => window.close(), 1000);
+            </script>
+        </body>
+        </html>
+        """)
+
+    except Exception as e:
+        return HttpResponse(f"""
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Failed to connect GA4: {str(e)}</p>
+            <script>
+                window.opener.postMessage({{
+                    type: 'GA4_OAUTH_ERROR',
+                    error: '{str(e)}'
+                }}, '{settings.FRONTEND_URL}');
+                window.close();
+            </script>
+        </body>
+        </html>
+        """, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_oauth_status(request):
+    """
+    Verifică statusul conexiunilor OAuth pentru utilizatorul curent
+    Returnează status pentru Meta, Google Ads, GA4
+    """
+    from .models import MetaToken, GoogleToken, GA4Token
+
+    user = request.user
+
+    # Meta status
+    meta_status = {'connected': False}
+    try:
+        meta_token = MetaToken.objects.get(user=user)
+        meta_status = {
+            'connected': True,
+            'name': meta_token.name,
+            'meta_user_id': meta_token.meta_user_id,
+            'expires_at': meta_token.expiry_date,
+            'is_expired': meta_token.is_token_expired(),
+        }
+    except MetaToken.DoesNotExist:
+        pass
+
+    # Google Ads status
+    google_ads_status = {'connected': False}
+    try:
+        google_token = GoogleToken.objects.get(user=user)
+        google_ads_status = {
+            'connected': True,
+            'name': google_token.name,
+            'user_openid': google_token.user_openid,
+            'expires_at': google_token.expiry_date,
+            'is_expired': google_token.is_token_expired(),
+        }
+    except GoogleToken.DoesNotExist:
+        pass
+
+    # GA4 status
+    ga4_status = {'connected': False}
+    try:
+        ga4_token = GA4Token.objects.get(user=user)
+        ga4_status = {
+            'connected': True,
+            'name': ga4_token.name,
+            'user_openid': ga4_token.user_openid,
+            'expires_at': ga4_token.expiry_date,
+            'is_expired': ga4_token.is_token_expired(),
+        }
+    except GA4Token.DoesNotExist:
+        pass
+
+    return Response({
+        'user_id': user.id,
+        'user_email': user.email,
+        'oauth_connections': {
+            'meta': meta_status,
+            'google_ads': google_ads_status,
+            'ga4': ga4_status,
+        }
+    })

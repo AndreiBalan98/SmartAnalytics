@@ -15,6 +15,24 @@ urlpatterns = [
     # Google Ads
     path('google-ads/exchange-code/', views.exchange_google_ads_code, name='exchange_google_ads_code'),
 
+    # ========================================
+    # NEW OAUTH ROUTES - USER-BASED AUTH
+    # ========================================
+    # OAuth Status
+    path('oauth/status/', views.get_oauth_status, name='oauth_status'),
+
+    # Meta OAuth
+    path('oauth/meta/start/', views.oauth_meta_start, name='oauth_meta_start'),
+    path('oauth/meta/callback/', views.oauth_meta_callback, name='oauth_meta_callback'),
+
+    # Google Ads OAuth
+    path('oauth/google-ads/start/', views.oauth_google_ads_start, name='oauth_google_ads_start'),
+    path('oauth/google-ads/callback/', views.oauth_google_ads_callback, name='oauth_google_ads_callback'),
+
+    # GA4 OAuth
+    path('oauth/ga4/start/', views.oauth_ga4_start, name='oauth_ga4_start'),
+    path('oauth/ga4/callback/', views.oauth_ga4_callback, name='oauth_ga4_callback'),
+
     # Meta API Testing Endpoints (Development Only)
     path('meta/test/users/', test_views.list_oauth_users, name='test_oauth_users'),
     path('meta/test/user-info/', test_views.test_user_info, name='test_user_info'),

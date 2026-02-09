@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
+import { connectMeta, connectGoogleAds, connectGA4 } from '@/lib/oauth'
 import DarkModeToggle from '@/components/DarkModeToggle'
 import AgencyDashboardSkeleton from '@/components/AgencyDashboardSkeleton'
 
@@ -180,41 +181,55 @@ export default function AgencyDashboardPage() {
     }
   }
 
-  function handleConnectMeta() {
-    const authUrl = '/api/meta/start'
+  async function handleConnectMeta() {
+    try {
+      const result = await connectMeta()
 
-    // Open popup window
-    const popup = window.open(
-      authUrl,
-      'MetaOAuth',
-      'width=600,height=700,left=300,top=100'
-    )
-
-    // Listen for popup close (callback will update state)
-    const interval = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(interval)
+      if (result.success) {
+        alert(`Meta connected successfully! Welcome, ${result.userName}`)
         // Refresh integration status
         loadDashboardData()
+      } else {
+        alert(`Failed to connect Meta: ${result.error}`)
       }
-    }, 1000)
+    } catch (error) {
+      console.error('Meta connection error:', error)
+      alert('Failed to connect Meta. Please try again.')
+    }
   }
 
-  function handleConnectGoogleAds() {
-    const authUrl = '/api/google-ads/start'
+  async function handleConnectGoogleAds() {
+    try {
+      const result = await connectGoogleAds()
 
-    const popup = window.open(
-      authUrl,
-      'GoogleAdsOAuth',
-      'width=600,height=700,left=300,top=100'
-    )
-
-    const interval = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(interval)
+      if (result.success) {
+        alert(`Google Ads connected successfully! Welcome, ${result.userName}`)
+        // Refresh integration status
         loadDashboardData()
+      } else {
+        alert(`Failed to connect Google Ads: ${result.error}`)
       }
-    }, 1000)
+    } catch (error) {
+      console.error('Google Ads connection error:', error)
+      alert('Failed to connect Google Ads. Please try again.')
+    }
+  }
+
+  async function handleConnectGA4() {
+    try {
+      const result = await connectGA4()
+
+      if (result.success) {
+        alert(`GA4 connected successfully! Welcome, ${result.userName}`)
+        // Refresh integration status
+        loadDashboardData()
+      } else {
+        alert(`Failed to connect GA4: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('GA4 connection error:', error)
+      alert('Failed to connect GA4. Please try again.')
+    }
   }
 
   async function handleSyncData() {
@@ -622,15 +637,65 @@ export default function AgencyDashboardPage() {
                 <span style={{ fontSize: '1.5rem' }}>📊</span>
                 <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Google Analytics 4</strong>
               </div>
-              <div style={{
-                padding: '0.5rem',
-                backgroundColor: darkMode ? '#3f2e1e' : '#fff3cd',
-                borderRadius: '4px',
-                color: darkMode ? '#fbbf24' : '#856404',
-                fontSize: '0.875rem'
-              }}>
-                ⏳ Coming in FAZA 5
-              </div>
+              {integrations?.ga4?.connected ? (
+                <>
+                  <div style={{
+                    padding: '0.5rem',
+                    backgroundColor: '#d4edda',
+                    borderRadius: '4px',
+                    color: '#155724',
+                    fontSize: '0.875rem'
+                  }}>
+                    ✅ Connected
+                    {integrations.ga4.property_name && (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        {integrations.ga4.property_name}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleConnectGA4}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: '#666',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    Reconnect
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{
+                    padding: '0.5rem',
+                    backgroundColor: '#f8d7da',
+                    borderRadius: '4px',
+                    color: '#721c24',
+                    fontSize: '0.875rem'
+                  }}>
+                    ❌ Not Connected
+                  </div>
+                  <button
+                    onClick={handleConnectGA4}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: '#e37400',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Connect GA4
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
