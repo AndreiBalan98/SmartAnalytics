@@ -37,6 +37,12 @@ export default function RightPanel({
   }
   const navItems = [
     {
+      id: 'overview',
+      label: 'Overview',
+      icon: '📋',
+      description: 'Complete performance overview',
+    },
+    {
       id: 'campaigns',
       label: 'Campaigns',
       icon: '📊',

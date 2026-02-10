@@ -78,7 +78,7 @@ export default function ClientDashboard() {
   // State
   const [selectedPlatform] = useState('meta') // Only Meta for now
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
-  const [selectedView, setSelectedView] = useState('campaigns')
+  const [selectedView, setSelectedView] = useState('overview')
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

@@ -12,6 +12,7 @@ import AdSetsTable from './AdSetsTable'
 import AdsTable from './AdsTable'
 import CreativesGrid from './CreativesGrid'
 import InsightsView from './InsightsView'
+import OverviewView from './OverviewView'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 interface SelectionItem {
@@ -155,6 +156,11 @@ export default function CenterPanel({
           setData([])
           break
 
+        case 'overview':
+          // OverviewView handles its own data loading
+          setData([])
+          break
+
         default:
           setData([])
       }
@@ -285,6 +291,15 @@ export default function CenterPanel({
             selectedAdSets={selectedAdSets}
             selectedAds={selectedAds}
             adAccounts={adAccounts}
+          />
+        )}
+        {view === 'overview' && (
+          <OverviewView
+            selectedCampaigns={selectedCampaigns}
+            selectedAdSets={selectedAdSets}
+            selectedAds={selectedAds}
+            adAccounts={adAccounts}
+            selectedAccount={accountId}
           />
         )}
       </div>
