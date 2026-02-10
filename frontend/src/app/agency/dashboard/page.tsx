@@ -53,7 +53,8 @@ export default function AgencyDashboardPage() {
   // Modal states
   const [showAddClientModal, setShowAddClientModal] = useState(false)
   const [showPermissionsModal, setShowPermissionsModal] = useState(false)
-  const [showSyncModal, setShowSyncModal] = useState(false)
+  const [showStructuralSyncModal, setShowStructuralSyncModal] = useState(false)
+  const [showInsightsSyncModal, setShowInsightsSyncModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [newPassword, setNewPassword] = useState<string | null>(null)
 
@@ -199,11 +200,36 @@ export default function AgencyDashboardPage() {
     }
   }
 
-  async function handleSyncData() {
-    setShowSyncModal(true)
+  async function handleStructuralSync() {
+    if (selectedAccountIds.length === 0) {
+      setError('Please select at least one ad account')
+      return
+    }
+
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+
+    try {
+      const result = await api.triggerStructuralSync(selectedAccountIds)
+
+      setSyncResult({
+        message: 'Structural sync completed successfully!',
+        structural: result.results,
+      })
+      setShowStructuralSyncModal(false)
+
+      setTimeout(() => {
+        setSyncResult(null)
+      }, 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync structural data')
+    } finally {
+      setSyncLoading(false)
+    }
   }
 
-  async function handleSyncInsights() {
+  async function handleInsightsSync() {
     if (selectedAccountIds.length === 0) {
       setError('Please select at least one ad account')
       return
@@ -220,8 +246,11 @@ export default function AgencyDashboardPage() {
         end_date: syncEndDate,
       })
 
-      setSyncResult(result)
-      setShowSyncModal(false)
+      setSyncResult({
+        message: 'Insights sync completed successfully!',
+        insights: result,
+      })
+      setShowInsightsSyncModal(false)
 
       setTimeout(() => {
         setSyncResult(null)
@@ -441,7 +470,23 @@ export default function AgencyDashboardPage() {
                     )}
                   </div>
                   <button
-                    onClick={handleSyncData}
+                    onClick={() => setShowStructuralSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Structural Sync'}
+                  </button>
+                  <button
+                    onClick={() => setShowInsightsSyncModal(true)}
                     disabled={syncLoading}
                     style={{
                       padding: '0.5rem',
@@ -454,7 +499,7 @@ export default function AgencyDashboardPage() {
                       fontWeight: '600'
                     }}
                   >
-                    {syncLoading ? 'Syncing...' : 'Sync Data'}
+                    {syncLoading ? 'Syncing...' : 'Insights Sync'}
                   </button>
                   <button
                     onClick={handleConnectMeta}
@@ -1090,9 +1135,26 @@ export default function AgencyDashboardPage() {
         </div>
       )}
 
-      {/* Sync Insights Modal */}
-      {showSyncModal && (
-        <SyncInsightsModal
+      {/* Structural Sync Modal */}
+      {showStructuralSyncModal && (
+        <StructuralSyncModal
+          darkMode={darkMode}
+          metaAdAccounts={metaAdAccounts}
+          selectedAccountIds={selectedAccountIds}
+          syncLoading={syncLoading}
+          onToggleAccount={handleToggleAccount}
+          onSelectAll={handleSelectAllAccounts}
+          onSync={handleStructuralSync}
+          onCancel={() => {
+            setShowStructuralSyncModal(false)
+            setSelectedAccountIds([])
+          }}
+        />
+      )}
+
+      {/* Insights Sync Modal */}
+      {showInsightsSyncModal && (
+        <InsightsSyncModal
           darkMode={darkMode}
           metaAdAccounts={metaAdAccounts}
           selectedAccountIds={selectedAccountIds}
@@ -1103,8 +1165,11 @@ export default function AgencyDashboardPage() {
           onSelectAll={handleSelectAllAccounts}
           onStartDateChange={setSyncStartDate}
           onEndDateChange={setSyncEndDate}
-          onSync={handleSyncInsights}
-          onCancel={() => setShowSyncModal(false)}
+          onSync={handleInsightsSync}
+          onCancel={() => {
+            setShowInsightsSyncModal(false)
+            setSelectedAccountIds([])
+          }}
         />
       )}
     </div>
@@ -1269,8 +1334,193 @@ function PermissionsEditor({
   )
 }
 
-// Sync Insights Modal Component
-function SyncInsightsModal({
+// Structural Sync Modal Component
+function StructuralSyncModal({
+  darkMode,
+  metaAdAccounts,
+  selectedAccountIds,
+  syncLoading,
+  onToggleAccount,
+  onSelectAll,
+  onSync,
+  onCancel,
+}: {
+  darkMode: boolean
+  metaAdAccounts: AdAccount[]
+  selectedAccountIds: string[]
+  syncLoading: boolean
+  onToggleAccount: (accountId: string) => void
+  onSelectAll: () => void
+  onSync: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '1rem'
+    }}>
+      <div style={{
+        backgroundColor: darkMode ? '#27272a' : 'white',
+        borderRadius: '8px',
+        padding: '2rem',
+        maxWidth: '600px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        border: darkMode ? '1px solid #3f3f46' : 'none'
+      }}>
+        <h2 style={{
+          margin: '0 0 1.5rem 0',
+          color: darkMode ? '#f3f4f6' : '#000'
+        }}>
+          Structural Sync
+        </h2>
+
+        <p style={{
+          color: darkMode ? '#9ca3af' : '#666',
+          fontSize: '0.875rem',
+          marginBottom: '1.5rem'
+        }}>
+          Select ad accounts to sync structural data (campaigns, ad sets, ads, and creatives).
+        </p>
+
+        {/* Select All Checkbox */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}>
+            <input
+              type="checkbox"
+              checked={selectedAccountIds.length === metaAdAccounts.length && metaAdAccounts.length > 0}
+              onChange={onSelectAll}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ color: darkMode ? '#f3f4f6' : '#000' }}>
+              Select All ({selectedAccountIds.length}/{metaAdAccounts.length})
+            </span>
+          </label>
+        </div>
+
+        {/* Ad Accounts List */}
+        <div style={{
+          marginBottom: '1.5rem',
+          maxHeight: '350px',
+          overflowY: 'auto',
+          border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+          borderRadius: '6px',
+          padding: '0.5rem'
+        }}>
+          {metaAdAccounts.length === 0 ? (
+            <p style={{
+              color: darkMode ? '#9ca3af' : '#666',
+              fontSize: '0.875rem',
+              textAlign: 'center',
+              padding: '1rem'
+            }}>
+              No ad accounts available
+            </p>
+          ) : (
+            metaAdAccounts.map((account) => (
+              <label
+                key={account.account_id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedAccountIds.includes(account.account_id)
+                    ? (darkMode ? '#1e3a5f' : '#e7f3ff')
+                    : 'transparent',
+                  transition: 'background-color 0.2s ease',
+                  marginBottom: '0.5rem'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedAccountIds.includes(account.account_id)}
+                  onChange={() => onToggleAccount(account.account_id)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{
+                  flex: 1,
+                  color: darkMode ? '#f3f4f6' : '#000'
+                }}>
+                  {account.name}
+                </span>
+                <span style={{
+                  color: darkMode ? '#9ca3af' : '#666',
+                  fontSize: '0.75rem'
+                }}>
+                  {account.currency}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={onCancel}
+            disabled={syncLoading}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              backgroundColor: darkMode ? '#3f3f46' : '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: syncLoading ? 'not-allowed' : 'pointer',
+              opacity: syncLoading ? 0.5 : 1,
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSync}
+            disabled={syncLoading || selectedAccountIds.length === 0}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              backgroundColor: selectedAccountIds.length === 0 || syncLoading
+                ? '#ccc'
+                : '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: selectedAccountIds.length === 0 || syncLoading
+                ? 'not-allowed'
+                : 'pointer',
+              fontWeight: '600',
+              transition: 'background-color 0.2s ease'
+            }}
+          >
+            {syncLoading ? 'Syncing...' : 'Start Structural Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Insights Sync Modal Component
+function InsightsSyncModal({
   darkMode,
   metaAdAccounts,
   selectedAccountIds,
@@ -1322,7 +1572,7 @@ function SyncInsightsModal({
           margin: '0 0 1.5rem 0',
           color: darkMode ? '#f3f4f6' : '#000'
         }}>
-          Sync Insights
+          Insights Sync
         </h2>
 
         <p style={{
@@ -1330,7 +1580,7 @@ function SyncInsightsModal({
           fontSize: '0.875rem',
           marginBottom: '1.5rem'
         }}>
-          Select ad accounts and date range to sync insights. We'll first update the structural data (campaigns, ad sets, ads), then fetch insights.
+          Select ad accounts and date range to sync insights data at all levels (account, campaigns, ad sets, ads).
         </p>
 
         {/* Select All Checkbox */}
