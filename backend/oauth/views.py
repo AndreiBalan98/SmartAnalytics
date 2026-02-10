@@ -15,24 +15,34 @@ FRONTEND_URL = settings.FRONTEND_URL or 'http://localhost:3000'
 
 
 def _oauth_callback_html(success_type, error_type, **kwargs):
-    """Generate HTML that posts message to parent window."""
+    """Generate HTML that posts message to parent window via postMessage + localStorage fallback."""
+    import json
     if 'error' in kwargs:
-        msg_data = f"type: '{error_type}', error: '{kwargs['error']}'"
+        msg = {'type': error_type, 'error': kwargs['error']}
     else:
-        parts = [f"type: '{success_type}'"]
+        msg = {'type': success_type}
         if 'userName' in kwargs:
-            parts.append(f"userName: '{kwargs['userName']}'")
+            msg['userName'] = kwargs['userName']
         if 'userId' in kwargs:
-            parts.append(f"userId: '{kwargs['userId']}'")
+            msg['userId'] = kwargs['userId']
         if 'userOpenId' in kwargs:
-            parts.append(f"userOpenId: '{kwargs['userOpenId']}'")
-        msg_data = ', '.join(parts)
+            msg['userOpenId'] = kwargs['userOpenId']
+
+    msg_json = json.dumps(msg)
 
     html = f"""
     <html><body><script>
-    window.opener.postMessage({{{msg_data}}}, '*');
+    var msg = {msg_json};
+    // Try postMessage first
+    if (window.opener) {{
+        window.opener.postMessage(msg, '*');
+    }}
+    // Always save to localStorage as fallback
+    localStorage.setItem('oauth_result', JSON.stringify(msg));
     window.close();
-    </script><p>Authentication complete. This window will close automatically.</p></body></html>
+    // If window.close() doesn't work (some browsers block it)
+    document.body.innerHTML = '<p>Authentication complete. You can close this window.</p>';
+    </script><p>Processing...</p></body></html>
     """
     return HttpResponse(html, content_type='text/html')
 

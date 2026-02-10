@@ -26,6 +26,9 @@ function openOAuthPopup(
   successType: OAuthMessageType, errorType: OAuthMessageType
 ): Promise<OAuthResult> {
   return new Promise((resolve, reject) => {
+    // Clear any previous OAuth result from localStorage
+    localStorage.removeItem('oauth_result')
+
     const width = 600, height = 700
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
@@ -37,25 +40,55 @@ function openOAuthPopup(
       return
     }
 
-    const messageHandler = (event: MessageEvent<OAuthMessage>) => {
-      const { type, userName, userId, userOpenId, error } = event.data
+    let resolved = false
 
-      if (type === successType) {
-        window.removeEventListener('message', messageHandler)
-        resolve({ success: true, userName, userId, userOpenId })
-      } else if (type === errorType) {
-        window.removeEventListener('message', messageHandler)
-        resolve({ success: false, error: error || 'OAuth failed' })
+    const cleanup = () => {
+      window.removeEventListener('message', messageHandler)
+      clearInterval(checkClosed)
+    }
+
+    const handleResult = (data: OAuthMessage) => {
+      if (resolved) return
+      resolved = true
+      cleanup()
+      localStorage.removeItem('oauth_result')
+      if (data.type === successType) {
+        resolve({ success: true, userName: data.userName, userId: data.userId, userOpenId: data.userOpenId })
+      } else if (data.type === errorType) {
+        resolve({ success: false, error: data.error || 'OAuth failed' })
       }
     }
 
+    // Method 1: postMessage from popup
+    const messageHandler = (event: MessageEvent<OAuthMessage>) => {
+      if (event.data?.type === successType || event.data?.type === errorType) {
+        handleResult(event.data)
+      }
+    }
     window.addEventListener('message', messageHandler)
 
+    // Method 2: Check localStorage when popup closes (fallback for when window.opener is null)
     const checkClosed = setInterval(() => {
       if (popup.closed) {
         clearInterval(checkClosed)
-        window.removeEventListener('message', messageHandler)
-        setTimeout(() => reject(new Error('OAuth popup was closed')), 500)
+        // Give postMessage a moment to arrive first
+        setTimeout(() => {
+          if (resolved) return
+          // Check localStorage fallback
+          const stored = localStorage.getItem('oauth_result')
+          if (stored) {
+            try {
+              const data = JSON.parse(stored) as OAuthMessage
+              handleResult(data)
+              return
+            } catch (e) {
+              // ignore parse error
+            }
+          }
+          // No result from either method
+          cleanup()
+          reject(new Error('OAuth popup was closed'))
+        }, 500)
       }
     }, 500)
   })
