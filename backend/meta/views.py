@@ -98,14 +98,25 @@ def client_ad_accounts(request):
         return Response({'ad_accounts': []})
 
     accounts = MetaAccount.objects.filter(account_id__in=allowed_ids)
+
+    def get_status_display(status_code):
+        if status_code == 1:
+            return 'ACTIVE'
+        elif status_code == 2:
+            return 'DISABLED'
+        elif status_code == 101:
+            return 'CLOSED'
+        else:
+            return 'UNKNOWN'
+
     data = [{
         'id': a.account_id,
         'account_id': a.account_id,
         'name': a.name,
         'currency': a.currency,
-        'timezone': a.timezone_offset_hours_utc,
-        'account_status': 1 if a.status == 'ACTIVE' else 2,
-        'status_display': a.status or 'Unknown',
+        'timezone': a.timezone_offset_hours_utc,  # This actually contains timezone_name from Meta API
+        'account_status': a.status,
+        'status_display': get_status_display(a.status),
     } for a in accounts]
 
     return Response({'ad_accounts': data})

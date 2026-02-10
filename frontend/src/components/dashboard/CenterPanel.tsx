@@ -77,46 +77,77 @@ export default function CenterPanel({
             .filter(c => c.ad_account_id === accountId)
             .map(c => c.id)
 
+          // If no campaigns selected, get all adsets for this account
           if (campaignIdsForAccount.length === 0) {
-            setData([])
-            setError('Te rog selectează cel puțin un campaign din acest cont pentru a vedea ad sets')
-            setLoading(false)
-            return
+            result = await api.getClientAdSetsNew([])
+            // Filter by current account on frontend since backend returns all
+            const filteredAdsets = (result.adsets || []).filter((adset: any) => adset.ad_account_id === accountId)
+            setData(filteredAdsets)
+          } else {
+            result = await api.getClientAdSetsNew(campaignIdsForAccount)
+            setData(result.adsets || [])
           }
-          result = await api.getClientAdSetsNew(campaignIdsForAccount)
-          setData(result.adsets || [])
           break
 
         case 'ads':
-          // Filter ad sets for current account only
-          const adSetIdsForAccount = selectedAdSets
+          // Get selected campaigns and adsets for current account
+          const campaignsForAds = selectedCampaigns
+            .filter(c => c.ad_account_id === accountId)
+          const adSetsForAds = selectedAdSets
             .filter(a => a.ad_account_id === accountId)
-            .map(a => a.id)
 
-          if (adSetIdsForAccount.length === 0) {
-            setData([])
-            setError('Te rog selectează cel puțin un ad set din acest cont pentru a vedea ads')
-            setLoading(false)
-            return
+          if (adSetsForAds.length > 0) {
+            // If adsets are selected, show ads from those adsets
+            result = await api.getClientAdsNew(adSetsForAds.map(a => a.id))
+            setData(result.ads || [])
+          } else if (campaignsForAds.length > 0) {
+            // If only campaigns are selected (no adsets), show all ads from those campaigns
+            result = await api.getClientAdsNew([])
+            const filteredAds = (result.ads || []).filter((ad: any) =>
+              campaignsForAds.some(c => c.id === ad.campaign_id)
+            )
+            setData(filteredAds)
+          } else {
+            // If nothing is selected, show all ads for this account
+            result = await api.getClientAdsNew([])
+            const filteredAds = (result.ads || []).filter((ad: any) => ad.ad_account_id === accountId)
+            setData(filteredAds)
           }
-          result = await api.getClientAdsNew(adSetIdsForAccount)
-          setData(result.ads || [])
           break
 
         case 'creatives':
-          // Filter ads for current account only
-          const adIdsForAccount = selectedAds
+          // Get selected campaigns, adsets, and ads for current account
+          const campaignsForCreatives = selectedCampaigns
+            .filter(c => c.ad_account_id === accountId)
+          const adSetsForCreatives = selectedAdSets
             .filter(a => a.ad_account_id === accountId)
-            .map(a => a.id)
+          const adsForCreatives = selectedAds
+            .filter(a => a.ad_account_id === accountId)
 
-          if (adIdsForAccount.length === 0) {
-            setData([])
-            setError('Te rog selectează cel puțin un ad din acest cont pentru a vedea creatives')
-            setLoading(false)
-            return
+          if (adsForCreatives.length > 0) {
+            // If ads are selected, show creatives from those ads
+            result = await api.getClientCreativesNew(adsForCreatives.map(a => a.id))
+            setData(result.creatives || [])
+          } else if (adSetsForCreatives.length > 0) {
+            // If only adsets are selected (no ads), show all creatives from those adsets
+            result = await api.getClientCreativesNew([])
+            const filteredCreatives = (result.creatives || []).filter((creative: any) =>
+              adSetsForCreatives.some(a => a.id === creative.adset_id)
+            )
+            setData(filteredCreatives)
+          } else if (campaignsForCreatives.length > 0) {
+            // If only campaigns are selected, show all creatives from those campaigns
+            result = await api.getClientCreativesNew([])
+            const filteredCreatives = (result.creatives || []).filter((creative: any) =>
+              campaignsForCreatives.some(c => c.id === creative.campaign_id)
+            )
+            setData(filteredCreatives)
+          } else {
+            // If nothing is selected, show all creatives for this account
+            result = await api.getClientCreativesNew([])
+            const filteredCreatives = (result.creatives || []).filter((creative: any) => creative.ad_account_id === accountId)
+            setData(filteredCreatives)
           }
-          result = await api.getClientCreativesNew(adIdsForAccount)
-          setData(result.creatives || [])
           break
 
         case 'insights':

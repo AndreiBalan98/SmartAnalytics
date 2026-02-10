@@ -267,10 +267,17 @@ export const api = {
     const response = await fetchWithAuth(`/api/meta/client/ads/?${query}`)
     if (!response.ok) throw new Error('Failed to fetch creatives')
     const data = await response.json()
-    // Extract creatives from ads
+    // Extract creatives from ads with additional context
     const creatives = (data.ads || [])
       .filter((ad: any) => ad.creative)
-      .map((ad: any) => ({ ...ad.creative, ad_id: ad.ad_id, ad_name: ad.name }))
+      .map((ad: any) => ({
+        ...ad.creative,
+        ad_id: ad.ad_id,
+        ad_name: ad.name,
+        adset_id: ad.adset_id,
+        campaign_id: ad.campaign_id,
+        ad_account_id: ad.ad_account_id,
+      }))
     return { creatives }
   },
 

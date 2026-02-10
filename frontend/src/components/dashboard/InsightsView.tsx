@@ -59,14 +59,20 @@ export default function InsightsView({
   const [chartData, setChartData] = useState<any[]>([])
   const [chartEntities, setChartEntities] = useState<any[]>([])
 
-  // Get unique accounts from selected items
+  // Get unique accounts - either from selected items or all available accounts
   const availableAccountIds = useMemo(() => {
     const accountIds = new Set<string>()
     selectedCampaigns.forEach(c => accountIds.add(c.ad_account_id))
     selectedAdSets.forEach(a => accountIds.add(a.ad_account_id))
     selectedAds.forEach(a => accountIds.add(a.ad_account_id))
+
+    // If no selections, use all available ad accounts
+    if (accountIds.size === 0) {
+      adAccounts.forEach(acc => accountIds.add(acc.id))
+    }
+
     return Array.from(accountIds)
-  }, [selectedCampaigns, selectedAdSets, selectedAds])
+  }, [selectedCampaigns, selectedAdSets, selectedAds, adAccounts])
 
   // Get currency from first selected account
   const accountCurrency = useMemo(() => {
@@ -92,12 +98,47 @@ export default function InsightsView({
     setStartDate(start.toISOString().split('T')[0])
   }, [])
 
-  // Use selected items directly as filter options (they already have all needed info)
+  // Load all available campaigns, adsets, and ads for filters
   useEffect(() => {
-    setCampaigns(selectedCampaigns)
-    setAdsets(selectedAdSets)
-    setAds(selectedAds)
-  }, [selectedCampaigns, selectedAdSets, selectedAds])
+    async function loadAllData() {
+      if (availableAccountIds.length === 0) {
+        setCampaigns([])
+        setAdsets([])
+        setAds([])
+        return
+      }
+
+      try {
+        // Load campaigns from all available accounts
+        const campaignsPromises = availableAccountIds.map(accountId =>
+          api.getClientCampaignsNew(accountId)
+        )
+        const campaignsResults = await Promise.all(campaignsPromises)
+        const allCampaigns = campaignsResults.flatMap(result => result.campaigns || [])
+
+        // If user has selected campaigns, use those; otherwise use all
+        setCampaigns(selectedCampaigns.length > 0 ? selectedCampaigns : allCampaigns)
+
+        // Load all adsets (backend will filter by permissions)
+        const adsetsResult = await api.getClientAdSetsNew([])
+        const allAdsets = (adsetsResult.adsets || []).filter((adset: any) =>
+          availableAccountIds.includes(adset.ad_account_id)
+        )
+        setAdsets(selectedAdSets.length > 0 ? selectedAdSets : allAdsets)
+
+        // Load all ads (backend will filter by permissions)
+        const adsResult = await api.getClientAdsNew([])
+        const allAds = (adsResult.ads || []).filter((ad: any) =>
+          availableAccountIds.includes(ad.ad_account_id)
+        )
+        setAds(selectedAds.length > 0 ? selectedAds : allAds)
+      } catch (error) {
+        console.error('Failed to load insights filter data:', error)
+      }
+    }
+
+    loadAllData()
+  }, [selectedCampaigns, selectedAdSets, selectedAds, availableAccountIds])
 
   // Manual generate function - only loads data when button is clicked
   const handleGenerate = async () => {
