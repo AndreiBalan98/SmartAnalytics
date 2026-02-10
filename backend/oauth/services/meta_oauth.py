@@ -23,19 +23,21 @@ def generate_state(user, service_type):
     return state
 
 
-def verify_state(state, user, service_type):
+def verify_state(state, service_type):
+    """Verify OAuth state and return the associated user. Returns None if invalid."""
     try:
-        oauth_state = OAuthState.objects.get(state=state, user=user, service_type=service_type)
+        oauth_state = OAuthState.objects.get(state=state, service_type=service_type)
         if oauth_state.is_expired():
-            logger.warning(f'OAuth state expired for {user.email} ({service_type})')
+            logger.warning(f'OAuth state expired for {oauth_state.user.email} ({service_type})')
             oauth_state.delete()
-            return False
+            return None
+        user = oauth_state.user
         oauth_state.delete()
         logger.info(f'OAuth state verified for {user.email} ({service_type})')
-        return True
+        return user
     except OAuthState.DoesNotExist:
-        logger.warning(f'Invalid OAuth state for {user.email} ({service_type})')
-        return False
+        logger.warning(f'Invalid OAuth state ({service_type})')
+        return None
 
 
 def generate_meta_oauth_url(user, redirect_uri):

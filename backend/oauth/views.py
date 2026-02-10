@@ -2,7 +2,7 @@ import logging
 from django.conf import settings
 from django.http import HttpResponse
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from oauth.models import MetaToken, GoogleToken, GA4Token
 from oauth.services.meta_oauth import generate_meta_oauth_url, meta_exchange_code, verify_state
@@ -42,13 +42,13 @@ def _oauth_callback_html(success_type, error_type, **kwargs):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def oauth_meta_start(request):
-    redirect_uri = settings.META_REDIRECT_URI
+    redirect_uri = request.build_absolute_uri('/api/oauth/meta/callback/')
     result = generate_meta_oauth_url(request.user, redirect_uri)
     return Response({'success': True, 'url': result['url']})
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def oauth_meta_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
@@ -60,12 +60,13 @@ def oauth_meta_callback(request):
     if not code or not state:
         return _oauth_callback_html('', 'META_OAUTH_ERROR', error='Missing code or state')
 
-    if not verify_state(state, request.user, 'meta'):
+    user = verify_state(state, 'meta')
+    if not user:
         return _oauth_callback_html('', 'META_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
-        redirect_uri = settings.META_REDIRECT_URI
-        result = meta_exchange_code(code, redirect_uri, request.user)
+        redirect_uri = request.build_absolute_uri('/api/oauth/meta/callback/')
+        result = meta_exchange_code(code, redirect_uri, user)
         return _oauth_callback_html(
             'META_OAUTH_SUCCESS', 'META_OAUTH_ERROR',
             userName=result['user_name'],
@@ -87,7 +88,7 @@ def oauth_google_start(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def oauth_google_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
@@ -99,12 +100,13 @@ def oauth_google_callback(request):
     if not code or not state:
         return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error='Missing code or state')
 
-    if not verify_state(state, request.user, 'google'):
+    user = verify_state(state, 'google')
+    if not user:
         return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
         redirect_uri = request.build_absolute_uri('/api/oauth/google/callback/')
-        result = google_exchange_code(code, redirect_uri, request.user)
+        result = google_exchange_code(code, redirect_uri, user)
         return _oauth_callback_html(
             'GOOGLE_ADS_OAUTH_SUCCESS', 'GOOGLE_ADS_OAUTH_ERROR',
             userName=result['user_name'],
@@ -126,7 +128,7 @@ def oauth_ga4_start(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def oauth_ga4_callback(request):
     code = request.GET.get('code')
     state = request.GET.get('state')
@@ -138,12 +140,13 @@ def oauth_ga4_callback(request):
     if not code or not state:
         return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error='Missing code or state')
 
-    if not verify_state(state, request.user, 'ga4'):
+    user = verify_state(state, 'ga4')
+    if not user:
         return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
         redirect_uri = request.build_absolute_uri('/api/oauth/ga4/callback/')
-        result = ga4_exchange_code(code, redirect_uri, request.user)
+        result = ga4_exchange_code(code, redirect_uri, user)
         return _oauth_callback_html(
             'GA4_OAUTH_SUCCESS', 'GA4_OAUTH_ERROR',
             userName=result['user_name'],
@@ -160,6 +163,7 @@ def oauth_ga4_callback(request):
 @permission_classes([IsAuthenticated])
 def get_oauth_status(request):
     user = request.user
+    now = __import__('django.utils.timezone', fromlist=['now']).now()
 
     # Meta
     meta_status = {'connected': False}
@@ -170,7 +174,7 @@ def get_oauth_status(request):
             'name': token.name,
             'meta_user_id': token.meta_user_id,
             'expires_at': token.expiry_date.isoformat(),
-            'is_expired': token.expiry_date < __import__('django.utils.timezone', fromlist=['now']).now(),
+            'is_expired': token.expiry_date < now,
         }
     except MetaToken.DoesNotExist:
         pass
@@ -184,7 +188,7 @@ def get_oauth_status(request):
             'name': token.name,
             'user_openid': token.google_user_id,
             'expires_at': token.expires_at.isoformat(),
-            'is_expired': token.expires_at < __import__('django.utils.timezone', fromlist=['now']).now(),
+            'is_expired': token.expires_at < now,
         }
     except GoogleToken.DoesNotExist:
         pass
@@ -198,7 +202,7 @@ def get_oauth_status(request):
             'name': token.name,
             'user_openid': token.google_user_id,
             'expires_at': token.expires_at.isoformat(),
-            'is_expired': token.expires_at < __import__('django.utils.timezone', fromlist=['now']).now(),
+            'is_expired': token.expires_at < now,
         }
     except GA4Token.DoesNotExist:
         pass
