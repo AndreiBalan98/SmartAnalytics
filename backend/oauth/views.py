@@ -1,6 +1,7 @@
 import logging
 from django.conf import settings
-from django.http import HttpResponse
+from django.shortcuts import redirect
+from urllib.parse import urlencode
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -14,37 +15,23 @@ logger = logging.getLogger('oauth')
 FRONTEND_URL = settings.FRONTEND_URL or 'http://localhost:3000'
 
 
-def _oauth_callback_html(success_type, error_type, **kwargs):
-    """Generate HTML that posts message to parent window via postMessage + localStorage fallback."""
-    import json
+def _oauth_callback_redirect(success_type, error_type, **kwargs):
+    """Redirect to frontend callback page which handles postMessage on the same origin."""
+    params = {}
     if 'error' in kwargs:
-        msg = {'type': error_type, 'error': kwargs['error']}
+        params['type'] = error_type
+        params['error'] = kwargs['error']
     else:
-        msg = {'type': success_type}
+        params['type'] = success_type
         if 'userName' in kwargs:
-            msg['userName'] = kwargs['userName']
+            params['userName'] = kwargs['userName']
         if 'userId' in kwargs:
-            msg['userId'] = kwargs['userId']
+            params['userId'] = kwargs['userId']
         if 'userOpenId' in kwargs:
-            msg['userOpenId'] = kwargs['userOpenId']
+            params['userOpenId'] = kwargs['userOpenId']
 
-    msg_json = json.dumps(msg)
-
-    html = f"""
-    <html><body><script>
-    var msg = {msg_json};
-    // Try postMessage first
-    if (window.opener) {{
-        window.opener.postMessage(msg, '*');
-    }}
-    // Always save to localStorage as fallback
-    localStorage.setItem('oauth_result', JSON.stringify(msg));
-    window.close();
-    // If window.close() doesn't work (some browsers block it)
-    document.body.innerHTML = '<p>Authentication complete. You can close this window.</p>';
-    </script><p>Processing...</p></body></html>
-    """
-    return HttpResponse(html, content_type='text/html')
+    frontend_callback = f"{FRONTEND_URL}/oauth/callback?{urlencode(params)}"
+    return redirect(frontend_callback)
 
 
 # ========== META ==========
@@ -65,26 +52,26 @@ def oauth_meta_callback(request):
     error = request.GET.get('error')
 
     if error:
-        return _oauth_callback_html('', 'META_OAUTH_ERROR', error=error)
+        return _oauth_callback_redirect('', 'META_OAUTH_ERROR', error=error)
 
     if not code or not state:
-        return _oauth_callback_html('', 'META_OAUTH_ERROR', error='Missing code or state')
+        return _oauth_callback_redirect('', 'META_OAUTH_ERROR', error='Missing code or state')
 
     user = verify_state(state, 'meta')
     if not user:
-        return _oauth_callback_html('', 'META_OAUTH_ERROR', error='Invalid or expired state')
+        return _oauth_callback_redirect('', 'META_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
         redirect_uri = request.build_absolute_uri('/api/oauth/meta/callback/')
         result = meta_exchange_code(code, redirect_uri, user)
-        return _oauth_callback_html(
+        return _oauth_callback_redirect(
             'META_OAUTH_SUCCESS', 'META_OAUTH_ERROR',
             userName=result['user_name'],
             userId=result['meta_user_id'],
         )
     except Exception as e:
         logger.error(f'Meta OAuth callback failed: {e}')
-        return _oauth_callback_html('', 'META_OAUTH_ERROR', error=str(e))
+        return _oauth_callback_redirect('', 'META_OAUTH_ERROR', error=str(e))
 
 
 # ========== GOOGLE ==========
@@ -105,26 +92,26 @@ def oauth_google_callback(request):
     error = request.GET.get('error')
 
     if error:
-        return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error=error)
+        return _oauth_callback_redirect('', 'GOOGLE_ADS_OAUTH_ERROR', error=error)
 
     if not code or not state:
-        return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error='Missing code or state')
+        return _oauth_callback_redirect('', 'GOOGLE_ADS_OAUTH_ERROR', error='Missing code or state')
 
     user = verify_state(state, 'google')
     if not user:
-        return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error='Invalid or expired state')
+        return _oauth_callback_redirect('', 'GOOGLE_ADS_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
         redirect_uri = request.build_absolute_uri('/api/oauth/google/callback/')
         result = google_exchange_code(code, redirect_uri, user)
-        return _oauth_callback_html(
+        return _oauth_callback_redirect(
             'GOOGLE_ADS_OAUTH_SUCCESS', 'GOOGLE_ADS_OAUTH_ERROR',
             userName=result['user_name'],
             userOpenId=result['user_openid'],
         )
     except Exception as e:
         logger.error(f'Google OAuth callback failed: {e}')
-        return _oauth_callback_html('', 'GOOGLE_ADS_OAUTH_ERROR', error=str(e))
+        return _oauth_callback_redirect('', 'GOOGLE_ADS_OAUTH_ERROR', error=str(e))
 
 
 # ========== GA4 ==========
@@ -145,26 +132,26 @@ def oauth_ga4_callback(request):
     error = request.GET.get('error')
 
     if error:
-        return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error=error)
+        return _oauth_callback_redirect('', 'GA4_OAUTH_ERROR', error=error)
 
     if not code or not state:
-        return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error='Missing code or state')
+        return _oauth_callback_redirect('', 'GA4_OAUTH_ERROR', error='Missing code or state')
 
     user = verify_state(state, 'ga4')
     if not user:
-        return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error='Invalid or expired state')
+        return _oauth_callback_redirect('', 'GA4_OAUTH_ERROR', error='Invalid or expired state')
 
     try:
         redirect_uri = request.build_absolute_uri('/api/oauth/ga4/callback/')
         result = ga4_exchange_code(code, redirect_uri, user)
-        return _oauth_callback_html(
+        return _oauth_callback_redirect(
             'GA4_OAUTH_SUCCESS', 'GA4_OAUTH_ERROR',
             userName=result['user_name'],
             userOpenId=result['user_openid'],
         )
     except Exception as e:
         logger.error(f'GA4 OAuth callback failed: {e}')
-        return _oauth_callback_html('', 'GA4_OAUTH_ERROR', error=str(e))
+        return _oauth_callback_redirect('', 'GA4_OAUTH_ERROR', error=str(e))
 
 
 # ========== STATUS ==========
