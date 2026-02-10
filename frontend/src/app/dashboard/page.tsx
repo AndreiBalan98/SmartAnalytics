@@ -93,9 +93,9 @@ export default function ClientDashboard() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
-    } else if (!authLoading && user && user.user_type !== 'client') {
+    } else if (!authLoading && user && user.user_type !== 'client' && user.user_type !== 'agency_client') {
       router.push('/')
-    } else if (!authLoading && user && user.user_type === 'client') {
+    } else if (!authLoading && user && (user.user_type === 'client' || user.user_type === 'agency_client')) {
       loadAdAccounts()
     }
   }, [user, authLoading, router])
@@ -145,7 +145,7 @@ export default function ClientDashboard() {
     )
   }
 
-  if (!user || user.user_type !== 'client') {
+  if (!user || (user.user_type !== 'client' && user.user_type !== 'agency_client')) {
     return null
   }
 

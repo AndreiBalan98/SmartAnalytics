@@ -4,39 +4,35 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
-import { connectMeta, connectGoogleAds, connectGA4 } from '@/lib/oauth'
+import { connectMeta, connectGoogleAds, connectGA4, OAuthConnectionStatus } from '@/lib/oauth'
 import DarkModeToggle from '@/components/DarkModeToggle'
-import AgencyDashboardSkeleton from '@/components/AgencyDashboardSkeleton'
 
 interface Client {
   id: number
-  user: {
-    id: number
-    email: string
-    first_name: string
-    last_name: string
-  }
-  permissions: {
-    meta_accounts?: string[]
-    google_accounts?: string[]
-    ga4_properties?: string[]
-  }
+  email: string
+  first_name: string
+  last_name: string
+  user_type: string
   is_active: boolean
-  invited_at: string
+  date_joined: string
+  permissions: {
+    meta_accounts_ids: string[]
+    google_accounts_ids: string[]
+    ga4_properties_ids: string[]
+  }
 }
 
-interface Integration {
-  connected: boolean
-  business_name?: string
-  customer_id?: string
-  account_email?: string
-  property_name?: string
+interface OAuthConnections {
+  meta: OAuthConnectionStatus
+  google_ads: OAuthConnectionStatus
+  ga4: OAuthConnectionStatus
 }
 
 interface AdAccount {
-  id: string
+  account_id: string
   name: string
   currency: string
+  status: string
 }
 
 export default function AgencyDashboardPage() {
@@ -45,11 +41,7 @@ export default function AgencyDashboardPage() {
 
   // State
   const [clients, setClients] = useState<Client[]>([])
-  const [integrations, setIntegrations] = useState<{
-    meta: Integration
-    google_ads: Integration
-    ga4: Integration
-  } | null>(null)
+  const [oauthConnections, setOauthConnections] = useState<OAuthConnections | null>(null)
   const [metaAdAccounts, setMetaAdAccounts] = useState<AdAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,28 +69,13 @@ export default function AgencyDashboardPage() {
     last_name: '',
   })
 
-    useEffect(() => {
+  useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
     } else if (!authLoading && user && user.user_type !== 'agency') {
       router.push('/')
     } else if (!authLoading && user && user.user_type === 'agency') {
       loadDashboardData()
-      
-      // Check for Meta connection success
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('meta_connected') === 'true') {
-        setError(null)
-        // Show success message (you can add a success state if needed)
-        setTimeout(() => {
-          window.history.replaceState({}, '', '/agency/dashboard')
-        }, 2000)
-      } else if (params.get('error')) {
-        setError(decodeURIComponent(params.get('error')!))
-        setTimeout(() => {
-          window.history.replaceState({}, '', '/agency/dashboard')
-        }, 5000)
-      }
     }
   }, [user, authLoading, router])
 
@@ -107,19 +84,19 @@ export default function AgencyDashboardPage() {
     setError(null)
 
     try {
-      const [clientsData, integrationsData] = await Promise.all([
+      const [clientsData, oauthData] = await Promise.all([
         api.listClients(),
-        api.getIntegrationsStatus(),
+        api.getOAuthStatus(),
       ])
 
       setClients(clientsData.clients || [])
-      setIntegrations(integrationsData.integrations)
+      setOauthConnections(oauthData.oauth_connections)
 
       // If Meta is connected, load ad accounts
-      if (integrationsData.integrations.meta.connected) {
+      if (oauthData.oauth_connections?.meta?.connected) {
         try {
-          const adAccountsData = await api.getAgencyAdAccounts()
-          setMetaAdAccounts(adAccountsData.ad_accounts || [])
+          const adAccountsData = await api.getAdAccounts()
+          setMetaAdAccounts(adAccountsData.accounts || [])
         } catch (err) {
           console.error('Failed to load Meta ad accounts:', err)
         }
@@ -137,18 +114,14 @@ export default function AgencyDashboardPage() {
 
     try {
       const response = await api.createClient(clientForm)
-      
+
       if (response.temporary_password) {
         setNewPassword(response.temporary_password)
       }
 
-      // Refresh clients list
       await loadDashboardData()
-
-      // Reset form
       setClientForm({ email: '', first_name: '', last_name: '' })
-      
-      // Don't close modal if password was generated (show it first)
+
       if (!response.temporary_password) {
         setShowAddClientModal(false)
       }
@@ -184,10 +157,8 @@ export default function AgencyDashboardPage() {
   async function handleConnectMeta() {
     try {
       const result = await connectMeta()
-
       if (result.success) {
         alert(`Meta connected successfully! Welcome, ${result.userName}`)
-        // Refresh integration status
         loadDashboardData()
       } else {
         alert(`Failed to connect Meta: ${result.error}`)
@@ -201,10 +172,8 @@ export default function AgencyDashboardPage() {
   async function handleConnectGoogleAds() {
     try {
       const result = await connectGoogleAds()
-
       if (result.success) {
         alert(`Google Ads connected successfully! Welcome, ${result.userName}`)
-        // Refresh integration status
         loadDashboardData()
       } else {
         alert(`Failed to connect Google Ads: ${result.error}`)
@@ -218,10 +187,8 @@ export default function AgencyDashboardPage() {
   async function handleConnectGA4() {
     try {
       const result = await connectGA4()
-
       if (result.success) {
         alert(`GA4 connected successfully! Welcome, ${result.userName}`)
-        // Refresh integration status
         loadDashboardData()
       } else {
         alert(`Failed to connect GA4: ${result.error}`)
@@ -233,8 +200,6 @@ export default function AgencyDashboardPage() {
   }
 
   async function handleSyncData() {
-    // OLD: Direct sync - REPLACED with modal
-    // Now we open modal for user to select accounts and date range
     setShowSyncModal(true)
   }
 
@@ -250,15 +215,14 @@ export default function AgencyDashboardPage() {
 
     try {
       const result = await api.triggerInsightsSync({
-        ad_account_ids: selectedAccountIds,
+        account_ids: selectedAccountIds,
         start_date: syncStartDate,
         end_date: syncEndDate,
       })
 
       setSyncResult(result)
-      setShowSyncModal(false) // Close modal on success
+      setShowSyncModal(false)
 
-      // Auto-hide success message after 10 seconds
       setTimeout(() => {
         setSyncResult(null)
       }, 10000)
@@ -281,12 +245,22 @@ export default function AgencyDashboardPage() {
     if (selectedAccountIds.length === metaAdAccounts.length) {
       setSelectedAccountIds([])
     } else {
-      setSelectedAccountIds(metaAdAccounts.map(acc => acc.id))
+      setSelectedAccountIds(metaAdAccounts.map(acc => acc.account_id))
     }
   }
 
   if (authLoading || loading) {
-    return <AgencyDashboardSkeleton darkMode={darkMode} />
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: darkMode ? '#1a1a1a' : '#f8f9fa'
+      }}>
+        <p style={{ color: darkMode ? '#9ca3af' : '#666' }}>Loading dashboard...</p>
+      </div>
+    )
   }
 
   if (!user || user.user_type !== 'agency') {
@@ -323,28 +297,11 @@ export default function AgencyDashboardPage() {
             margin: '0.5rem 0 0 0',
             color: darkMode ? '#9ca3af' : '#666'
           }}>
-            {user.agency?.name || 'Your Agency'}
+            {user.agency_name || 'Your Agency'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <DarkModeToggle />
-          <button
-            onClick={() => router.push('/agency/api-tester')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#9333ea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              fontWeight: '600'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7e22ce'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#9333ea'}
-          >
-            🧪 API Tester
-          </button>
           <button
             onClick={logout}
             style={{
@@ -387,12 +344,11 @@ export default function AgencyDashboardPage() {
             color: darkMode ? '#86efac' : '#155724',
             border: darkMode ? '1px solid #166534' : 'none'
           }}>
-            <strong>✅ {syncResult.message || 'Sync Completed Successfully!'}</strong>
+            <strong>{syncResult.message || 'Sync Completed Successfully!'}</strong>
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-              {/* Structural Sync Results */}
               {syncResult.structural && !syncResult.structural.skipped && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                  <strong>📦 Structural Data:</strong>
+                  <strong>Structural Data:</strong>
                   <div style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
                     {Object.entries(syncResult.structural).map(([accountId, data]: [string, any]) => {
                       if (accountId === 'skipped') return null
@@ -400,13 +356,12 @@ export default function AgencyDashboardPage() {
                         <div key={accountId} style={{ marginTop: '0.5rem' }}>
                           <div style={{ fontWeight: '600' }}>Account {accountId}:</div>
                           {data.error ? (
-                            <div style={{ color: '#dc2626', marginLeft: '1rem' }}>❌ {data.error}</div>
+                            <div style={{ color: '#dc2626', marginLeft: '1rem' }}>{data.error}</div>
                           ) : (
                             <div style={{ marginLeft: '1rem' }}>
-                              {data.campaigns > 0 && <div>• Campaigns: {data.campaigns}</div>}
-                              {data.adsets > 0 && <div>• Ad Sets: {data.adsets}</div>}
-                              {data.ads > 0 && <div>• Ads: {data.ads}</div>}
-                              {data.creatives > 0 && <div>• Creatives: {data.creatives}</div>}
+                              {data.campaigns > 0 && <div>Campaigns: {data.campaigns}</div>}
+                              {data.adsets > 0 && <div>Ad Sets: {data.adsets}</div>}
+                              {data.ads > 0 && <div>Ads: {data.ads}</div>}
                             </div>
                           )}
                         </div>
@@ -418,19 +373,18 @@ export default function AgencyDashboardPage() {
 
               {syncResult.structural?.skipped && (
                 <div style={{ marginBottom: '0.75rem', color: darkMode ? '#9ca3af' : '#666' }}>
-                  ℹ️ Structural sync skipped (all levels synced within 24h)
+                  Structural sync skipped (all levels synced within 24h)
                 </div>
               )}
 
-              {/* Insights Results */}
               {syncResult.insights && (
                 <div style={{ borderTop: darkMode ? '1px solid #166534' : '1px solid #c3e6cb', paddingTop: '0.75rem' }}>
-                  <strong>📊 Insights:</strong>
+                  <strong>Insights:</strong>
                   <div style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>
                     {syncResult.insights.total_insights !== undefined ? (
-                      <div>• Total insights synced: {syncResult.insights.total_insights}</div>
+                      <div>Total insights synced: {syncResult.insights.total_insights}</div>
                     ) : (
-                      <div>• Sync completed</div>
+                      <div>Sync completed</div>
                     )}
                   </div>
                 </div>
@@ -455,7 +409,7 @@ export default function AgencyDashboardPage() {
           }}>
             Platform Integrations
           </h2>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
             {/* Meta Ads */}
             <div style={{
@@ -468,10 +422,9 @@ export default function AgencyDashboardPage() {
               backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>📘</span>
                 <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Meta Ads</strong>
               </div>
-              {integrations?.meta.connected ? (
+              {oauthConnections?.meta?.connected ? (
                 <>
                   <div style={{
                     padding: '0.5rem',
@@ -480,10 +433,10 @@ export default function AgencyDashboardPage() {
                     color: '#155724',
                     fontSize: '0.875rem'
                   }}>
-                    ✅ Connected
-                    {integrations.meta.business_name && (
+                    Connected
+                    {oauthConnections.meta.name && (
                       <div style={{ marginTop: '0.25rem' }}>
-                        {integrations.meta.business_name}
+                        {oauthConnections.meta.name}
                       </div>
                     )}
                   </div>
@@ -501,7 +454,7 @@ export default function AgencyDashboardPage() {
                       fontWeight: '600'
                     }}
                   >
-                    {syncLoading ? 'Syncing...' : '🔄 Sync Data'}
+                    {syncLoading ? 'Syncing...' : 'Sync Data'}
                   </button>
                   <button
                     onClick={handleConnectMeta}
@@ -527,7 +480,7 @@ export default function AgencyDashboardPage() {
                     color: '#721c24',
                     fontSize: '0.875rem'
                   }}>
-                    ❌ Not Connected
+                    Not Connected
                   </div>
                   <button
                     onClick={handleConnectMeta}
@@ -559,10 +512,9 @@ export default function AgencyDashboardPage() {
               backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>🔍</span>
                 <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Google Ads</strong>
               </div>
-              {integrations?.google_ads.connected ? (
+              {oauthConnections?.google_ads?.connected ? (
                 <>
                   <div style={{
                     padding: '0.5rem',
@@ -571,10 +523,10 @@ export default function AgencyDashboardPage() {
                     color: '#155724',
                     fontSize: '0.875rem'
                   }}>
-                    ✅ Connected
-                    {integrations.google_ads.account_email && (
+                    Connected
+                    {oauthConnections.google_ads.name && (
                       <div style={{ marginTop: '0.25rem' }}>
-                        {integrations.google_ads.account_email}
+                        {oauthConnections.google_ads.name}
                       </div>
                     )}
                   </div>
@@ -602,7 +554,7 @@ export default function AgencyDashboardPage() {
                     color: '#721c24',
                     fontSize: '0.875rem'
                   }}>
-                    ❌ Not Connected
+                    Not Connected
                   </div>
                   <button
                     onClick={handleConnectGoogleAds}
@@ -634,10 +586,9 @@ export default function AgencyDashboardPage() {
               backgroundColor: darkMode ? '#1f1f23' : 'transparent'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>📊</span>
                 <strong style={{ color: darkMode ? '#f3f4f6' : '#000' }}>Google Analytics 4</strong>
               </div>
-              {integrations?.ga4?.connected ? (
+              {oauthConnections?.ga4?.connected ? (
                 <>
                   <div style={{
                     padding: '0.5rem',
@@ -646,10 +597,10 @@ export default function AgencyDashboardPage() {
                     color: '#155724',
                     fontSize: '0.875rem'
                   }}>
-                    ✅ Connected
-                    {integrations.ga4.property_name && (
+                    Connected
+                    {oauthConnections.ga4.name && (
                       <div style={{ marginTop: '0.25rem' }}>
-                        {integrations.ga4.property_name}
+                        {oauthConnections.ga4.name}
                       </div>
                     )}
                   </div>
@@ -677,7 +628,7 @@ export default function AgencyDashboardPage() {
                     color: '#721c24',
                     fontSize: '0.875rem'
                   }}>
-                    ❌ Not Connected
+                    Not Connected
                   </div>
                   <button
                     onClick={handleConnectGA4}
@@ -750,31 +701,11 @@ export default function AgencyDashboardPage() {
                   <tr style={{
                     borderBottom: darkMode ? '2px solid #3f3f46' : '2px solid #ddd'
                   }}>
-                    <th style={{
-                      padding: '0.75rem',
-                      textAlign: 'left',
-                      color: darkMode ? '#f3f4f6' : '#000'
-                    }}>Name</th>
-                    <th style={{
-                      padding: '0.75rem',
-                      textAlign: 'left',
-                      color: darkMode ? '#f3f4f6' : '#000'
-                    }}>Email</th>
-                    <th style={{
-                      padding: '0.75rem',
-                      textAlign: 'left',
-                      color: darkMode ? '#f3f4f6' : '#000'
-                    }}>Permissions</th>
-                    <th style={{
-                      padding: '0.75rem',
-                      textAlign: 'left',
-                      color: darkMode ? '#f3f4f6' : '#000'
-                    }}>Status</th>
-                    <th style={{
-                      padding: '0.75rem',
-                      textAlign: 'center',
-                      color: darkMode ? '#f3f4f6' : '#000'
-                    }}>Actions</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Name</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Email</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Permissions</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', color: darkMode ? '#f3f4f6' : '#000' }}>Status</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center', color: darkMode ? '#f3f4f6' : '#000' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -786,15 +717,15 @@ export default function AgencyDashboardPage() {
                         padding: '0.75rem',
                         color: darkMode ? '#f3f4f6' : '#000'
                       }}>
-                        {client.user.first_name} {client.user.last_name}
+                        {client.first_name} {client.last_name}
                       </td>
                       <td style={{
                         padding: '0.75rem',
                         color: darkMode ? '#9ca3af' : '#000'
-                      }}>{client.user.email}</td>
+                      }}>{client.email}</td>
                       <td style={{ padding: '0.75rem' }}>
                         <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                          {client.permissions.meta_accounts && client.permissions.meta_accounts.length > 0 && (
+                          {client.permissions?.meta_accounts_ids?.length > 0 && (
                             <span style={{
                               padding: '0.25rem 0.5rem',
                               backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
@@ -802,10 +733,10 @@ export default function AgencyDashboardPage() {
                               fontSize: '0.75rem',
                               color: darkMode ? '#93c5fd' : '#0369a1'
                             }}>
-                              Meta ({client.permissions.meta_accounts.length})
+                              Meta ({client.permissions.meta_accounts_ids.length})
                             </span>
                           )}
-                          {client.permissions.google_accounts && client.permissions.google_accounts.length > 0 && (
+                          {client.permissions?.google_accounts_ids?.length > 0 && (
                             <span style={{
                               padding: '0.25rem 0.5rem',
                               backgroundColor: darkMode ? '#3f2e1e' : '#fff3e0',
@@ -813,11 +744,11 @@ export default function AgencyDashboardPage() {
                               fontSize: '0.75rem',
                               color: darkMode ? '#fbbf24' : '#b45309'
                             }}>
-                              Google ({client.permissions.google_accounts.length})
+                              Google ({client.permissions.google_accounts_ids.length})
                             </span>
                           )}
-                          {(!client.permissions.meta_accounts || client.permissions.meta_accounts.length === 0) &&
-                           (!client.permissions.google_accounts || client.permissions.google_accounts.length === 0) && (
+                          {(!client.permissions?.meta_accounts_ids?.length) &&
+                           (!client.permissions?.google_accounts_ids?.length) && (
                             <span style={{
                               color: darkMode ? '#6b7280' : '#999',
                               fontSize: '0.875rem'
@@ -894,10 +825,7 @@ export default function AgencyDashboardPage() {
       {showAddClientModal && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
@@ -919,7 +847,7 @@ export default function AgencyDashboardPage() {
               margin: '0 0 1rem 0',
               color: darkMode ? '#f3f4f6' : '#000'
             }}>Add New Client</h3>
-            
+
             {newPassword ? (
               <div>
                 <div style={{
@@ -961,7 +889,7 @@ export default function AgencyDashboardPage() {
                     fontSize: '0.875rem',
                     color: darkMode ? '#fbbf24' : '#856404'
                   }}>
-                    ⚠️ Copy this password and send it to the client securely. It won't be shown again.
+                    Copy this password and send it to the client securely. It won't be shown again.
                   </p>
                 </div>
                 <button
@@ -1117,10 +1045,7 @@ export default function AgencyDashboardPage() {
       {showPermissionsModal && selectedClient && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
@@ -1148,7 +1073,7 @@ export default function AgencyDashboardPage() {
               margin: '0 0 1.5rem 0',
               color: darkMode ? '#9ca3af' : '#666'
             }}>
-              {selectedClient.user.first_name} {selectedClient.user.last_name}
+              {selectedClient.first_name} {selectedClient.last_name}
             </p>
 
             <PermissionsEditor
@@ -1201,7 +1126,7 @@ function PermissionsEditor({
   darkMode: boolean
 }) {
   const [selectedMeta, setSelectedMeta] = useState<string[]>(
-    client.permissions.meta_accounts || []
+    client.permissions?.meta_accounts_ids || []
   )
 
   function handleToggleMeta(accountId: string) {
@@ -1214,9 +1139,9 @@ function PermissionsEditor({
 
   function handleSave() {
     onSave({
-      meta_accounts: selectedMeta,
-      google_accounts: client.permissions.google_accounts || [],
-      ga4_properties: client.permissions.ga4_properties || [],
+      meta_accounts_ids: selectedMeta,
+      google_accounts_ids: client.permissions?.google_accounts_ids || [],
+      ga4_properties_ids: client.permissions?.ga4_properties_ids || [],
     })
   }
 
@@ -1227,7 +1152,7 @@ function PermissionsEditor({
           margin: '0 0 1rem 0',
           color: darkMode ? '#f3f4f6' : '#000'
         }}>
-          📘 Meta Ad Accounts
+          Meta Ad Accounts
         </h4>
         {metaAdAccounts.length === 0 ? (
           <p style={{
@@ -1240,7 +1165,7 @@ function PermissionsEditor({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {metaAdAccounts.map((account) => (
               <label
-                key={account.id}
+                key={account.account_id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1249,7 +1174,7 @@ function PermissionsEditor({
                   border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  backgroundColor: selectedMeta.includes(account.id)
+                  backgroundColor: selectedMeta.includes(account.account_id)
                     ? (darkMode ? '#1e3a5f' : '#e7f3ff')
                     : (darkMode ? '#1f1f23' : 'white'),
                   transition: 'background-color 0.2s ease'
@@ -1257,8 +1182,8 @@ function PermissionsEditor({
               >
                 <input
                   type="checkbox"
-                  checked={selectedMeta.includes(account.id)}
-                  onChange={() => handleToggleMeta(account.id)}
+                  checked={selectedMeta.includes(account.account_id)}
+                  onChange={() => handleToggleMeta(account.account_id)}
                   style={{ cursor: 'pointer' }}
                 />
                 <span style={{
@@ -1278,13 +1203,13 @@ function PermissionsEditor({
           margin: '0 0 0.5rem 0',
           color: darkMode ? '#f3f4f6' : '#000'
         }}>
-          🔍 Google Ads Accounts
+          Google Ads Accounts
         </h4>
         <p style={{
           color: darkMode ? '#6b7280' : '#999',
           fontSize: '0.875rem'
         }}>
-          Coming in FAZA 5
+          Coming soon
         </p>
       </div>
 
@@ -1293,13 +1218,13 @@ function PermissionsEditor({
           margin: '0 0 0.5rem 0',
           color: darkMode ? '#f3f4f6' : '#000'
         }}>
-          📊 GA4 Properties
+          GA4 Properties
         </h4>
         <p style={{
           color: darkMode ? '#6b7280' : '#999',
           fontSize: '0.875rem'
         }}>
-          Coming in FAZA 5
+          Coming soon
         </p>
       </div>
 
@@ -1344,7 +1269,7 @@ function PermissionsEditor({
   )
 }
 
-// ========== SYNC INSIGHTS MODAL COMPONENT ==========
+// Sync Insights Modal Component
 function SyncInsightsModal({
   darkMode,
   metaAdAccounts,
@@ -1375,10 +1300,7 @@ function SyncInsightsModal({
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
+      top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       display: 'flex',
       alignItems: 'center',
@@ -1400,7 +1322,7 @@ function SyncInsightsModal({
           margin: '0 0 1.5rem 0',
           color: darkMode ? '#f3f4f6' : '#000'
         }}>
-          🔄 Sync Insights
+          Sync Insights
         </h2>
 
         <p style={{
@@ -1456,7 +1378,7 @@ function SyncInsightsModal({
           ) : (
             metaAdAccounts.map((account) => (
               <label
-                key={account.id}
+                key={account.account_id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1464,7 +1386,7 @@ function SyncInsightsModal({
                   padding: '0.75rem',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  backgroundColor: selectedAccountIds.includes(account.id)
+                  backgroundColor: selectedAccountIds.includes(account.account_id)
                     ? (darkMode ? '#1e3a5f' : '#e7f3ff')
                     : 'transparent',
                   transition: 'background-color 0.2s ease',
@@ -1473,8 +1395,8 @@ function SyncInsightsModal({
               >
                 <input
                   type="checkbox"
-                  checked={selectedAccountIds.includes(account.id)}
-                  onChange={() => onToggleAccount(account.id)}
+                  checked={selectedAccountIds.includes(account.account_id)}
+                  onChange={() => onToggleAccount(account.account_id)}
                   style={{ cursor: 'pointer' }}
                 />
                 <span style={{
@@ -1501,7 +1423,7 @@ function SyncInsightsModal({
             color: darkMode ? '#f3f4f6' : '#000',
             fontSize: '0.875rem'
           }}>
-            📅 Date Range
+            Date Range
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
@@ -1594,7 +1516,7 @@ function SyncInsightsModal({
               transition: 'background-color 0.2s ease'
             }}
           >
-            {syncLoading ? '⏳ Syncing...' : '🔄 Start Sync'}
+            {syncLoading ? 'Syncing...' : 'Start Sync'}
           </button>
         </div>
       </div>

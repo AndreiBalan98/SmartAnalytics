@@ -21,7 +21,7 @@ export default function UnifiedLoginPage() {
     if (user) {
       if (user.user_type === 'agency') {
         router.push('/agency/dashboard');
-      } else if (user.user_type === 'client') {
+      } else if (user.user_type === 'client' || user.user_type === 'agency_client') {
         router.push('/dashboard');
       }
     }

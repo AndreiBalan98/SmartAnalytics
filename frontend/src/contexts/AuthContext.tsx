@@ -44,14 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
 
-  // Initialize auth state on mount
   useEffect(() => {
     initializeAuth()
   }, [])
 
   async function initializeAuth() {
     try {
-      // Apply dark mode from localStorage immediately (before API)
       const savedDarkMode = getDarkModePreference()
       setDarkMode(savedDarkMode)
       applyDarkMode(savedDarkMode)
@@ -60,27 +58,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const tokens = getTokens()
 
       if (savedUser && tokens) {
-        // Check if token is expired
         if (isTokenExpired(tokens.access)) {
-          // Try to refresh
           try {
             const freshUser = await api.getCurrentUser()
             setUser(freshUser)
             saveUser(freshUser)
-            // Sync dark mode from server (override localStorage)
             if (freshUser.dark_mode !== undefined) {
               setDarkMode(freshUser.dark_mode)
               setDarkModePreference(freshUser.dark_mode)
             }
           } catch {
-            // Refresh failed, clear auth
             clearAuth()
             setUser(null)
           }
         } else {
-          // Token is valid, use saved user
           setUser(savedUser)
-          // Sync dark mode from saved user
           if (savedUser.dark_mode !== undefined) {
             setDarkMode(savedUser.dark_mode)
             setDarkModePreference(savedUser.dark_mode)
@@ -97,26 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    try {
-      const response: LoginResponse = await api.login(email, password)
-
-      // Store tokens
-      setTokens({
-        access: response.access,
-        refresh: response.refresh,
-      })
-
-      // Store user
-      saveUser(response.user)
-      setUser(response.user)
-
-      // Apply dark mode from user response
-      if (response.user.dark_mode !== undefined) {
-        setDarkMode(response.user.dark_mode)
-        setDarkModePreference(response.user.dark_mode)
-      }
-    } catch (error) {
-      throw error
+    const response: LoginResponse = await api.login(email, password)
+    setTokens({ access: response.access, refresh: response.refresh })
+    saveUser(response.user)
+    setUser(response.user)
+    if (response.user.dark_mode !== undefined) {
+      setDarkMode(response.user.dark_mode)
+      setDarkModePreference(response.user.dark_mode)
     }
   }
 
@@ -125,24 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearDarkModePreference()
     setUser(null)
     setDarkMode(false)
-    // Redirect to home
     if (typeof window !== 'undefined') {
       window.location.href = '/'
     }
   }
 
   async function signup(data: SignupData) {
-    try {
-      const response = await api.agencySignup(data)
-
-      if (response.user) {
-        // Auto-login after signup
-        await login(data.email, data.password)
-      } else if (response.error || response.errors) {
-        throw new Error(response.error || Object.values(response.errors)[0])
-      }
-    } catch (error) {
-      throw error
+    const response = await api.agencySignup(data)
+    if (response.user) {
+      await login(data.email, data.password)
+    } else if (response.error || response.errors) {
+      throw new Error(response.error || Object.values(response.errors)[0])
     }
   }
 
@@ -151,7 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const freshUser = await api.getCurrentUser()
       setUser(freshUser)
       saveUser(freshUser)
-      // Sync dark mode from server
       if (freshUser.dark_mode !== undefined) {
         setDarkMode(freshUser.dark_mode)
         setDarkModePreference(freshUser.dark_mode)
@@ -162,22 +133,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function toggleDarkMode() {
-    // Optimistic update (instant UI change)
     const newDarkMode = !darkMode
     setDarkMode(newDarkMode)
     setDarkModePreference(newDarkMode)
-
     try {
-      // Persist to server
-      const response = await api.updateUserPreferences({ dark_mode: newDarkMode })
-      // Update user object with new preference
+      const response = await api.updatePreferences({ dark_mode: newDarkMode })
       if (response.user) {
         setUser(response.user)
         saveUser(response.user)
       }
     } catch (error) {
       console.error('Failed to update dark mode preference:', error)
-      // Revert on error
       setDarkMode(darkMode)
       setDarkModePreference(darkMode)
     }
@@ -185,16 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        darkMode,
-        login,
-        logout,
-        signup,
-        refreshUser,
-        toggleDarkMode,
-      }}
+      value={{ user, loading, darkMode, login, logout, signup, refreshUser, toggleDarkMode }}
     >
       {children}
     </AuthContext.Provider>

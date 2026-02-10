@@ -1,33 +1,29 @@
-# Meta Ads Integration MVP
+# SmartAnalytics
 
-Internal tool to connect Meta Ads, store tokens, and fetch insights.
+Marketing analytics platform for agencies. Connects Meta Ads, Google Ads, and GA4 to provide unified data and insights for agencies and their clients.
 
-## Structure
-- `frontend/` - Next.js (TypeScript)
-- `backend/` - Django + DRF
+- **Backend:** Django + DRF (4 apps: users, oauth, meta, core)
+- **Frontend:** Next.js 14 + TypeScript
+- **Database:** PostgreSQL
+
+See [DOCUMENTATION.md](DOCUMENTATION.md) for full details.
 
 ## Quick Start
 
-### Backend
 ```bash
+# Backend
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your keys
 python manage.py migrate
+python manage.py createsuperuser
 python manage.py runserver
-```
 
-### Frontend
-```bash
+# Frontend
 cd frontend
 npm install
-cp .env.local.example .env.local
-# Edit .env.local with your keys
 npm run dev
 ```
 
-Access at http://localhost:3000
-```
+Access frontend at http://localhost:3000, admin at http://localhost:8000/bigboss/

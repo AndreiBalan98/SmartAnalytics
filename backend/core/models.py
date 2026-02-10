@@ -2,8 +2,6 @@ from django.db import models
 
 
 class SystemLog(models.Model):
-    """Store all backend system logs in database"""
-
     LEVEL_CHOICES = [
         ('DEBUG', 'Debug'),
         ('INFO', 'Info'),
@@ -18,10 +16,11 @@ class SystemLog(models.Model):
     pathname = models.CharField(max_length=500, blank=True)
     lineno = models.IntegerField(null=True, blank=True)
     funcname = models.CharField(max_length=255, blank=True)
-    exc_info = models.TextField(blank=True)  # Exception traceback if any
+    exc_info = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
+        db_table = 'system_log'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['-created_at', 'level']),

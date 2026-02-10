@@ -3,30 +3,13 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 
 urlpatterns = [
-    # Authentication
     path('auth/login/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-    # Agency signup
     path('auth/agency/signup/', views.agency_signup, name='agency_signup'),
-
-    # Client management
-    path('clients/create/', views.create_client, name='create_client'),
+    path('me/', views.get_current_user, name='current_user'),
+    path('me/preferences/', views.update_user_preferences, name='update_preferences'),
+    path('clients/create/', views.create_agency_client, name='create_client'),
     path('clients/', views.list_agency_clients, name='list_clients'),
     path('clients/<int:client_id>/permissions/', views.update_client_permissions, name='update_client_permissions'),
     path('clients/<int:client_id>/', views.remove_client, name='remove_client'),
-
-    # User info
-    path('me/', views.get_current_user, name='current_user'),
-    path('me/preferences/', views.update_user_preferences, name='update_user_preferences'),
-
-    # Client metrics
-    path('metrics/', views.get_client_metrics, name='client_metrics'),
-    path('debug/client-data/', views.debug_client_data, name='debug_client_data'),
-
-    # Client data views
-    path('client/ad-accounts/', views.get_client_ad_accounts, name='client_ad_accounts'),
-    path('client/campaigns/', views.get_client_campaigns, name='client_campaigns'),
-    path('client/ad-sets/', views.get_client_ad_sets, name='client_ad_sets'),
-    path('client/ads/', views.get_client_ads, name='client_ads'),
 ]
