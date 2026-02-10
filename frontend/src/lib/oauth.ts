@@ -45,7 +45,17 @@ function openOAuthPopup(
     const cleanup = () => {
       window.removeEventListener('message', messageHandler)
       clearInterval(checkClosed)
+      clearTimeout(timeoutId)
     }
+
+    // Timeout after 5 minutes
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true
+        cleanup()
+        reject(new Error('OAuth timeout - no response received'))
+      }
+    }, 5 * 60 * 1000)
 
     const handleResult = (data: OAuthMessage) => {
       if (resolved) return
@@ -69,26 +79,42 @@ function openOAuthPopup(
 
     // Method 2: Check localStorage when popup closes (fallback for when window.opener is null)
     const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed)
-        // Give postMessage a moment to arrive first
-        setTimeout(() => {
-          if (resolved) return
-          // Check localStorage fallback
-          const stored = localStorage.getItem('oauth_result')
-          if (stored) {
-            try {
-              const data = JSON.parse(stored) as OAuthMessage
-              handleResult(data)
-              return
-            } catch (e) {
-              // ignore parse error
+      try {
+        // Try to check if popup is closed (may throw COOP error)
+        if (popup.closed) {
+          clearInterval(checkClosed)
+          // Give postMessage a moment to arrive first
+          setTimeout(() => {
+            if (resolved) return
+            // Check localStorage fallback
+            const stored = localStorage.getItem('oauth_result')
+            if (stored) {
+              try {
+                const data = JSON.parse(stored) as OAuthMessage
+                handleResult(data)
+                return
+              } catch (e) {
+                // ignore parse error
+              }
             }
+            // No result from either method
+            cleanup()
+            reject(new Error('OAuth popup was closed'))
+          }, 500)
+        }
+      } catch (e) {
+        // COOP error - can't access popup.closed, rely on localStorage polling
+        // Check localStorage more frequently as fallback
+        const stored = localStorage.getItem('oauth_result')
+        if (stored) {
+          clearInterval(checkClosed)
+          try {
+            const data = JSON.parse(stored) as OAuthMessage
+            handleResult(data)
+          } catch (parseError) {
+            // ignore parse error
           }
-          // No result from either method
-          cleanup()
-          reject(new Error('OAuth popup was closed'))
-        }, 500)
+        }
       }
     }, 500)
   })
