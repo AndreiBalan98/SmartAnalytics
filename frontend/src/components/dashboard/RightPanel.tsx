@@ -3,6 +3,8 @@
  * Navigation menu for different views (Campaigns, Ad Sets, Ads, Creatives, Insights)
  */
 
+type Platform = 'meta' | 'google_ads' | 'ga4'
+
 interface RightPanelProps {
   selectedView: string
   onSelectView: (view: string) => void
@@ -12,6 +14,7 @@ interface RightPanelProps {
   selectedAdsCount?: number
   selectedAccountsCount?: number
   onClearAllSelections: () => void
+  platform?: Platform
 }
 
 export default function RightPanel({
@@ -23,6 +26,7 @@ export default function RightPanel({
   selectedAdsCount = 0,
   selectedAccountsCount = 0,
   onClearAllSelections,
+  platform = 'meta',
 }: RightPanelProps) {
   // Calculate total selections
   const totalSelections = (selectedCampaignsCount || 0) +
@@ -35,38 +39,30 @@ export default function RightPanel({
     adsets: selectedAdSetsCount,
     ads: selectedAdsCount,
   }
-  const navItems = [
-    {
-      id: 'campaigns',
-      label: 'Campaigns',
-      icon: '📊',
-      description: 'View all campaigns',
-    },
-    {
-      id: 'adsets',
-      label: 'Ad Sets',
-      icon: '🎯',
-      description: 'View ad sets',
-    },
-    {
-      id: 'ads',
-      label: 'Ads',
-      icon: '📢',
-      description: 'View individual ads',
-    },
-    {
-      id: 'creatives',
-      label: 'Creatives',
-      icon: '🎨',
-      description: 'View ad creatives',
-    },
-    {
-      id: 'insights',
-      label: 'Insights',
-      icon: '📈',
-      description: 'View performance metrics',
-    },
+  const metaNavItems = [
+    { id: 'campaigns', label: 'Campaigns', icon: '📊', description: 'View all campaigns' },
+    { id: 'adsets', label: 'Ad Sets', icon: '🎯', description: 'View ad sets' },
+    { id: 'ads', label: 'Ads', icon: '📢', description: 'View individual ads' },
+    { id: 'creatives', label: 'Creatives', icon: '🎨', description: 'View ad creatives' },
+    { id: 'insights', label: 'Insights', icon: '📈', description: 'View performance metrics' },
   ]
+
+  const googleAdsNavItems = [
+    { id: 'campaigns', label: 'Campaigns', icon: '📊', description: 'View all campaigns' },
+    { id: 'adsets', label: 'Ad Groups', icon: '🎯', description: 'View ad groups' },
+    { id: 'ads', label: 'Ads', icon: '📢', description: 'View individual ads' },
+    { id: 'insights', label: 'Insights', icon: '📈', description: 'View performance metrics' },
+  ]
+
+  const ga4NavItems = [
+    { id: 'insights', label: 'Analytics', icon: '📈', description: 'View analytics data' },
+  ]
+
+  const navItems = platform === 'ga4'
+    ? ga4NavItems
+    : platform === 'google_ads'
+      ? googleAdsNavItems
+      : metaNavItems
 
   return (
     <div className="scrollbar-hidden" style={{
@@ -141,7 +137,7 @@ export default function RightPanel({
           fontSize: '0.75rem',
           color: '#92400e',
         }}>
-          Select an ad account to view data
+          {platform === 'ga4' ? 'Select a property to view data' : 'Select an ad account to view data'}
         </div>
       )}
 

@@ -18,7 +18,12 @@
       "Bash(npm uninstall:*)",
       "Bash(npx tailwindcss:*)",
       "Bash(git add:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(ls -la \"D:\\\\proiecte personale\\\\SmartAnalytics\\\\backend\"\" | grep -E \"google)",
+      "Bash(ga4)",
+      "Bash(oauth \")",
+      "Bash(npx tsc:*)",
+      "Bash(npx next build:*)"
     ],
     "deny": [],
     "ask": []

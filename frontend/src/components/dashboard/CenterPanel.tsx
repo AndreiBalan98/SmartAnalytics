@@ -13,6 +13,8 @@ import AdsTable from './AdsTable'
 import CreativesGrid from './CreativesGrid'
 import InsightsView from './InsightsView'
 import OverviewView from './OverviewView'
+import GA4InsightsView from './GA4InsightsView'
+import GoogleAdsInsightsView from './GoogleAdsInsightsView'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 interface SelectionItem {
@@ -20,6 +22,8 @@ interface SelectionItem {
   name: string
   ad_account_id: string
 }
+
+type Platform = 'meta' | 'google_ads' | 'ga4'
 
 interface CenterPanelProps {
   view: string
@@ -31,6 +35,7 @@ interface CenterPanelProps {
   selectedAds: SelectionItem[]
   onSelectAds: (ads: SelectionItem[]) => void
   adAccounts: Array<{ id: string; name: string; currency?: string }>
+  platform?: Platform
 }
 
 export default function CenterPanel({
@@ -43,6 +48,7 @@ export default function CenterPanel({
   selectedAds,
   onSelectAds,
   adAccounts,
+  platform = 'meta',
 }: CenterPanelProps) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,7 +61,7 @@ export default function CenterPanel({
     }
 
     loadData()
-  }, [view, accountId]) // Only reload on view/account change, not on selections
+  }, [view, accountId, platform]) // Reload on view/account/platform change
 
   async function loadData() {
     if (!accountId) return
@@ -66,6 +72,70 @@ export default function CenterPanel({
     try {
       let result: any
 
+      // GA4 only has insights view
+      if (platform === 'ga4') {
+        setData([])
+        setLoading(false)
+        return
+      }
+
+      // Google Ads platform
+      if (platform === 'google_ads') {
+        switch (view) {
+          case 'campaigns':
+            result = await api.getClientGoogleAdsCampaigns(accountId)
+            setData(result.campaigns || [])
+            break
+
+          case 'adsets': // ad groups for Google Ads
+            const gCampaignIds = selectedCampaigns
+              .filter(c => c.ad_account_id === accountId)
+              .map(c => c.id)
+
+            if (gCampaignIds.length === 0) {
+              result = await api.getClientGoogleAdsAdGroups([])
+              const filtered = (result.ad_groups || []).filter((ag: any) => ag.ad_account_id === accountId)
+              setData(filtered)
+            } else {
+              result = await api.getClientGoogleAdsAdGroups(gCampaignIds)
+              setData(result.ad_groups || [])
+            }
+            break
+
+          case 'ads':
+            const gCampaignsForAds = selectedCampaigns
+              .filter(c => c.ad_account_id === accountId)
+            const gAdGroupsForAds = selectedAdSets
+              .filter(a => a.ad_account_id === accountId)
+
+            if (gAdGroupsForAds.length > 0) {
+              result = await api.getClientGoogleAdsAds(gAdGroupsForAds.map(a => a.id))
+              setData(result.ads || [])
+            } else if (gCampaignsForAds.length > 0) {
+              result = await api.getClientGoogleAdsAds([])
+              const filtered = (result.ads || []).filter((ad: any) =>
+                gCampaignsForAds.some(c => c.id === ad.campaign_id)
+              )
+              setData(filtered)
+            } else {
+              result = await api.getClientGoogleAdsAds([])
+              const filtered = (result.ads || []).filter((ad: any) => ad.ad_account_id === accountId)
+              setData(filtered)
+            }
+            break
+
+          case 'insights':
+            setData([])
+            break
+
+          default:
+            setData([])
+        }
+        setLoading(false)
+        return
+      }
+
+      // Meta platform (default)
       switch (view) {
         case 'campaigns':
           result = await api.getClientCampaignsNew(accountId)
@@ -73,15 +143,12 @@ export default function CenterPanel({
           break
 
         case 'adsets':
-          // Filter campaigns for current account only
           const campaignIdsForAccount = selectedCampaigns
             .filter(c => c.ad_account_id === accountId)
             .map(c => c.id)
 
-          // If no campaigns selected, get all adsets for this account
           if (campaignIdsForAccount.length === 0) {
             result = await api.getClientAdSetsNew([])
-            // Filter by current account on frontend since backend returns all
             const filteredAdsets = (result.adsets || []).filter((adset: any) => adset.ad_account_id === accountId)
             setData(filteredAdsets)
           } else {
@@ -91,25 +158,21 @@ export default function CenterPanel({
           break
 
         case 'ads':
-          // Get selected campaigns and adsets for current account
           const campaignsForAds = selectedCampaigns
             .filter(c => c.ad_account_id === accountId)
           const adSetsForAds = selectedAdSets
             .filter(a => a.ad_account_id === accountId)
 
           if (adSetsForAds.length > 0) {
-            // If adsets are selected, show ads from those adsets
             result = await api.getClientAdsNew(adSetsForAds.map(a => a.id))
             setData(result.ads || [])
           } else if (campaignsForAds.length > 0) {
-            // If only campaigns are selected (no adsets), show all ads from those campaigns
             result = await api.getClientAdsNew([])
             const filteredAds = (result.ads || []).filter((ad: any) =>
               campaignsForAds.some(c => c.id === ad.campaign_id)
             )
             setData(filteredAds)
           } else {
-            // If nothing is selected, show all ads for this account
             result = await api.getClientAdsNew([])
             const filteredAds = (result.ads || []).filter((ad: any) => ad.ad_account_id === accountId)
             setData(filteredAds)
@@ -117,7 +180,6 @@ export default function CenterPanel({
           break
 
         case 'creatives':
-          // Get selected campaigns, adsets, and ads for current account
           const campaignsForCreatives = selectedCampaigns
             .filter(c => c.ad_account_id === accountId)
           const adSetsForCreatives = selectedAdSets
@@ -126,25 +188,21 @@ export default function CenterPanel({
             .filter(a => a.ad_account_id === accountId)
 
           if (adsForCreatives.length > 0) {
-            // If ads are selected, show creatives from those ads
             result = await api.getClientCreativesNew(adsForCreatives.map(a => a.id))
             setData(result.creatives || [])
           } else if (adSetsForCreatives.length > 0) {
-            // If only adsets are selected (no ads), show all creatives from those adsets
             result = await api.getClientCreativesNew([])
             const filteredCreatives = (result.creatives || []).filter((creative: any) =>
               adSetsForCreatives.some(a => a.id === creative.adset_id)
             )
             setData(filteredCreatives)
           } else if (campaignsForCreatives.length > 0) {
-            // If only campaigns are selected, show all creatives from those campaigns
             result = await api.getClientCreativesNew([])
             const filteredCreatives = (result.creatives || []).filter((creative: any) =>
               campaignsForCreatives.some(c => c.id === creative.campaign_id)
             )
             setData(filteredCreatives)
           } else {
-            // If nothing is selected, show all creatives for this account
             result = await api.getClientCreativesNew([])
             const filteredCreatives = (result.creatives || []).filter((creative: any) => creative.ad_account_id === accountId)
             setData(filteredCreatives)
@@ -152,12 +210,10 @@ export default function CenterPanel({
           break
 
         case 'insights':
-          // InsightsView handles its own data loading
           setData([])
           break
 
         case 'overview':
-          // OverviewView handles its own data loading
           setData([])
           break
 
@@ -172,7 +228,7 @@ export default function CenterPanel({
     }
   }
 
-  if (!accountId) {
+  if (!accountId && view !== 'overview') {
     return (
       <div style={{
         flex: 1,
@@ -183,12 +239,14 @@ export default function CenterPanel({
         color: '#9ca3af',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>{platform === 'ga4' ? '📈' : '📊'}</div>
           <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem', color: '#6b7280' }}>
-            Select an Ad Account
+            {platform === 'ga4' ? 'Select a Property' : 'Select an Ad Account'}
           </p>
           <p style={{ fontSize: '0.875rem' }}>
-            Choose an ad account from the left panel to view data
+            {platform === 'ga4'
+              ? 'Choose a property from the left panel to view analytics'
+              : 'Choose an ad account from the left panel to view data'}
           </p>
         </div>
       </div>
@@ -251,13 +309,19 @@ export default function CenterPanel({
           color: '#1f2937',
           textTransform: 'capitalize',
         }}>
-          {view}
+          {platform === 'google_ads' && view === 'adsets' ? 'Ad Groups' : view}
         </h2>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto' }} className="scrollbar-hidden">
-        {view === 'campaigns' && (
+        {/* GA4 Platform */}
+        {platform === 'ga4' && view === 'insights' && (
+          <GA4InsightsView propertyId={accountId} />
+        )}
+
+        {/* Google Ads Platform */}
+        {platform === 'google_ads' && view === 'campaigns' && (
           <CampaignsTable
             campaigns={data}
             loading={loading}
@@ -266,7 +330,7 @@ export default function CenterPanel({
             onSelectCampaigns={onSelectCampaigns}
           />
         )}
-        {view === 'adsets' && (
+        {platform === 'google_ads' && view === 'adsets' && (
           <AdSetsTable
             adsets={data}
             loading={loading}
@@ -275,7 +339,7 @@ export default function CenterPanel({
             onSelectAdSets={onSelectAdSets}
           />
         )}
-        {view === 'ads' && (
+        {platform === 'google_ads' && view === 'ads' && (
           <AdsTable
             ads={data}
             loading={loading}
@@ -284,8 +348,47 @@ export default function CenterPanel({
             onSelectAds={onSelectAds}
           />
         )}
-        {view === 'creatives' && <CreativesGrid creatives={data} loading={loading} />}
-        {view === 'insights' && (
+        {platform === 'google_ads' && view === 'insights' && (
+          <GoogleAdsInsightsView
+            accountId={accountId}
+            selectedCampaigns={selectedCampaigns}
+            selectedAdSets={selectedAdSets}
+            selectedAds={selectedAds}
+          />
+        )}
+
+        {/* Meta Platform (default) */}
+        {platform === 'meta' && view === 'campaigns' && (
+          <CampaignsTable
+            campaigns={data}
+            loading={loading}
+            accountId={accountId}
+            selectedCampaigns={selectedCampaigns}
+            onSelectCampaigns={onSelectCampaigns}
+          />
+        )}
+        {platform === 'meta' && view === 'adsets' && (
+          <AdSetsTable
+            adsets={data}
+            loading={loading}
+            accountId={accountId}
+            selectedAdSets={selectedAdSets}
+            onSelectAdSets={onSelectAdSets}
+          />
+        )}
+        {platform === 'meta' && view === 'ads' && (
+          <AdsTable
+            ads={data}
+            loading={loading}
+            accountId={accountId}
+            selectedAds={selectedAds}
+            onSelectAds={onSelectAds}
+          />
+        )}
+        {platform === 'meta' && view === 'creatives' && (
+          <CreativesGrid creatives={data} loading={loading} />
+        )}
+        {platform === 'meta' && view === 'insights' && (
           <InsightsView
             selectedCampaigns={selectedCampaigns}
             selectedAdSets={selectedAdSets}
@@ -293,6 +396,8 @@ export default function CenterPanel({
             adAccounts={adAccounts}
           />
         )}
+
+        {/* Overview (platform-independent) */}
         {view === 'overview' && (
           <OverviewView
             selectedCampaigns={selectedCampaigns}

@@ -62,13 +62,24 @@ function saveSelections(selections: DashboardSelections): void {
   }
 }
 
+type Platform = 'meta' | 'google_ads' | 'ga4'
+
 interface AdAccount {
   id: string
   name: string
   currency: string
   timezone: string
-  account_status: number
+  account_status: number | string
   status_display: string
+}
+
+interface GA4Property {
+  id: string
+  property_id: string
+  name: string
+  timezone: string
+  currency: string
+  account_name?: string
 }
 
 export default function ClientDashboard() {
@@ -76,11 +87,13 @@ export default function ClientDashboard() {
   const { user, loading: authLoading, logout } = useAuth()
 
   // State
-  const [selectedPlatform] = useState('meta') // Only Meta for now
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'platform'>('overview') // New: tab selection
+  const [selectedPlatform, setSelectedPlatform] = useState<Platform>('meta')
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'platform'>('overview')
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [selectedView, setSelectedView] = useState('campaigns')
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
+  const [googleAdAccounts, setGoogleAdAccounts] = useState<AdAccount[]>([])
+  const [ga4Properties, setGa4Properties] = useState<GA4Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -106,12 +119,30 @@ export default function ClientDashboard() {
     setError(null)
 
     try {
-      const response = await api.getClientAdAccountsNew()
-      setAdAccounts(response.ad_accounts || [])
+      // Load all platforms in parallel
+      const [metaRes, googleRes, ga4Res] = await Promise.allSettled([
+        api.getClientAdAccountsNew(),
+        api.getClientGoogleAdsAccounts(),
+        api.getClientGA4Properties(),
+      ])
 
-      // Auto-select first account
-      if (response.ad_accounts && response.ad_accounts.length > 0) {
-        setSelectedAccount(response.ad_accounts[0].id)
+      const metaAccounts = metaRes.status === 'fulfilled' ? (metaRes.value.ad_accounts || []) : []
+      const googleAccounts = googleRes.status === 'fulfilled' ? (googleRes.value.ad_accounts || []) : []
+      const ga4Props = ga4Res.status === 'fulfilled' ? (ga4Res.value.properties || []) : []
+
+      setAdAccounts(metaAccounts)
+      setGoogleAdAccounts(googleAccounts)
+      setGa4Properties(ga4Props)
+
+      // Auto-select first account from whichever has data
+      if (metaAccounts.length > 0) {
+        setSelectedAccount(metaAccounts[0].id)
+      } else if (googleAccounts.length > 0) {
+        setSelectedAccount(googleAccounts[0].id)
+        setSelectedPlatform('google_ads')
+      } else if (ga4Props.length > 0) {
+        setSelectedAccount(ga4Props[0].property_id)
+        setSelectedPlatform('ga4')
       }
     } catch (err: any) {
       console.error('Failed to load ad accounts:', err)
@@ -251,7 +282,13 @@ export default function ClientDashboard() {
             Overview
           </button>
           <button
-            onClick={() => setSelectedTab('platform')}
+            onClick={() => {
+              setSelectedTab('platform')
+              setSelectedPlatform('meta')
+              setSelectedView('campaigns')
+              if (adAccounts.length > 0) setSelectedAccount(adAccounts[0].id)
+              else setSelectedAccount(null)
+            }}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: selectedTab === 'platform' && selectedPlatform === 'meta' ? '#3b82f6' : 'transparent',
@@ -268,20 +305,50 @@ export default function ClientDashboard() {
             Meta Ads
           </button>
           <button
+            onClick={() => {
+              setSelectedTab('platform')
+              setSelectedPlatform('google_ads')
+              setSelectedView('campaigns')
+              if (googleAdAccounts.length > 0) setSelectedAccount(googleAdAccounts[0].id)
+              else setSelectedAccount(null)
+            }}
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: 'transparent',
-              color: '#d1d5db',
+              backgroundColor: selectedTab === 'platform' && selectedPlatform === 'google_ads' ? '#3b82f6' : 'transparent',
+              color: selectedTab === 'platform' && selectedPlatform === 'google_ads' ? 'white' : '#6b7280',
               border: 'none',
-              borderBottom: '2px solid transparent',
-              cursor: 'not-allowed',
+              borderBottom: selectedTab === 'platform' && selectedPlatform === 'google_ads' ? '2px solid #2563eb' : '2px solid transparent',
+              cursor: 'pointer',
               fontSize: '0.8125rem',
               fontWeight: 600,
+              transition: 'all 0.2s',
               height: '100%',
             }}
-            disabled
           >
-            Google Ads <span style={{ fontSize: '0.7rem' }}>(Soon)</span>
+            Google Ads
+          </button>
+          <button
+            onClick={() => {
+              setSelectedTab('platform')
+              setSelectedPlatform('ga4')
+              setSelectedView('insights')
+              if (ga4Properties.length > 0) setSelectedAccount(ga4Properties[0].property_id)
+              else setSelectedAccount(null)
+            }}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: selectedTab === 'platform' && selectedPlatform === 'ga4' ? '#3b82f6' : 'transparent',
+              color: selectedTab === 'platform' && selectedPlatform === 'ga4' ? 'white' : '#6b7280',
+              border: 'none',
+              borderBottom: selectedTab === 'platform' && selectedPlatform === 'ga4' ? '2px solid #2563eb' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              height: '100%',
+            }}
+          >
+            GA4
           </button>
         </div>
       </div>
@@ -305,21 +372,37 @@ export default function ClientDashboard() {
         display: 'flex',
         overflow: 'hidden',
       }}>
-        {/* Left Panel - 12.5% cu min 220px, max 300px */}
-        <div style={{
-          width: '12.5%',
-          minWidth: '220px',
-          maxWidth: '300px',
-          backgroundColor: 'white',
-          borderRight: '1px solid #e5e7eb',
-        }}>
-          <LeftPanel
-            accounts={adAccounts}
-            selectedAccount={selectedAccount}
-            onSelectAccount={setSelectedAccount}
-            loading={loading}
-          />
-        </div>
+        {/* Left Panel - 12.5% cu min 220px, max 300px - hidden on overview */}
+        {selectedTab === 'platform' && (
+          <div style={{
+            width: '12.5%',
+            minWidth: '220px',
+            maxWidth: '300px',
+            backgroundColor: 'white',
+            borderRight: '1px solid #e5e7eb',
+          }}>
+            <LeftPanel
+              accounts={
+                selectedPlatform === 'google_ads'
+                  ? googleAdAccounts
+                  : selectedPlatform === 'ga4'
+                    ? ga4Properties.map(p => ({
+                        id: p.property_id,
+                        name: p.name,
+                        currency: p.currency || '',
+                        timezone: p.timezone || '',
+                        account_status: 1,
+                        status_display: 'Active',
+                      }))
+                    : adAccounts
+              }
+              selectedAccount={selectedAccount}
+              onSelectAccount={setSelectedAccount}
+              loading={loading}
+              platform={selectedPlatform}
+            />
+          </div>
+        )}
 
         {/* Center Panel - 75% (flex: 1 ia spațiul rămas) */}
         <div style={{
@@ -336,6 +419,7 @@ export default function ClientDashboard() {
             selectedAds={selectedAds}
             onSelectAds={setSelectedAds}
             adAccounts={adAccounts}
+            platform={selectedPlatform}
           />
         </div>
 
@@ -359,6 +443,7 @@ export default function ClientDashboard() {
                 [...selectedCampaigns, ...selectedAdSets, ...selectedAds].map(item => item.ad_account_id)
               ).size}
               onClearAllSelections={handleClearAllSelections}
+              platform={selectedPlatform}
             />
           </div>
         )}

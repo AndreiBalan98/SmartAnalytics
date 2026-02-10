@@ -293,6 +293,153 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch insights')
     return response.json()
   },
+
+  // ===== Google Ads Sync (Agency) =====
+  async getGoogleAdsAccounts() {
+    const response = await fetchWithAuth('/api/google-ads/accounts/')
+    if (!response.ok) throw new Error('Failed to get Google Ads accounts')
+    return response.json()
+  },
+
+  async triggerGoogleAdsStructuralSync(accountIds: string[]) {
+    const response = await fetchWithAuth('/api/google-ads/sync/structural/', {
+      method: 'POST',
+      body: JSON.stringify({ account_ids: accountIds }),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to trigger Google Ads structural sync')
+    }
+    return response.json()
+  },
+
+  async triggerGoogleAdsInsightsSync(data: {
+    account_ids: string[]; start_date: string; end_date: string;
+  }) {
+    const response = await fetchWithAuth('/api/google-ads/sync/insights/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to trigger Google Ads insights sync')
+    }
+    return response.json()
+  },
+
+  // ===== Google Ads Client Data =====
+  async getClientGoogleAdsAccounts() {
+    const response = await fetchWithAuth('/api/google-ads/client/accounts/')
+    if (!response.ok) throw new Error('Failed to fetch Google Ads accounts')
+    return response.json()
+  },
+
+  async getClientGoogleAdsCampaigns(accountId: string) {
+    const response = await fetchWithAuth(`/api/google-ads/client/campaigns/?account_id=${accountId}`)
+    if (!response.ok) throw new Error('Failed to fetch campaigns')
+    return response.json()
+  },
+
+  async getClientGoogleAdsAdGroups(campaignIds: string[]) {
+    const query = campaignIds.map(id => `campaign_id=${id}`).join('&')
+    const response = await fetchWithAuth(`/api/google-ads/client/ad-groups/?${query}`)
+    if (!response.ok) throw new Error('Failed to fetch ad groups')
+    return response.json()
+  },
+
+  async getClientGoogleAdsAds(adGroupIds: string[]) {
+    const query = adGroupIds.map(id => `ad_group_id=${id}`).join('&')
+    const response = await fetchWithAuth(`/api/google-ads/client/ads/?${query}`)
+    if (!response.ok) throw new Error('Failed to fetch ads')
+    return response.json()
+  },
+
+  async getClientGoogleAdsInsights(params: {
+    account_id?: string; level?: string; start_date?: string; end_date?: string;
+  }) {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+    ).toString()
+    const response = await fetchWithAuth(`/api/google-ads/client/insights/?${query}`)
+    if (!response.ok) throw new Error('Failed to fetch insights')
+    return response.json()
+  },
+
+  async getClientGoogleAdsInsightsAggregate(params: {
+    entities: Array<{ id: string; name: string; type: string; start_date: string; end_date: string }>;
+    start_date: string;
+    end_date: string;
+  }) {
+    const response = await fetchWithAuth('/api/google-ads/client/insights/', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+    if (!response.ok) throw new Error('Failed to fetch insights')
+    return response.json()
+  },
+
+  // ===== GA4 Sync (Agency) =====
+  async getGA4Properties() {
+    const response = await fetchWithAuth('/api/ga4/properties/')
+    if (!response.ok) throw new Error('Failed to get GA4 properties')
+    return response.json()
+  },
+
+  async triggerGA4StructuralSync() {
+    const response = await fetchWithAuth('/api/ga4/sync/structural/', {
+      method: 'POST',
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to trigger GA4 structural sync')
+    }
+    return response.json()
+  },
+
+  async triggerGA4InsightsSync(data: {
+    property_ids: string[]; start_date: string; end_date: string;
+  }) {
+    const response = await fetchWithAuth('/api/ga4/sync/insights/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to trigger GA4 insights sync')
+    }
+    return response.json()
+  },
+
+  // ===== GA4 Client Data =====
+  async getClientGA4Properties() {
+    const response = await fetchWithAuth('/api/ga4/client/properties/')
+    if (!response.ok) throw new Error('Failed to fetch GA4 properties')
+    return response.json()
+  },
+
+  async getClientGA4Insights(params: {
+    property_id?: string; start_date?: string; end_date?: string; include_sources?: string;
+  }) {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+    ).toString()
+    const response = await fetchWithAuth(`/api/ga4/client/insights/?${query}`)
+    if (!response.ok) throw new Error('Failed to fetch GA4 insights')
+    return response.json()
+  },
+
+  async getClientGA4InsightsAggregate(params: {
+    properties: Array<{ id: string; name: string }>;
+    start_date: string;
+    end_date: string;
+  }) {
+    const response = await fetchWithAuth('/api/ga4/client/insights/', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+    if (!response.ok) throw new Error('Failed to fetch GA4 insights')
+    return response.json()
+  },
 }
 
 export { API_URL }

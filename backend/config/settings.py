@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     'users',
     'oauth',
     'meta',
+    'google_ads',
+    'ga4',
     'core',
 ]
 
@@ -164,6 +166,7 @@ META_REDIRECT_URI = os.getenv('META_REDIRECT_URI', '')
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_ADS_DEVELOPER_TOKEN = os.getenv('GOOGLE_ADS_DEVELOPER_TOKEN', '')
 
 # Logging
 LOGGING = {
@@ -202,6 +205,16 @@ LOGGING = {
             'propagate': False,
         },
         'meta': {
+            'handlers': ['console', 'database'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'google_ads': {
+            'handlers': ['console', 'database'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'ga4': {
             'handlers': ['console', 'database'],
             'level': 'INFO',
             'propagate': False,

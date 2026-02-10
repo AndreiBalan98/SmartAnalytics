@@ -35,6 +35,13 @@ interface AdAccount {
   status: string
 }
 
+interface GA4PropertyItem {
+  property_id: string
+  name: string
+  timezone: string
+  currency: string
+}
+
 export default function AgencyDashboardPage() {
   const router = useRouter()
   const { user, loading: authLoading, logout, darkMode } = useAuth()
@@ -43,6 +50,8 @@ export default function AgencyDashboardPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [oauthConnections, setOauthConnections] = useState<OAuthConnections | null>(null)
   const [metaAdAccounts, setMetaAdAccounts] = useState<AdAccount[]>([])
+  const [googleAdAccounts, setGoogleAdAccounts] = useState<AdAccount[]>([])
+  const [ga4Properties, setGa4Properties] = useState<GA4PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,11 +64,17 @@ export default function AgencyDashboardPage() {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false)
   const [showStructuralSyncModal, setShowStructuralSyncModal] = useState(false)
   const [showInsightsSyncModal, setShowInsightsSyncModal] = useState(false)
+  const [showGoogleStructuralSyncModal, setShowGoogleStructuralSyncModal] = useState(false)
+  const [showGoogleInsightsSyncModal, setShowGoogleInsightsSyncModal] = useState(false)
+  const [showGA4StructuralSyncModal, setShowGA4StructuralSyncModal] = useState(false)
+  const [showGA4InsightsSyncModal, setShowGA4InsightsSyncModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [newPassword, setNewPassword] = useState<string | null>(null)
 
   // Sync modal state
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
+  const [selectedGoogleAccountIds, setSelectedGoogleAccountIds] = useState<string[]>([])
+  const [selectedGA4PropertyIds, setSelectedGA4PropertyIds] = useState<string[]>([])
   const [syncStartDate, setSyncStartDate] = useState('2026-01-01')
   const [syncEndDate, setSyncEndDate] = useState(new Date().toISOString().split('T')[0])
 
@@ -100,6 +115,26 @@ export default function AgencyDashboardPage() {
           setMetaAdAccounts(adAccountsData.accounts || [])
         } catch (err) {
           console.error('Failed to load Meta ad accounts:', err)
+        }
+      }
+
+      // If Google Ads is connected, load accounts
+      if (oauthData.oauth_connections?.google_ads?.connected) {
+        try {
+          const googleData = await api.getGoogleAdsAccounts()
+          setGoogleAdAccounts(googleData.accounts || [])
+        } catch (err) {
+          console.error('Failed to load Google Ads accounts:', err)
+        }
+      }
+
+      // If GA4 is connected, load properties
+      if (oauthData.oauth_connections?.ga4?.connected) {
+        try {
+          const ga4Data = await api.getGA4Properties()
+          setGa4Properties(ga4Data.properties || [])
+        } catch (err) {
+          console.error('Failed to load GA4 properties:', err)
         }
       }
     } catch (err: any) {
@@ -262,6 +297,93 @@ export default function AgencyDashboardPage() {
     }
   }
 
+  // Google Ads sync handlers
+  async function handleGoogleStructuralSync() {
+    if (selectedGoogleAccountIds.length === 0) {
+      setError('Please select at least one Google Ads account')
+      return
+    }
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerGoogleAdsStructuralSync(selectedGoogleAccountIds)
+      setSyncResult({ message: 'Google Ads structural sync completed!', structural: result.results })
+      setShowGoogleStructuralSyncModal(false)
+      setTimeout(() => setSyncResult(null), 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync Google Ads structural data')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  async function handleGoogleInsightsSync() {
+    if (selectedGoogleAccountIds.length === 0) {
+      setError('Please select at least one Google Ads account')
+      return
+    }
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerGoogleAdsInsightsSync({
+        account_ids: selectedGoogleAccountIds,
+        start_date: syncStartDate,
+        end_date: syncEndDate,
+      })
+      setSyncResult({ message: 'Google Ads insights sync completed!', insights: result })
+      setShowGoogleInsightsSyncModal(false)
+      setTimeout(() => setSyncResult(null), 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync Google Ads insights')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  // GA4 sync handlers
+  async function handleGA4StructuralSync() {
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerGA4StructuralSync()
+      setSyncResult({ message: 'GA4 structural sync completed!', structural: result.results })
+      setShowGA4StructuralSyncModal(false)
+      setTimeout(() => setSyncResult(null), 10000)
+      await loadDashboardData()
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync GA4 structural data')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  async function handleGA4InsightsSync() {
+    if (selectedGA4PropertyIds.length === 0) {
+      setError('Please select at least one GA4 property')
+      return
+    }
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerGA4InsightsSync({
+        property_ids: selectedGA4PropertyIds,
+        start_date: syncStartDate,
+        end_date: syncEndDate,
+      })
+      setSyncResult({ message: 'GA4 insights sync completed!', insights: result })
+      setShowGA4InsightsSyncModal(false)
+      setTimeout(() => setSyncResult(null), 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync GA4 insights')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
   function handleToggleAccount(accountId: string) {
     setSelectedAccountIds(prev =>
       prev.includes(accountId)
@@ -275,6 +397,38 @@ export default function AgencyDashboardPage() {
       setSelectedAccountIds([])
     } else {
       setSelectedAccountIds(metaAdAccounts.map(acc => acc.account_id))
+    }
+  }
+
+  function handleToggleGoogleAccount(accountId: string) {
+    setSelectedGoogleAccountIds(prev =>
+      prev.includes(accountId)
+        ? prev.filter(id => id !== accountId)
+        : [...prev, accountId]
+    )
+  }
+
+  function handleSelectAllGoogleAccounts() {
+    if (selectedGoogleAccountIds.length === googleAdAccounts.length) {
+      setSelectedGoogleAccountIds([])
+    } else {
+      setSelectedGoogleAccountIds(googleAdAccounts.map(acc => acc.account_id))
+    }
+  }
+
+  function handleToggleGA4Property(propertyId: string) {
+    setSelectedGA4PropertyIds(prev =>
+      prev.includes(propertyId)
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    )
+  }
+
+  function handleSelectAllGA4Properties() {
+    if (selectedGA4PropertyIds.length === ga4Properties.length) {
+      setSelectedGA4PropertyIds([])
+    } else {
+      setSelectedGA4PropertyIds(ga4Properties.map(p => p.property_id))
     }
   }
 
@@ -574,7 +728,44 @@ export default function AgencyDashboardPage() {
                         {oauthConnections.google_ads.name}
                       </div>
                     )}
+                    {googleAdAccounts.length > 0 && (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        {googleAdAccounts.length} account{googleAdAccounts.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
+                  <button
+                    onClick={() => setShowGoogleStructuralSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Structural Sync'}
+                  </button>
+                  <button
+                    onClick={() => setShowGoogleInsightsSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#0070f3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Insights Sync'}
+                  </button>
                   <button
                     onClick={handleConnectGoogleAds}
                     style={{
@@ -648,7 +839,44 @@ export default function AgencyDashboardPage() {
                         {oauthConnections.ga4.name}
                       </div>
                     )}
+                    {ga4Properties.length > 0 && (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        {ga4Properties.length} propert{ga4Properties.length !== 1 ? 'ies' : 'y'}
+                      </div>
+                    )}
                   </div>
+                  <button
+                    onClick={() => handleGA4StructuralSync()}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Sync Properties'}
+                  </button>
+                  <button
+                    onClick={() => setShowGA4InsightsSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#0070f3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Insights Sync'}
+                  </button>
                   <button
                     onClick={handleConnectGA4}
                     style={{
@@ -792,8 +1020,20 @@ export default function AgencyDashboardPage() {
                               Google ({client.permissions.google_accounts_ids.length})
                             </span>
                           )}
+                          {client.permissions?.ga4_properties_ids?.length > 0 && (
+                            <span style={{
+                              padding: '0.25rem 0.5rem',
+                              backgroundColor: darkMode ? '#2e1e3f' : '#f3e8ff',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              color: darkMode ? '#c084fc' : '#7c3aed'
+                            }}>
+                              GA4 ({client.permissions.ga4_properties_ids.length})
+                            </span>
+                          )}
                           {(!client.permissions?.meta_accounts_ids?.length) &&
-                           (!client.permissions?.google_accounts_ids?.length) && (
+                           (!client.permissions?.google_accounts_ids?.length) &&
+                           (!client.permissions?.ga4_properties_ids?.length) && (
                             <span style={{
                               color: darkMode ? '#6b7280' : '#999',
                               fontSize: '0.875rem'
@@ -1124,6 +1364,8 @@ export default function AgencyDashboardPage() {
             <PermissionsEditor
               client={selectedClient}
               metaAdAccounts={metaAdAccounts}
+              googleAdAccounts={googleAdAccounts}
+              ga4Properties={ga4Properties}
               onSave={handleUpdatePermissions}
               onCancel={() => {
                 setShowPermissionsModal(false)
@@ -1172,6 +1414,65 @@ export default function AgencyDashboardPage() {
           }}
         />
       )}
+
+      {/* Google Ads Structural Sync Modal */}
+      {showGoogleStructuralSyncModal && (
+        <StructuralSyncModal
+          darkMode={darkMode}
+          metaAdAccounts={googleAdAccounts}
+          selectedAccountIds={selectedGoogleAccountIds}
+          syncLoading={syncLoading}
+          onToggleAccount={handleToggleGoogleAccount}
+          onSelectAll={handleSelectAllGoogleAccounts}
+          onSync={handleGoogleStructuralSync}
+          onCancel={() => {
+            setShowGoogleStructuralSyncModal(false)
+            setSelectedGoogleAccountIds([])
+          }}
+        />
+      )}
+
+      {/* Google Ads Insights Sync Modal */}
+      {showGoogleInsightsSyncModal && (
+        <InsightsSyncModal
+          darkMode={darkMode}
+          metaAdAccounts={googleAdAccounts}
+          selectedAccountIds={selectedGoogleAccountIds}
+          syncStartDate={syncStartDate}
+          syncEndDate={syncEndDate}
+          syncLoading={syncLoading}
+          onToggleAccount={handleToggleGoogleAccount}
+          onSelectAll={handleSelectAllGoogleAccounts}
+          onStartDateChange={setSyncStartDate}
+          onEndDateChange={setSyncEndDate}
+          onSync={handleGoogleInsightsSync}
+          onCancel={() => {
+            setShowGoogleInsightsSyncModal(false)
+            setSelectedGoogleAccountIds([])
+          }}
+        />
+      )}
+
+      {/* GA4 Insights Sync Modal */}
+      {showGA4InsightsSyncModal && (
+        <GA4InsightsSyncModal
+          darkMode={darkMode}
+          ga4Properties={ga4Properties}
+          selectedPropertyIds={selectedGA4PropertyIds}
+          syncStartDate={syncStartDate}
+          syncEndDate={syncEndDate}
+          syncLoading={syncLoading}
+          onToggleProperty={handleToggleGA4Property}
+          onSelectAll={handleSelectAllGA4Properties}
+          onStartDateChange={setSyncStartDate}
+          onEndDateChange={setSyncEndDate}
+          onSync={handleGA4InsightsSync}
+          onCancel={() => {
+            setShowGA4InsightsSyncModal(false)
+            setSelectedGA4PropertyIds([])
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1180,12 +1481,16 @@ export default function AgencyDashboardPage() {
 function PermissionsEditor({
   client,
   metaAdAccounts,
+  googleAdAccounts,
+  ga4Properties,
   onSave,
   onCancel,
   darkMode
 }: {
   client: Client
   metaAdAccounts: AdAccount[]
+  googleAdAccounts: AdAccount[]
+  ga4Properties: GA4PropertyItem[]
   onSave: (permissions: Record<string, any>) => void
   onCancel: () => void
   darkMode: boolean
@@ -1193,68 +1498,62 @@ function PermissionsEditor({
   const [selectedMeta, setSelectedMeta] = useState<string[]>(
     client.permissions?.meta_accounts_ids || []
   )
+  const [selectedGoogle, setSelectedGoogle] = useState<string[]>(
+    client.permissions?.google_accounts_ids || []
+  )
+  const [selectedGA4, setSelectedGA4] = useState<string[]>(
+    client.permissions?.ga4_properties_ids || []
+  )
 
-  function handleToggleMeta(accountId: string) {
-    if (selectedMeta.includes(accountId)) {
-      setSelectedMeta(selectedMeta.filter(id => id !== accountId))
+  function handleToggle(list: string[], setList: (v: string[]) => void, id: string) {
+    if (list.includes(id)) {
+      setList(list.filter(x => x !== id))
     } else {
-      setSelectedMeta([...selectedMeta, accountId])
+      setList([...list, id])
     }
   }
 
   function handleSave() {
     onSave({
       meta_accounts_ids: selectedMeta,
-      google_accounts_ids: client.permissions?.google_accounts_ids || [],
-      ga4_properties_ids: client.permissions?.ga4_properties_ids || [],
+      google_accounts_ids: selectedGoogle,
+      ga4_properties_ids: selectedGA4,
     })
   }
 
+  const checkboxLabelStyle = (selected: boolean) => ({
+    display: 'flex' as const,
+    alignItems: 'center' as const,
+    gap: '0.5rem',
+    padding: '0.75rem',
+    border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+    borderRadius: '6px',
+    cursor: 'pointer' as const,
+    backgroundColor: selected
+      ? (darkMode ? '#1e3a5f' : '#e7f3ff')
+      : (darkMode ? '#1f1f23' : 'white'),
+    transition: 'background-color 0.2s ease',
+  })
+
   return (
     <div>
+      {/* Meta */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{
-          margin: '0 0 1rem 0',
-          color: darkMode ? '#f3f4f6' : '#000'
-        }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: darkMode ? '#f3f4f6' : '#000' }}>
           Meta Ad Accounts
         </h4>
         {metaAdAccounts.length === 0 ? (
-          <p style={{
-            color: darkMode ? '#9ca3af' : '#666',
-            fontSize: '0.875rem'
-          }}>
+          <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem' }}>
             No Meta ad accounts available. Connect Meta first.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {metaAdAccounts.map((account) => (
-              <label
-                key={account.account_id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem',
-                  border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  backgroundColor: selectedMeta.includes(account.account_id)
-                    ? (darkMode ? '#1e3a5f' : '#e7f3ff')
-                    : (darkMode ? '#1f1f23' : 'white'),
-                  transition: 'background-color 0.2s ease'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedMeta.includes(account.account_id)}
-                  onChange={() => handleToggleMeta(account.account_id)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span style={{
-                  flex: 1,
-                  color: darkMode ? '#f3f4f6' : '#000'
-                }}>
+              <label key={account.account_id} style={checkboxLabelStyle(selectedMeta.includes(account.account_id))}>
+                <input type="checkbox" checked={selectedMeta.includes(account.account_id)}
+                  onChange={() => handleToggle(selectedMeta, setSelectedMeta, account.account_id)}
+                  style={{ cursor: 'pointer' }} />
+                <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>
                   {account.name} ({account.currency})
                 </span>
               </label>
@@ -1263,72 +1562,73 @@ function PermissionsEditor({
         )}
       </div>
 
+      {/* Google Ads */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{
-          margin: '0 0 0.5rem 0',
-          color: darkMode ? '#f3f4f6' : '#000'
-        }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: darkMode ? '#f3f4f6' : '#000' }}>
           Google Ads Accounts
         </h4>
-        <p style={{
-          color: darkMode ? '#6b7280' : '#999',
-          fontSize: '0.875rem'
-        }}>
-          Coming soon
-        </p>
+        {googleAdAccounts.length === 0 ? (
+          <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem' }}>
+            No Google Ads accounts available. Connect Google Ads first.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {googleAdAccounts.map((account) => (
+              <label key={account.account_id} style={checkboxLabelStyle(selectedGoogle.includes(account.account_id))}>
+                <input type="checkbox" checked={selectedGoogle.includes(account.account_id)}
+                  onChange={() => handleToggle(selectedGoogle, setSelectedGoogle, account.account_id)}
+                  style={{ cursor: 'pointer' }} />
+                <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>
+                  {account.name} ({account.currency})
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* GA4 */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <h4 style={{
-          margin: '0 0 0.5rem 0',
-          color: darkMode ? '#f3f4f6' : '#000'
-        }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: darkMode ? '#f3f4f6' : '#000' }}>
           GA4 Properties
         </h4>
-        <p style={{
-          color: darkMode ? '#6b7280' : '#999',
-          fontSize: '0.875rem'
-        }}>
-          Coming soon
-        </p>
+        {ga4Properties.length === 0 ? (
+          <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem' }}>
+            No GA4 properties available. Connect GA4 first.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {ga4Properties.map((prop) => (
+              <label key={prop.property_id} style={checkboxLabelStyle(selectedGA4.includes(prop.property_id))}>
+                <input type="checkbox" checked={selectedGA4.includes(prop.property_id)}
+                  onChange={() => handleToggle(selectedGA4, setSelectedGA4, prop.property_id)}
+                  style={{ cursor: 'pointer' }} />
+                <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>
+                  {prop.name} ({prop.currency || prop.timezone})
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-        <button
-          onClick={onCancel}
-          style={{
-            flex: 1,
-            padding: '0.75rem',
-            backgroundColor: darkMode ? '#3f3f46' : '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s ease'
-          }}
+        <button onClick={onCancel} style={{
+          flex: 1, padding: '0.75rem', backgroundColor: darkMode ? '#3f3f46' : '#666',
+          color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
+          transition: 'background-color 0.2s ease'
+        }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#52525b' : '#555'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = darkMode ? '#3f3f46' : '#666'}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          style={{
-            flex: 1,
-            padding: '0.75rem',
-            backgroundColor: '#0070f3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            transition: 'background-color 0.2s ease'
-          }}
+        >Cancel</button>
+        <button onClick={handleSave} style={{
+          flex: 1, padding: '0.75rem', backgroundColor: '#0070f3', color: 'white',
+          border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600',
+          transition: 'background-color 0.2s ease'
+        }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0051cc'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0070f3'}
-        >
-          Save Permissions
-        </button>
+        >Save Permissions</button>
       </div>
     </div>
   )
@@ -1766,6 +2066,141 @@ function InsightsSyncModal({
               transition: 'background-color 0.2s ease'
             }}
           >
+            {syncLoading ? 'Syncing...' : 'Start Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// GA4 Insights Sync Modal Component
+function GA4InsightsSyncModal({
+  darkMode,
+  ga4Properties,
+  selectedPropertyIds,
+  syncStartDate,
+  syncEndDate,
+  syncLoading,
+  onToggleProperty,
+  onSelectAll,
+  onStartDateChange,
+  onEndDateChange,
+  onSync,
+  onCancel,
+}: {
+  darkMode: boolean
+  ga4Properties: GA4PropertyItem[]
+  selectedPropertyIds: string[]
+  syncStartDate: string
+  syncEndDate: string
+  syncLoading: boolean
+  onToggleProperty: (propertyId: string) => void
+  onSelectAll: () => void
+  onStartDateChange: (date: string) => void
+  onEndDateChange: (date: string) => void
+  onSync: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: '1rem'
+    }}>
+      <div style={{
+        backgroundColor: darkMode ? '#27272a' : 'white',
+        borderRadius: '8px', padding: '2rem', maxWidth: '600px', width: '100%',
+        maxHeight: '90vh', overflowY: 'auto',
+        border: darkMode ? '1px solid #3f3f46' : 'none'
+      }}>
+        <h2 style={{ margin: '0 0 1.5rem 0', color: darkMode ? '#f3f4f6' : '#000' }}>
+          GA4 Insights Sync
+        </h2>
+        <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+          Select GA4 properties and date range to sync analytics data.
+        </p>
+
+        {/* Select All */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+            backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
+            borderRadius: '6px', cursor: 'pointer', fontWeight: '600'
+          }}>
+            <input type="checkbox"
+              checked={selectedPropertyIds.length === ga4Properties.length && ga4Properties.length > 0}
+              onChange={onSelectAll} style={{ cursor: 'pointer' }} />
+            <span style={{ color: darkMode ? '#f3f4f6' : '#000' }}>
+              Select All ({selectedPropertyIds.length}/{ga4Properties.length})
+            </span>
+          </label>
+        </div>
+
+        {/* Properties List */}
+        <div style={{
+          marginBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto',
+          border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+          borderRadius: '6px', padding: '0.5rem'
+        }}>
+          {ga4Properties.length === 0 ? (
+            <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem', textAlign: 'center', padding: '1rem' }}>
+              No properties available. Sync properties first.
+            </p>
+          ) : (
+            ga4Properties.map((prop) => (
+              <label key={prop.property_id} style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                borderRadius: '4px', cursor: 'pointer',
+                backgroundColor: selectedPropertyIds.includes(prop.property_id)
+                  ? (darkMode ? '#1e3a5f' : '#e7f3ff') : 'transparent',
+                transition: 'background-color 0.2s ease', marginBottom: '0.5rem'
+              }}>
+                <input type="checkbox"
+                  checked={selectedPropertyIds.includes(prop.property_id)}
+                  onChange={() => onToggleProperty(prop.property_id)}
+                  style={{ cursor: 'pointer' }} />
+                <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>{prop.name}</span>
+                <span style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.75rem' }}>
+                  {prop.currency || prop.timezone}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+
+        {/* Date Range */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h4 style={{ margin: '0 0 1rem 0', color: darkMode ? '#f3f4f6' : '#000', fontSize: '0.875rem' }}>Date Range</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: darkMode ? '#9ca3af' : '#666' }}>Start Date</label>
+              <input type="date" value={syncStartDate} onChange={(e) => onStartDateChange(e.target.value)} max={syncEndDate}
+                style={{ width: '100%', padding: '0.5rem', border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd', borderRadius: '4px', backgroundColor: darkMode ? '#1f1f23' : 'white', color: darkMode ? '#f3f4f6' : '#000' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: darkMode ? '#9ca3af' : '#666' }}>End Date</label>
+              <input type="date" value={syncEndDate} onChange={(e) => onEndDateChange(e.target.value)} min={syncStartDate} max={new Date().toISOString().split('T')[0]}
+                style={{ width: '100%', padding: '0.5rem', border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd', borderRadius: '4px', backgroundColor: darkMode ? '#1f1f23' : 'white', color: darkMode ? '#f3f4f6' : '#000' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={onCancel} disabled={syncLoading} style={{
+            flex: 1, padding: '0.75rem', backgroundColor: darkMode ? '#3f3f46' : '#666',
+            color: 'white', border: 'none', borderRadius: '6px',
+            cursor: syncLoading ? 'not-allowed' : 'pointer', opacity: syncLoading ? 0.5 : 1
+          }}>Cancel</button>
+          <button onClick={onSync} disabled={syncLoading || selectedPropertyIds.length === 0} style={{
+            flex: 1, padding: '0.75rem',
+            backgroundColor: selectedPropertyIds.length === 0 || syncLoading ? '#ccc' : '#0070f3',
+            color: 'white', border: 'none', borderRadius: '6px',
+            cursor: selectedPropertyIds.length === 0 || syncLoading ? 'not-allowed' : 'pointer',
+            fontWeight: '600'
+          }}>
             {syncLoading ? 'Syncing...' : 'Start Sync'}
           </button>
         </div>

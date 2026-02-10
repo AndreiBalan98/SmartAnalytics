@@ -8,15 +8,18 @@ interface AdAccount {
   name: string
   currency: string
   timezone: string
-  account_status: number
+  account_status: number | string
   status_display: string
 }
+
+type Platform = 'meta' | 'google_ads' | 'ga4'
 
 interface LeftPanelProps {
   accounts: AdAccount[]
   selectedAccount: string | null
   onSelectAccount: (accountId: string) => void
   loading?: boolean
+  platform?: Platform
 }
 
 export default function LeftPanel({
@@ -24,8 +27,11 @@ export default function LeftPanel({
   selectedAccount,
   onSelectAccount,
   loading = false,
+  platform = 'meta',
 }: LeftPanelProps) {
-  const getStatusIcon = (status: number) => {
+  const panelTitle = platform === 'ga4' ? 'PROPERTIES' : 'AD ACCOUNTS'
+  const emptyMessage = platform === 'ga4' ? 'No properties available' : 'No ad accounts available'
+  const getStatusIcon = (status: number | string) => {
     switch (status) {
       case 1: return '✓' // ACTIVE
       case 2: return '⏸' // DISABLED
@@ -34,7 +40,7 @@ export default function LeftPanel({
     }
   }
 
-  const getStatusColor = (status: number) => {
+  const getStatusColor = (status: number | string) => {
     switch (status) {
       case 1: return '#10b981' // green
       case 2: return '#f59e0b' // yellow
@@ -52,7 +58,7 @@ export default function LeftPanel({
         backgroundColor: '#f9fafb',
       }}>
         <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>
-          AD ACCOUNTS
+          {panelTitle}
         </h3>
         <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
           Loading...
@@ -70,7 +76,7 @@ export default function LeftPanel({
         backgroundColor: '#f9fafb',
       }}>
         <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>
-          AD ACCOUNTS
+          {panelTitle}
         </h3>
         <div style={{
           padding: '2rem 1rem',
@@ -78,7 +84,7 @@ export default function LeftPanel({
           color: '#9ca3af',
           fontSize: '0.875rem',
         }}>
-          No ad accounts available
+          {emptyMessage}
         </div>
       </div>
     )
@@ -92,7 +98,7 @@ export default function LeftPanel({
     }}>
       <div style={{ padding: '1rem' }}>
         <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', fontWeight: 600, color: '#6b7280' }}>
-          AD ACCOUNTS
+          {panelTitle}
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

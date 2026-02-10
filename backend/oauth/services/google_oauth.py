@@ -93,3 +93,42 @@ def google_exchange_code(code, redirect_uri, user):
         'user_openid': google_user_id,
         'expires_at': expiry_date,
     }
+
+
+def refresh_google_token(user):
+    """Refresh the Google access token if expired or about to expire."""
+    try:
+        token = GoogleToken.objects.get(user=user)
+    except GoogleToken.DoesNotExist:
+        raise Exception('No Google token found for user')
+
+    # Refresh if expires within 5 minutes
+    if token.expires_at > timezone.now() + timedelta(minutes=5):
+        return  # Still valid
+
+    if not token.refresh_token:
+        raise Exception('No refresh token available. User needs to re-authenticate.')
+
+    logger.info(f'Refreshing Google token for {user.email}...')
+
+    response = requests.post(GOOGLE_TOKEN_URL, data={
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'client_secret': settings.GOOGLE_CLIENT_SECRET,
+        'refresh_token': token.refresh_token,
+        'grant_type': 'refresh_token',
+    }, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+
+    new_access_token = data.get('access_token')
+    expires_in = data.get('expires_in', 3600)
+    new_expiry = timezone.now() + timedelta(seconds=expires_in)
+
+    token.access_token = new_access_token
+    token.expires_at = new_expiry
+    # Google may return a new refresh token
+    if data.get('refresh_token'):
+        token.refresh_token = data['refresh_token']
+    token.save()
+
+    logger.info(f'Google token refreshed for {user.email}, expires in {expires_in // 60} min')
