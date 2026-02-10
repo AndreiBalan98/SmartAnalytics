@@ -820,25 +820,49 @@ function MetricCard({ title, mainMetric, subMetrics, chartData, chartKey, chartC
       </div>
 
       {/* Chart */}
-      <div style={{ height: '100px', display: 'flex', alignItems: 'flex-end', gap: '2px', marginBottom: '1rem' }}>
-        {chartData.map((day, idx) => {
-          const value = day[chartKey] || 0
-          const height = maxValue > 0 ? (value / maxValue) * 100 : 0
+      <div style={{
+        height: '100px',
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: '4px',
+        marginBottom: '1rem',
+        padding: '0 4px',
+      }}>
+        {chartData.length > 0 ? (
+          chartData.map((day, idx) => {
+            const value = day[chartKey] || 0
+            const height = maxValue > 0 ? (value / maxValue) * 100 : 0
+            const barWidth = chartData.length > 0 ? `${100 / chartData.length}%` : '100%'
 
-          return (
-            <div
-              key={idx}
-              style={{
-                flex: 1,
-                height: `${height}%`,
-                backgroundColor: chartColor,
-                borderRadius: '2px',
-                minHeight: value > 0 ? '2px' : '0',
-              }}
-              title={`${day.date}: ${value}`}
-            />
-          )
-        })}
+            return (
+              <div
+                key={idx}
+                style={{
+                  width: barWidth,
+                  maxWidth: '40px',
+                  height: `${height}%`,
+                  backgroundColor: chartColor,
+                  borderRadius: '3px 3px 0 0',
+                  minHeight: value > 0 ? '3px' : '0',
+                  transition: 'height 0.3s',
+                }}
+                title={`${day.date}: ${value.toLocaleString()}`}
+              />
+            )
+          })
+        ) : (
+          <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#9ca3af',
+            fontSize: '0.75rem',
+          }}>
+            No data
+          </div>
+        )}
       </div>
 
       {/* Sub Metrics */}

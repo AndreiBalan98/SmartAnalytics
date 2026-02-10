@@ -77,8 +77,9 @@ export default function ClientDashboard() {
 
   // State
   const [selectedPlatform] = useState('meta') // Only Meta for now
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'platform'>('overview') // New: tab selection
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
-  const [selectedView, setSelectedView] = useState('overview')
+  const [selectedView, setSelectedView] = useState('campaigns')
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -233,12 +234,30 @@ export default function ClientDashboard() {
           alignItems: 'center',
         }}>
           <button
+            onClick={() => setSelectedTab('overview')}
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: selectedPlatform === 'meta' ? '#3b82f6' : 'transparent',
-              color: selectedPlatform === 'meta' ? 'white' : '#6b7280',
+              backgroundColor: selectedTab === 'overview' ? '#3b82f6' : 'transparent',
+              color: selectedTab === 'overview' ? 'white' : '#6b7280',
               border: 'none',
-              borderBottom: selectedPlatform === 'meta' ? '2px solid #2563eb' : '2px solid transparent',
+              borderBottom: selectedTab === 'overview' ? '2px solid #2563eb' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              height: '100%',
+            }}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setSelectedTab('platform')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: selectedTab === 'platform' && selectedPlatform === 'meta' ? '#3b82f6' : 'transparent',
+              color: selectedTab === 'platform' && selectedPlatform === 'meta' ? 'white' : '#6b7280',
+              border: 'none',
+              borderBottom: selectedTab === 'platform' && selectedPlatform === 'meta' ? '2px solid #2563eb' : '2px solid transparent',
               cursor: 'pointer',
               fontSize: '0.8125rem',
               fontWeight: 600,
@@ -308,7 +327,7 @@ export default function ClientDashboard() {
           backgroundColor: '#f9fafb',
         }}>
           <CenterPanel
-            view={selectedView}
+            view={selectedTab === 'overview' ? 'overview' : selectedView}
             accountId={selectedAccount}
             selectedCampaigns={selectedCampaigns}
             onSelectCampaigns={setSelectedCampaigns}
@@ -320,27 +339,29 @@ export default function ClientDashboard() {
           />
         </div>
 
-        {/* Right Panel - 12.5% cu min 200px, max 280px */}
-        <div style={{
-          width: '12.5%',
-          minWidth: '200px',
-          maxWidth: '280px',
-          backgroundColor: 'white',
-          borderLeft: '1px solid #e5e7eb',
-        }}>
-          <RightPanel
-            selectedView={selectedView}
-            onSelectView={setSelectedView}
-            disabled={!selectedAccount}
-            selectedCampaignsCount={selectedCampaigns.length}
-            selectedAdSetsCount={selectedAdSets.length}
-            selectedAdsCount={selectedAds.length}
-            selectedAccountsCount={new Set(
-              [...selectedCampaigns, ...selectedAdSets, ...selectedAds].map(item => item.ad_account_id)
-            ).size}
-            onClearAllSelections={handleClearAllSelections}
-          />
-        </div>
+        {/* Right Panel - 12.5% cu min 200px, max 280px - hidden on overview */}
+        {selectedTab === 'platform' && (
+          <div style={{
+            width: '12.5%',
+            minWidth: '200px',
+            maxWidth: '280px',
+            backgroundColor: 'white',
+            borderLeft: '1px solid #e5e7eb',
+          }}>
+            <RightPanel
+              selectedView={selectedView}
+              onSelectView={setSelectedView}
+              disabled={!selectedAccount}
+              selectedCampaignsCount={selectedCampaigns.length}
+              selectedAdSetsCount={selectedAdSets.length}
+              selectedAdsCount={selectedAds.length}
+              selectedAccountsCount={new Set(
+                [...selectedCampaigns, ...selectedAdSets, ...selectedAds].map(item => item.ad_account_id)
+              ).size}
+              onClearAllSelections={handleClearAllSelections}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
