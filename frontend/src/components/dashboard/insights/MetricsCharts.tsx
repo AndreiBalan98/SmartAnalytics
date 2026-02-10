@@ -23,13 +23,16 @@ interface ChartDataPoint {
 }
 
 interface MetricsChartsProps {
-  data: ChartDataPoint[]
-  entities: Array<{ id: string; name: string; type: string; start_date?: string; end_date?: string }>
+  data?: ChartDataPoint[]
+  entities?: Array<{ id: string; name: string; type: string; start_date?: string; end_date?: string }>
   currency: string
 }
 
 export default function MetricsCharts({ data, entities, currency }: MetricsChartsProps) {
   const currencySymbol = getCurrencySymbol(currency)
+
+  // Ensure entities is always an array
+  const safeEntities = entities || []
 
   // Paleta de culori pentru linii
   const colors = [
@@ -81,7 +84,7 @@ export default function MetricsCharts({ data, entities, currency }: MetricsChart
     },
   ]
 
-  if (data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div
         style={{
@@ -171,7 +174,7 @@ export default function MetricsCharts({ data, entities, currency }: MetricsChart
                 />
 
                 {/* Linii pentru fiecare entity */}
-                {entities.map((entity, idx) => {
+                {safeEntities.map((entity, idx) => {
                   const dataKey = `${chart.dataKey}_${entity.id}`
                   return (
                     <Line

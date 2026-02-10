@@ -169,8 +169,17 @@ export default function InsightsView({
         end_date: endDate,
       })
 
-      setTopPerformers(result.topPerformers)
-      setChartData(result.chartData)
+      // Ensure we have safe defaults if API returns undefined
+      setTopPerformers(result.topPerformers || {
+        topSpend: [],
+        topImpressions: [],
+        topClicks: [],
+        topReach: [],
+        topCTR: [],
+        topCPC: [],
+        topCPM: []
+      })
+      setChartData(result.chartData || [])
     } catch (err: any) {
       console.error('Failed to load insights:', err)
       alert(`Eroare la încărcarea insights-urilor: ${err.message}`)

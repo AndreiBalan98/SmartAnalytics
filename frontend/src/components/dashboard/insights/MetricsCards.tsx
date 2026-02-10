@@ -25,13 +25,13 @@ interface MetricCardData {
 }
 
 interface MetricsCardsProps {
-  topSpend: TopPerformer[]
-  topImpressions: TopPerformer[]
-  topClicks: TopPerformer[]
-  topReach: TopPerformer[]
-  topCTR: TopPerformer[]
-  topCPC: TopPerformer[]
-  topCPM: TopPerformer[]
+  topSpend?: TopPerformer[]
+  topImpressions?: TopPerformer[]
+  topClicks?: TopPerformer[]
+  topReach?: TopPerformer[]
+  topCTR?: TopPerformer[]
+  topCPC?: TopPerformer[]
+  topCPM?: TopPerformer[]
   currency: string
 }
 
@@ -78,7 +78,7 @@ export default function MetricsCards({
       icon: '💰',
       color: '#3b82f6',
       description: metricDescriptions['Total Spend'],
-      topPerformers: topSpend,
+      topPerformers: topSpend || [],
       valueFormatter: (v) => formatCurrency(v, currency),
     },
     {
@@ -86,7 +86,7 @@ export default function MetricsCards({
       icon: '👁️',
       color: '#10b981',
       description: metricDescriptions['Impressions'],
-      topPerformers: topImpressions,
+      topPerformers: topImpressions || [],
       valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
@@ -94,7 +94,7 @@ export default function MetricsCards({
       icon: '🖱️',
       color: '#f59e0b',
       description: metricDescriptions['Clicks'],
-      topPerformers: topClicks,
+      topPerformers: topClicks || [],
       valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
@@ -102,7 +102,7 @@ export default function MetricsCards({
       icon: '📢',
       color: '#8b5cf6',
       description: metricDescriptions['Reach'],
-      topPerformers: topReach,
+      topPerformers: topReach || [],
       valueFormatter: (v) => Math.floor(v).toLocaleString(),
     },
     {
@@ -110,7 +110,7 @@ export default function MetricsCards({
       icon: '📈',
       color: '#06b6d4',
       description: metricDescriptions['CTR'],
-      topPerformers: topCTR,
+      topPerformers: topCTR || [],
       valueFormatter: (v) => `${v.toFixed(2)}%`,
     },
     {
@@ -118,7 +118,7 @@ export default function MetricsCards({
       icon: '💵',
       color: '#ec4899',
       description: metricDescriptions['CPC'],
-      topPerformers: topCPC,
+      topPerformers: topCPC || [],
       valueFormatter: (v) => formatCurrency(v, currency),
     },
     {
@@ -126,7 +126,7 @@ export default function MetricsCards({
       icon: '📊',
       color: '#6366f1',
       description: metricDescriptions['CPM'],
-      topPerformers: topCPM,
+      topPerformers: topCPM || [],
       valueFormatter: (v) => formatCurrency(v, currency),
     },
   ]
