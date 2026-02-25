@@ -88,7 +88,7 @@ export default function ClientDashboard() {
 
   // State
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('meta')
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'platform'>('overview')
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'platform' | 'leads'>('overview')
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [selectedView, setSelectedView] = useState('campaigns')
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
@@ -350,6 +350,25 @@ export default function ClientDashboard() {
           >
             GA4
           </button>
+          <button
+            onClick={() => {
+              setSelectedTab('leads')
+            }}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: selectedTab === 'leads' ? '#3b82f6' : 'transparent',
+              color: selectedTab === 'leads' ? 'white' : '#6b7280',
+              border: 'none',
+              borderBottom: selectedTab === 'leads' ? '2px solid #2563eb' : '2px solid transparent',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              height: '100%',
+            }}
+          >
+            Leads
+          </button>
         </div>
       </div>
 
@@ -372,7 +391,7 @@ export default function ClientDashboard() {
         display: 'flex',
         overflow: 'hidden',
       }}>
-        {/* Left Panel - 12.5% cu min 220px, max 300px - hidden on overview */}
+        {/* Left Panel - 12.5% cu min 220px, max 300px - only on platform tab */}
         {selectedTab === 'platform' && (
           <div style={{
             width: '12.5%',
@@ -410,7 +429,7 @@ export default function ClientDashboard() {
           backgroundColor: '#f9fafb',
         }}>
           <CenterPanel
-            view={selectedTab === 'overview' ? 'overview' : selectedView}
+            view={selectedTab === 'overview' ? 'overview' : selectedTab === 'leads' ? 'leads' : selectedView}
             accountId={selectedAccount}
             selectedCampaigns={selectedCampaigns}
             onSelectCampaigns={setSelectedCampaigns}

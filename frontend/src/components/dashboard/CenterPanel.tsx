@@ -15,6 +15,7 @@ import InsightsView from './InsightsView'
 import OverviewView from './OverviewView'
 import GA4InsightsView from './GA4InsightsView'
 import GoogleAdsInsightsView from './GoogleAdsInsightsView'
+import LeadsTable from './LeadsTable'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 interface SelectionItem {
@@ -54,7 +55,15 @@ export default function CenterPanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [leadsData, setLeadsData] = useState<any[]>([])
+  const [leadsTotal, setLeadsTotal] = useState(0)
+
   useEffect(() => {
+    if (view === 'leads') {
+      loadLeads()
+      return
+    }
+
     if (!accountId) {
       setData([])
       return
@@ -62,6 +71,21 @@ export default function CenterPanel({
 
     loadData()
   }, [view, accountId, platform]) // Reload on view/account/platform change
+
+  async function loadLeads() {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await api.getClientLeads({ limit: 100 })
+      setLeadsData(result.leads || [])
+      setLeadsTotal(result.total || 0)
+    } catch (err: any) {
+      console.error('Failed to load leads:', err)
+      setError(err.message || 'Failed to load leads')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function loadData() {
     if (!accountId) return
@@ -228,7 +252,7 @@ export default function CenterPanel({
     }
   }
 
-  if (!accountId && view !== 'overview') {
+  if (!accountId && view !== 'overview' && view !== 'leads') {
     return (
       <div style={{
         flex: 1,
@@ -395,6 +419,11 @@ export default function CenterPanel({
             selectedAds={selectedAds}
             adAccounts={adAccounts}
           />
+        )}
+
+        {/* Leads (platform-independent) */}
+        {view === 'leads' && (
+          <LeadsTable leads={leadsData} loading={loading} />
         )}
 
         {/* Overview (platform-independent) */}

@@ -35,6 +35,64 @@ class MetaAccount(models.Model):
         return f'{self.name} ({self.account_id})'
 
 
+class MetaPage(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meta_pages')
+    meta_user_id = models.CharField(max_length=64)
+    page_id = models.CharField(max_length=64)
+    name = models.CharField(max_length=255)
+    page_access_token = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'meta_pages'
+        unique_together = [('user', 'page_id')]
+
+    def __str__(self):
+        return f'{self.name} ({self.page_id})'
+
+
+class MetaLeadForm(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meta_lead_forms')
+    meta_user_id = models.CharField(max_length=64)
+    page = models.ForeignKey(MetaPage, on_delete=models.CASCADE, related_name='lead_forms')
+    form_id = models.CharField(max_length=64)
+    name = models.CharField(max_length=255)
+    status = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'meta_lead_forms'
+        unique_together = [('user', 'form_id')]
+
+    def __str__(self):
+        return f'{self.name} ({self.form_id})'
+
+
+class MetaLead(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meta_leads')
+    meta_user_id = models.CharField(max_length=64)
+    form = models.ForeignKey(MetaLeadForm, on_delete=models.CASCADE, related_name='leads')
+    lead_id = models.CharField(max_length=64)
+    created_time = models.DateTimeField()
+    field_data = models.JSONField(default=list)
+    ad_id = models.CharField(max_length=64, blank=True)
+    ad_name = models.CharField(max_length=255, blank=True)
+    adset_id = models.CharField(max_length=64, blank=True)
+    adset_name = models.CharField(max_length=255, blank=True)
+    campaign_id = models.CharField(max_length=64, blank=True)
+    campaign_name = models.CharField(max_length=255, blank=True)
+    form_id_str = models.CharField(max_length=64, blank=True)
+    is_organic = models.BooleanField(default=False)
+    platform = models.CharField(max_length=50, blank=True)
+
+    class Meta:
+        db_table = 'meta_leads'
+        unique_together = [('user', 'lead_id')]
+
+    def __str__(self):
+        return f'Lead {self.lead_id}'
+
+
 class MetaCampaign(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meta_campaigns')
     meta_user_id = models.CharField(max_length=64)

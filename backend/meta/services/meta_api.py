@@ -90,6 +90,36 @@ class MetaAPIClient:
             'limit': 500,
         })
 
+    def get_leadgen_forms(self, page_id, page_access_token):
+        """Fetch leadgen forms for a page. Uses PAGE_TOKEN, not user token."""
+        saved_token = self.access_token
+        self.access_token = page_access_token
+        try:
+            return self._paginate(f'{page_id}/leadgen_forms', {
+                'fields': 'id,name,status',
+            })
+        finally:
+            self.access_token = saved_token
+
+    def get_leads(self, form_id, page_access_token, since_timestamp=None):
+        """Fetch leads for a form. Uses PAGE_TOKEN."""
+        import json as json_module
+        saved_token = self.access_token
+        self.access_token = page_access_token
+        try:
+            params = {
+                'fields': 'id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform',
+            }
+            if since_timestamp:
+                params['filtering'] = json_module.dumps([{
+                    'field': 'time_created',
+                    'operator': 'GREATER_THAN',
+                    'value': since_timestamp
+                }])
+            return self._paginate(f'{form_id}/leads', params)
+        finally:
+            self.access_token = saved_token
+
     def get_insights(self, object_id, start_date, end_date):
         import json
         time_range = json.dumps({

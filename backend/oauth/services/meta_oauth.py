@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from oauth.models import OAuthState, MetaToken, MetaUser
-from meta.models import MetaBusiness, MetaAccount
+from meta.models import MetaBusiness, MetaAccount, MetaPage
 
 logger = logging.getLogger('oauth')
 
@@ -42,7 +42,7 @@ def verify_state(state, service_type):
 
 def generate_meta_oauth_url(user, redirect_uri):
     state = generate_state(user, 'meta')
-    scopes = ['ads_read', 'business_management']
+    scopes = ['ads_read', 'business_management', 'pages_show_list', 'pages_read_engagement', 'pages_manage_metadata', 'ads_management', 'leads_retrieval']
     url = (
         f"{META_OAUTH_URL}?client_id={settings.META_APP_ID}"
         f"&redirect_uri={redirect_uri}"
@@ -122,6 +122,25 @@ def meta_exchange_code(code, redirect_uri, user):
         business_id_map[biz['id']] = obj
     logger.info(f'{len(businesses)} businesses synced')
 
+    # Step 5.5: Fetch Pages
+    logger.info('Step 5.5: Fetching pages...')
+    response = requests.get(f'{META_GRAPH_URL}/me/accounts', params={
+        'access_token': long_lived_token,
+        'fields': 'id,name,access_token',
+    }, timeout=10)
+    response.raise_for_status()
+    pages = response.json().get('data', [])
+    for page in pages:
+        MetaPage.objects.update_or_create(
+            user=user, page_id=page['id'],
+            defaults={
+                'meta_user_id': meta_user_id,
+                'name': page.get('name', ''),
+                'page_access_token': page.get('access_token', ''),
+            },
+        )
+    logger.info(f'{len(pages)} pages synced')
+
     # Step 6: Fetch ad accounts
     logger.info('Step 6: Fetching ad accounts...')
     response = requests.get(f'{META_GRAPH_URL}/me/adaccounts', params={
@@ -149,7 +168,7 @@ def meta_exchange_code(code, redirect_uri, user):
     # Step 7: Save MetaToken
     MetaToken.objects.update_or_create(user=user, defaults={
         'token': long_lived_token,
-        'scopes': ['ads_read', 'business_management'],
+        'scopes': ['ads_read', 'business_management', 'pages_show_list', 'pages_read_engagement', 'pages_manage_metadata', 'ads_management', 'leads_retrieval'],
         'expiry_date': expiry_date,
         'meta_user_id': meta_user_id,
         'name': name,
@@ -161,6 +180,7 @@ def meta_exchange_code(code, redirect_uri, user):
         'user_name': name,
         'meta_user_id': meta_user_id,
         'businesses': len(businesses),
+        'pages': len(pages),
         'accounts': len(accounts),
         'expires_at': expiry_date,
     }

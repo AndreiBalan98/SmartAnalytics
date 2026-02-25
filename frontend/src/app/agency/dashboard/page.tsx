@@ -19,6 +19,7 @@ interface Client {
     meta_accounts_ids: string[]
     google_accounts_ids: string[]
     ga4_properties_ids: string[]
+    meta_form_ids: string[]
   }
 }
 
@@ -42,6 +43,19 @@ interface GA4PropertyItem {
   currency: string
 }
 
+interface MetaPageItem {
+  page_id: string
+  name: string
+}
+
+interface MetaLeadFormItem {
+  form_id: string
+  name: string
+  status: string
+  page_id: string
+  page_name: string
+}
+
 export default function AgencyDashboardPage() {
   const router = useRouter()
   const { user, loading: authLoading, logout, darkMode } = useAuth()
@@ -52,6 +66,8 @@ export default function AgencyDashboardPage() {
   const [metaAdAccounts, setMetaAdAccounts] = useState<AdAccount[]>([])
   const [googleAdAccounts, setGoogleAdAccounts] = useState<AdAccount[]>([])
   const [ga4Properties, setGa4Properties] = useState<GA4PropertyItem[]>([])
+  const [metaPages, setMetaPages] = useState<MetaPageItem[]>([])
+  const [metaLeadForms, setMetaLeadForms] = useState<MetaLeadFormItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,6 +84,8 @@ export default function AgencyDashboardPage() {
   const [showGoogleInsightsSyncModal, setShowGoogleInsightsSyncModal] = useState(false)
   const [showGA4StructuralSyncModal, setShowGA4StructuralSyncModal] = useState(false)
   const [showGA4InsightsSyncModal, setShowGA4InsightsSyncModal] = useState(false)
+  const [showLeadsStructuralSyncModal, setShowLeadsStructuralSyncModal] = useState(false)
+  const [showLeadsSyncModal, setShowLeadsSyncModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [newPassword, setNewPassword] = useState<string | null>(null)
 
@@ -75,6 +93,8 @@ export default function AgencyDashboardPage() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
   const [selectedGoogleAccountIds, setSelectedGoogleAccountIds] = useState<string[]>([])
   const [selectedGA4PropertyIds, setSelectedGA4PropertyIds] = useState<string[]>([])
+  const [selectedPageIds, setSelectedPageIds] = useState<string[]>([])
+  const [selectedFormIds, setSelectedFormIds] = useState<string[]>([])
   const [syncStartDate, setSyncStartDate] = useState('2026-01-01')
   const [syncEndDate, setSyncEndDate] = useState(new Date().toISOString().split('T')[0])
 
@@ -108,13 +128,19 @@ export default function AgencyDashboardPage() {
       setClients(clientsData.clients || [])
       setOauthConnections(oauthData.oauth_connections)
 
-      // If Meta is connected, load ad accounts
+      // If Meta is connected, load ad accounts, pages, and lead forms
       if (oauthData.oauth_connections?.meta?.connected) {
         try {
-          const adAccountsData = await api.getAdAccounts()
-          setMetaAdAccounts(adAccountsData.accounts || [])
+          const [adAccountsData, pagesData, formsData] = await Promise.allSettled([
+            api.getAdAccounts(),
+            api.getMetaPages(),
+            api.getMetaLeadForms(),
+          ])
+          if (adAccountsData.status === 'fulfilled') setMetaAdAccounts(adAccountsData.value.accounts || [])
+          if (pagesData.status === 'fulfilled') setMetaPages(pagesData.value.pages || [])
+          if (formsData.status === 'fulfilled') setMetaLeadForms(formsData.value.forms || [])
         } catch (err) {
-          console.error('Failed to load Meta ad accounts:', err)
+          console.error('Failed to load Meta data:', err)
         }
       }
 
@@ -432,6 +458,82 @@ export default function AgencyDashboardPage() {
     }
   }
 
+  // Lead Ads sync handlers
+  async function handleLeadsStructuralSync() {
+    if (selectedPageIds.length === 0) {
+      setError('Please select at least one page')
+      return
+    }
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerLeadsStructuralSync(selectedPageIds)
+      setSyncResult({ message: 'Leads structural sync completed!', structural: result.results })
+      setShowLeadsStructuralSyncModal(false)
+      setSelectedPageIds([])
+      setTimeout(() => setSyncResult(null), 10000)
+      await loadDashboardData()
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync lead forms')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  async function handleLeadsSync() {
+    if (selectedFormIds.length === 0) {
+      setError('Please select at least one form')
+      return
+    }
+    setSyncLoading(true)
+    setSyncResult(null)
+    setError(null)
+    try {
+      const result = await api.triggerLeadsSync(selectedFormIds)
+      setSyncResult({ message: 'Leads sync completed!', structural: result.results })
+      setShowLeadsSyncModal(false)
+      setSelectedFormIds([])
+      setTimeout(() => setSyncResult(null), 10000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync leads')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  function handleTogglePage(pageId: string) {
+    setSelectedPageIds(prev =>
+      prev.includes(pageId)
+        ? prev.filter(id => id !== pageId)
+        : [...prev, pageId]
+    )
+  }
+
+  function handleSelectAllPages() {
+    if (selectedPageIds.length === metaPages.length) {
+      setSelectedPageIds([])
+    } else {
+      setSelectedPageIds(metaPages.map(p => p.page_id))
+    }
+  }
+
+  function handleToggleForm(formId: string) {
+    setSelectedFormIds(prev =>
+      prev.includes(formId)
+        ? prev.filter(id => id !== formId)
+        : [...prev, formId]
+    )
+  }
+
+  function handleSelectAllForms() {
+    if (selectedFormIds.length === metaLeadForms.length) {
+      setSelectedFormIds([])
+    } else {
+      setSelectedFormIds(metaLeadForms.map(f => f.form_id))
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div style={{
@@ -654,6 +756,38 @@ export default function AgencyDashboardPage() {
                     }}
                   >
                     {syncLoading ? 'Syncing...' : 'Insights Sync'}
+                  </button>
+                  <button
+                    onClick={() => setShowLeadsStructuralSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#8b5cf6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Leads Form Sync'}
+                  </button>
+                  <button
+                    onClick={() => setShowLeadsSyncModal(true)}
+                    disabled={syncLoading}
+                    style={{
+                      padding: '0.5rem',
+                      backgroundColor: syncLoading ? '#ccc' : '#ec4899',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: syncLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {syncLoading ? 'Syncing...' : 'Leads Sync'}
                   </button>
                   <button
                     onClick={handleConnectMeta}
@@ -1031,9 +1165,21 @@ export default function AgencyDashboardPage() {
                               GA4 ({client.permissions.ga4_properties_ids.length})
                             </span>
                           )}
+                          {client.permissions?.meta_form_ids?.length > 0 && (
+                            <span style={{
+                              padding: '0.25rem 0.5rem',
+                              backgroundColor: darkMode ? '#3f1e2e' : '#fce7f3',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              color: darkMode ? '#f472b6' : '#be185d'
+                            }}>
+                              Leads ({client.permissions.meta_form_ids.length})
+                            </span>
+                          )}
                           {(!client.permissions?.meta_accounts_ids?.length) &&
                            (!client.permissions?.google_accounts_ids?.length) &&
-                           (!client.permissions?.ga4_properties_ids?.length) && (
+                           (!client.permissions?.ga4_properties_ids?.length) &&
+                           (!client.permissions?.meta_form_ids?.length) && (
                             <span style={{
                               color: darkMode ? '#6b7280' : '#999',
                               fontSize: '0.875rem'
@@ -1366,6 +1512,7 @@ export default function AgencyDashboardPage() {
               metaAdAccounts={metaAdAccounts}
               googleAdAccounts={googleAdAccounts}
               ga4Properties={ga4Properties}
+              metaLeadForms={metaLeadForms}
               onSave={handleUpdatePermissions}
               onCancel={() => {
                 setShowPermissionsModal(false)
@@ -1473,6 +1620,205 @@ export default function AgencyDashboardPage() {
           }}
         />
       )}
+
+      {/* Leads Structural Sync Modal (Pages -> Forms) */}
+      {showLeadsStructuralSyncModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: darkMode ? '#27272a' : 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            border: darkMode ? '1px solid #3f3f46' : 'none'
+          }}>
+            <h2 style={{
+              margin: '0 0 1.5rem 0',
+              color: darkMode ? '#f3f4f6' : '#000'
+            }}>
+              Leads Form Sync
+            </h2>
+            <p style={{
+              color: darkMode ? '#9ca3af' : '#666',
+              fontSize: '0.875rem',
+              marginBottom: '1.5rem'
+            }}>
+              Select Facebook Pages to sync their lead gen forms.
+            </p>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.75rem', backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
+                borderRadius: '6px', cursor: 'pointer', fontWeight: '600'
+              }}>
+                <input type="checkbox"
+                  checked={selectedPageIds.length === metaPages.length && metaPages.length > 0}
+                  onChange={handleSelectAllPages} style={{ cursor: 'pointer' }} />
+                <span style={{ color: darkMode ? '#f3f4f6' : '#000' }}>
+                  Select All ({selectedPageIds.length}/{metaPages.length})
+                </span>
+              </label>
+            </div>
+
+            <div style={{
+              marginBottom: '1.5rem', maxHeight: '350px', overflowY: 'auto',
+              border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+              borderRadius: '6px', padding: '0.5rem'
+            }}>
+              {metaPages.length === 0 ? (
+                <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem', textAlign: 'center', padding: '1rem' }}>
+                  No pages available. Connect Meta first.
+                </p>
+              ) : (
+                metaPages.map((page) => (
+                  <label key={page.page_id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                    borderRadius: '4px', cursor: 'pointer', marginBottom: '0.5rem',
+                    backgroundColor: selectedPageIds.includes(page.page_id)
+                      ? (darkMode ? '#1e3a5f' : '#e7f3ff') : 'transparent',
+                    transition: 'background-color 0.2s ease',
+                  }}>
+                    <input type="checkbox" checked={selectedPageIds.includes(page.page_id)}
+                      onChange={() => handleTogglePage(page.page_id)} style={{ cursor: 'pointer' }} />
+                    <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>{page.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => { setShowLeadsStructuralSyncModal(false); setSelectedPageIds([]) }}
+                disabled={syncLoading}
+                style={{
+                  flex: 1, padding: '0.75rem', backgroundColor: darkMode ? '#3f3f46' : '#666',
+                  color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: syncLoading ? 'not-allowed' : 'pointer', opacity: syncLoading ? 0.5 : 1,
+                }}>Cancel</button>
+              <button onClick={handleLeadsStructuralSync}
+                disabled={syncLoading || selectedPageIds.length === 0}
+                style={{
+                  flex: 1, padding: '0.75rem',
+                  backgroundColor: selectedPageIds.length === 0 || syncLoading ? '#ccc' : '#8b5cf6',
+                  color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: selectedPageIds.length === 0 || syncLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                }}>{syncLoading ? 'Syncing...' : 'Start Form Sync'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leads Sync Modal (Forms -> Leads) */}
+      {showLeadsSyncModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: darkMode ? '#27272a' : 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            border: darkMode ? '1px solid #3f3f46' : 'none'
+          }}>
+            <h2 style={{
+              margin: '0 0 1.5rem 0',
+              color: darkMode ? '#f3f4f6' : '#000'
+            }}>
+              Leads Sync
+            </h2>
+            <p style={{
+              color: darkMode ? '#9ca3af' : '#666',
+              fontSize: '0.875rem',
+              marginBottom: '1.5rem'
+            }}>
+              Select lead forms to sync leads (last 7 days).
+            </p>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.75rem', backgroundColor: darkMode ? '#1e3a5f' : '#e7f3ff',
+                borderRadius: '6px', cursor: 'pointer', fontWeight: '600'
+              }}>
+                <input type="checkbox"
+                  checked={selectedFormIds.length === metaLeadForms.length && metaLeadForms.length > 0}
+                  onChange={handleSelectAllForms} style={{ cursor: 'pointer' }} />
+                <span style={{ color: darkMode ? '#f3f4f6' : '#000' }}>
+                  Select All ({selectedFormIds.length}/{metaLeadForms.length})
+                </span>
+              </label>
+            </div>
+
+            <div style={{
+              marginBottom: '1.5rem', maxHeight: '350px', overflowY: 'auto',
+              border: darkMode ? '1px solid #3f3f46' : '1px solid #ddd',
+              borderRadius: '6px', padding: '0.5rem'
+            }}>
+              {metaLeadForms.length === 0 ? (
+                <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem', textAlign: 'center', padding: '1rem' }}>
+                  No lead forms available. Run Leads Form Sync first.
+                </p>
+              ) : (
+                metaLeadForms.map((form) => (
+                  <label key={form.form_id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                    borderRadius: '4px', cursor: 'pointer', marginBottom: '0.5rem',
+                    backgroundColor: selectedFormIds.includes(form.form_id)
+                      ? (darkMode ? '#1e3a5f' : '#e7f3ff') : 'transparent',
+                    transition: 'background-color 0.2s ease',
+                  }}>
+                    <input type="checkbox" checked={selectedFormIds.includes(form.form_id)}
+                      onChange={() => handleToggleForm(form.form_id)} style={{ cursor: 'pointer' }} />
+                    <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>{form.name}</span>
+                    <span style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.75rem' }}>{form.page_name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => { setShowLeadsSyncModal(false); setSelectedFormIds([]) }}
+                disabled={syncLoading}
+                style={{
+                  flex: 1, padding: '0.75rem', backgroundColor: darkMode ? '#3f3f46' : '#666',
+                  color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: syncLoading ? 'not-allowed' : 'pointer', opacity: syncLoading ? 0.5 : 1,
+                }}>Cancel</button>
+              <button onClick={handleLeadsSync}
+                disabled={syncLoading || selectedFormIds.length === 0}
+                style={{
+                  flex: 1, padding: '0.75rem',
+                  backgroundColor: selectedFormIds.length === 0 || syncLoading ? '#ccc' : '#ec4899',
+                  color: 'white', border: 'none', borderRadius: '6px',
+                  cursor: selectedFormIds.length === 0 || syncLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                }}>{syncLoading ? 'Syncing...' : 'Start Leads Sync'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1483,6 +1829,7 @@ function PermissionsEditor({
   metaAdAccounts,
   googleAdAccounts,
   ga4Properties,
+  metaLeadForms,
   onSave,
   onCancel,
   darkMode
@@ -1491,6 +1838,7 @@ function PermissionsEditor({
   metaAdAccounts: AdAccount[]
   googleAdAccounts: AdAccount[]
   ga4Properties: GA4PropertyItem[]
+  metaLeadForms: MetaLeadFormItem[]
   onSave: (permissions: Record<string, any>) => void
   onCancel: () => void
   darkMode: boolean
@@ -1503,6 +1851,9 @@ function PermissionsEditor({
   )
   const [selectedGA4, setSelectedGA4] = useState<string[]>(
     client.permissions?.ga4_properties_ids || []
+  )
+  const [selectedForms, setSelectedForms] = useState<string[]>(
+    client.permissions?.meta_form_ids || []
   )
 
   function handleToggle(list: string[], setList: (v: string[]) => void, id: string) {
@@ -1518,6 +1869,7 @@ function PermissionsEditor({
       meta_accounts_ids: selectedMeta,
       google_accounts_ids: selectedGoogle,
       ga4_properties_ids: selectedGA4,
+      meta_form_ids: selectedForms,
     })
   }
 
@@ -1605,6 +1957,34 @@ function PermissionsEditor({
                   style={{ cursor: 'pointer' }} />
                 <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>
                   {prop.name} ({prop.currency || prop.timezone})
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Lead Forms */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: darkMode ? '#f3f4f6' : '#000' }}>
+          Lead Forms
+        </h4>
+        {metaLeadForms.length === 0 ? (
+          <p style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.875rem' }}>
+            No lead forms available. Run Leads Form Sync first.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {metaLeadForms.map((form) => (
+              <label key={form.form_id} style={checkboxLabelStyle(selectedForms.includes(form.form_id))}>
+                <input type="checkbox" checked={selectedForms.includes(form.form_id)}
+                  onChange={() => handleToggle(selectedForms, setSelectedForms, form.form_id)}
+                  style={{ cursor: 'pointer' }} />
+                <span style={{ flex: 1, color: darkMode ? '#f3f4f6' : '#000' }}>
+                  {form.name}
+                </span>
+                <span style={{ color: darkMode ? '#9ca3af' : '#666', fontSize: '0.75rem' }}>
+                  {form.page_name}
                 </span>
               </label>
             ))}

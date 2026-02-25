@@ -69,6 +69,7 @@ def get_current_user(request):
                 'meta_accounts_ids': perms.meta_accounts_ids,
                 'google_accounts_ids': perms.google_accounts_ids,
                 'ga4_properties_ids': perms.ga4_properties_ids,
+                'meta_form_ids': perms.meta_form_ids,
             }
         except ClientPermissions.DoesNotExist:
             user_data['permissions'] = None
@@ -108,6 +109,7 @@ def list_agency_clients(request):
                 'meta_accounts_ids': perms.meta_accounts_ids,
                 'google_accounts_ids': perms.google_accounts_ids,
                 'ga4_properties_ids': perms.ga4_properties_ids,
+                'meta_form_ids': perms.meta_form_ids,
             }
         except ClientPermissions.DoesNotExist:
             client_info['permissions'] = None
@@ -138,6 +140,8 @@ def update_client_permissions(request, client_id):
         perms.google_accounts_ids = request.data['google_accounts_ids']
     if 'ga4_properties_ids' in request.data:
         perms.ga4_properties_ids = request.data['ga4_properties_ids']
+    if 'meta_form_ids' in request.data:
+        perms.meta_form_ids = request.data['meta_form_ids']
     perms.save()
 
     return Response({
@@ -146,6 +150,7 @@ def update_client_permissions(request, client_id):
             'meta_accounts_ids': perms.meta_accounts_ids,
             'google_accounts_ids': perms.google_accounts_ids,
             'ga4_properties_ids': perms.ga4_properties_ids,
+            'meta_form_ids': perms.meta_form_ids,
         },
     })
 

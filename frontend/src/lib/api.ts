@@ -123,7 +123,7 @@ export const api = {
   },
 
   async updateClientPermissions(clientId: number, permissions: {
-    meta_accounts_ids?: string[]; google_accounts_ids?: string[]; ga4_properties_ids?: string[];
+    meta_accounts_ids?: string[]; google_accounts_ids?: string[]; ga4_properties_ids?: string[]; meta_form_ids?: string[];
   }) {
     const response = await fetchWithAuth(`/api/clients/${clientId}/permissions/`, {
       method: 'PATCH',
@@ -438,6 +438,52 @@ export const api = {
       body: JSON.stringify(params),
     })
     if (!response.ok) throw new Error('Failed to fetch GA4 insights')
+    return response.json()
+  },
+  // ===== Lead Ads - Agency =====
+  async getMetaPages() {
+    const response = await fetchWithAuth('/api/meta/pages/')
+    if (!response.ok) throw new Error('Failed to get pages')
+    return response.json()
+  },
+
+  async getMetaLeadForms() {
+    const response = await fetchWithAuth('/api/meta/lead-forms/')
+    if (!response.ok) throw new Error('Failed to get lead forms')
+    return response.json()
+  },
+
+  async triggerLeadsStructuralSync(pageIds: string[]) {
+    const response = await fetchWithAuth('/api/meta/sync/leads-structural/', {
+      method: 'POST',
+      body: JSON.stringify({ page_ids: pageIds }),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to sync lead forms')
+    }
+    return response.json()
+  },
+
+  async triggerLeadsSync(formIds: string[]) {
+    const response = await fetchWithAuth('/api/meta/sync/leads/', {
+      method: 'POST',
+      body: JSON.stringify({ form_ids: formIds }),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to sync leads')
+    }
+    return response.json()
+  },
+
+  // ===== Lead Ads - Client =====
+  async getClientLeads(params?: { limit?: number; offset?: number }) {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const response = await fetchWithAuth(`/api/meta/client/leads/?${query}`)
+    if (!response.ok) throw new Error('Failed to load leads')
     return response.json()
   },
 }

@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from meta.models import MetaAccount, MetaCampaign, MetaAdset, MetaAd, MetaInsight
+from meta.models import MetaAccount, MetaCampaign, MetaAdset, MetaAd, MetaInsight, MetaPage, MetaLeadForm, MetaLead
 from users.models import ClientPermissions
 
 logger = logging.getLogger('meta')
@@ -76,6 +76,72 @@ def trigger_insights_sync(request):
         return Response(results)
     except Exception as e:
         logger.error(f'Insights sync failed: {e}')
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ========== LEAD ADS - AGENCY ENDPOINTS ==========
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pages(request):
+    """Get all pages for the agency user."""
+    if request.user.user_type != 'agency':
+        return Response({'error': 'Only agency users'}, status=status.HTTP_403_FORBIDDEN)
+    pages = MetaPage.objects.filter(user=request.user)
+    data = [{'page_id': p.page_id, 'name': p.name} for p in pages]
+    return Response({'pages': data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trigger_leads_structural_sync(request):
+    """Sync leadgen forms for selected pages."""
+    if request.user.user_type != 'agency':
+        return Response({'error': 'Only agency users'}, status=status.HTTP_403_FORBIDDEN)
+    page_ids = request.data.get('page_ids', [])
+    if not page_ids:
+        return Response({'error': 'page_ids required'}, status=status.HTTP_400_BAD_REQUEST)
+    from meta.services.leads_structural_sync import sync_lead_forms
+    try:
+        results = sync_lead_forms(request.user, page_ids)
+        return Response({'success': True, 'results': results})
+    except Exception as e:
+        logger.error(f'Leads structural sync failed: {e}')
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_lead_forms(request):
+    """Get all synced lead forms for the agency user."""
+    if request.user.user_type != 'agency':
+        return Response({'error': 'Only agency users'}, status=status.HTTP_403_FORBIDDEN)
+    forms = MetaLeadForm.objects.filter(user=request.user).select_related('page')
+    data = [{
+        'form_id': f.form_id,
+        'name': f.name,
+        'status': f.status,
+        'page_id': f.page.page_id,
+        'page_name': f.page.name,
+    } for f in forms]
+    return Response({'forms': data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trigger_leads_sync(request):
+    """Sync leads for selected forms."""
+    if request.user.user_type != 'agency':
+        return Response({'error': 'Only agency users'}, status=status.HTTP_403_FORBIDDEN)
+    form_ids = request.data.get('form_ids', [])
+    if not form_ids:
+        return Response({'error': 'form_ids required'}, status=status.HTTP_400_BAD_REQUEST)
+    from meta.services.leads_sync import sync_leads
+    try:
+        results = sync_leads(request.user, form_ids)
+        return Response({'success': True, 'results': results})
+    except Exception as e:
+        logger.error(f'Leads sync failed: {e}')
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -352,3 +418,47 @@ def _get_entity_ids_for_account(account_id, level):
     elif level == 'ad':
         return list(MetaAd.objects.filter(account__account_id=account_id).values_list('ad_id', flat=True))
     return []
+
+
+def _get_allowed_form_ids(user):
+    try:
+        perms = user.permissions
+        return perms.meta_form_ids or []
+    except ClientPermissions.DoesNotExist:
+        return []
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def client_leads(request):
+    """Get leads for a client user based on their form permissions."""
+    allowed_form_ids = _get_allowed_form_ids(request.user)
+    if not allowed_form_ids:
+        return Response({'leads': [], 'total': 0})
+
+    qs = MetaLead.objects.filter(
+        form__form_id__in=allowed_form_ids
+    ).select_related('form').order_by('-created_time')
+
+    limit = int(request.GET.get('limit', 100))
+    offset = int(request.GET.get('offset', 0))
+    total = qs.count()
+    qs = qs[offset:offset + limit]
+
+    data = [{
+        'id': l.lead_id,
+        'lead_id': l.lead_id,
+        'created_time': l.created_time.isoformat(),
+        'field_data': l.field_data,
+        'ad_id': l.ad_id,
+        'ad_name': l.ad_name,
+        'adset_id': l.adset_id,
+        'adset_name': l.adset_name,
+        'campaign_id': l.campaign_id,
+        'campaign_name': l.campaign_name,
+        'form_name': l.form.name,
+        'is_organic': l.is_organic,
+        'platform': l.platform,
+    } for l in qs]
+
+    return Response({'leads': data, 'total': total})

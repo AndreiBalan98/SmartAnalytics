@@ -71,6 +71,7 @@ class ClientPermissions(models.Model):
     meta_accounts_ids = models.JSONField(default=list, blank=True)
     google_accounts_ids = models.JSONField(default=list, blank=True)
     ga4_properties_ids = models.JSONField(default=list, blank=True)
+    meta_form_ids = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = 'client_permissions'
