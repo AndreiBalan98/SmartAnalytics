@@ -223,7 +223,7 @@ export default function OverviewView({
     const dailyMap: { [key: string]: any } = {}
 
     insights.forEach(item => {
-      const date = item.date_start
+      const date = item.date
       if (!dailyMap[date]) {
         dailyMap[date] = {
           date,
@@ -269,7 +269,7 @@ export default function OverviewView({
       // Map insights to campaigns
       const campaignsWithMetrics = campaignsData.slice(0, 20).map((campaign: any) => {
         const campaignInsightsData = (campaignInsights.insights || []).filter(
-          (insight: any) => insight.campaign_id === campaign.campaign_id
+          (insight: any) => insight.object_id === campaign.campaign_id
         )
 
         const metrics = calculateMetrics(campaignInsightsData)
@@ -331,7 +331,7 @@ export default function OverviewView({
                     // Map insights to ads
                     adsWithInsights = ads.slice(0, 5).map((ad: any) => {
                       const adInsightsData = (adInsights.insights || []).filter(
-                        (insight: any) => insight.ad_id === ad.ad_id
+                        (insight: any) => insight.object_id === ad.ad_id
                       )
 
                       const metrics = calculateMetrics(adInsightsData)
@@ -415,7 +415,7 @@ export default function OverviewView({
       // Map insights to ads
       const creativesWithMetrics = allAds.slice(0, 20).map((ad: any) => {
         const adInsightsData = (adInsights.insights || []).filter(
-          (insight: any) => insight.ad_id === ad.ad_id
+          (insight: any) => insight.object_id === ad.ad_id
         )
 
         const metrics = calculateMetrics(adInsightsData)
@@ -501,6 +501,7 @@ export default function OverviewView({
                 borderRadius: '6px',
                 fontSize: '0.875rem',
                 minWidth: '200px',
+                color: '#1f2937',
               }}
             >
               <option value="">Select account</option>
@@ -528,6 +529,7 @@ export default function OverviewView({
                 fontSize: '0.875rem',
                 minWidth: '200px',
                 opacity: selectedAdAccount ? 1 : 0.5,
+                color: '#1f2937',
               }}
             >
               <option value="">All campaigns</option>
@@ -554,6 +556,7 @@ export default function OverviewView({
                   border: '1px solid #d1d5db',
                   borderRadius: '6px',
                   fontSize: '0.875rem',
+                  color: '#1f2937',
                 }}
               />
               <span style={{ color: '#6b7280' }}>-</span>
@@ -566,6 +569,7 @@ export default function OverviewView({
                   border: '1px solid #d1d5db',
                   borderRadius: '6px',
                   fontSize: '0.875rem',
+                  color: '#1f2937',
                 }}
               />
             </div>
@@ -722,7 +726,7 @@ export default function OverviewView({
           {/* Top Creatives */}
           {topCreatives.length > 0 && (
             <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Top creatives</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', color: '#1f2937' }}>Top creatives</h3>
               <TopCreativesTable creatives={topCreatives} currency={currency} />
             </div>
           )}
@@ -920,7 +924,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>
+        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: '#1f2937' }}>
           Campaigns, adsets, and ads
         </h3>
         <select
@@ -974,14 +978,14 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
               <>
                 {/* Campaign Row */}
                 <tr key={`c-${cIdx}`} style={{ borderTop: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem', fontWeight: 500 }}>
+                  <td style={{ padding: '0.75rem', fontSize: '0.875rem', fontWeight: 500, color: '#1f2937' }}>
                     {campaign.name}
                   </td>
                   <td style={{ padding: '0.75rem' }}></td>
                   <td style={{ padding: '0.75rem' }}></td>
                   <td style={{ padding: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.875rem', minWidth: '50px' }}>
+                      <span style={{ fontSize: '0.875rem', minWidth: '50px', color: '#1f2937' }}>
                         {(campaign.ctr || 0).toFixed(2)}%
                       </span>
                       <div style={{ flex: 1, height: '20px', backgroundColor: '#e0f2fe', borderRadius: '4px', overflow: 'hidden' }}>
@@ -996,7 +1000,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                   </td>
                   <td style={{ padding: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.875rem', minWidth: '50px' }}>
+                      <span style={{ fontSize: '0.875rem', minWidth: '50px', color: '#1f2937' }}>
                         {(campaign.clicks || 0).toLocaleString()}
                       </span>
                       <div style={{ flex: 1, height: '20px', backgroundColor: '#dcfce7', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1011,7 +1015,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                   </td>
                   <td style={{ padding: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.875rem', minWidth: '50px' }}>
+                      <span style={{ fontSize: '0.875rem', minWidth: '50px', color: '#1f2937' }}>
                         {(campaign.impressions || 0).toLocaleString()}
                       </span>
                       <div style={{ flex: 1, height: '20px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1031,13 +1035,13 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                   <>
                     <tr key={`a-${cIdx}-${aIdx}`} style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#fafafa' }}>
                       <td style={{ padding: '0.75rem' }}></td>
-                      <td style={{ padding: '0.75rem', fontSize: '0.875rem', paddingLeft: '1.5rem' }}>
+                      <td style={{ padding: '0.75rem', fontSize: '0.875rem', paddingLeft: '1.5rem', color: '#1f2937' }}>
                         {adset.name}
                       </td>
                       <td style={{ padding: '0.75rem' }}></td>
                       <td style={{ padding: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                          <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                             {(adset.ctr || 0).toFixed(2)}%
                           </span>
                           <div style={{ flex: 1, height: '16px', backgroundColor: '#e0f2fe', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1051,7 +1055,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                          <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                             {(adset.clicks || 0).toLocaleString()}
                           </span>
                           <div style={{ flex: 1, height: '16px', backgroundColor: '#dcfce7', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1065,7 +1069,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                          <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                             {(adset.impressions || 0).toLocaleString()}
                           </span>
                           <div style={{ flex: 1, height: '16px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1084,12 +1088,12 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                       <tr key={`ad-${cIdx}-${aIdx}-${adIdx}`} style={{ borderTop: '1px solid #f9fafb', backgroundColor: '#fcfcfc' }}>
                         <td style={{ padding: '0.75rem' }}></td>
                         <td style={{ padding: '0.75rem' }}></td>
-                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', paddingLeft: '2rem' }}>
+                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', paddingLeft: '2rem', color: '#1f2937' }}>
                           {ad.name}
                         </td>
                         <td style={{ padding: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                            <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                               {(ad.ctr || 0).toFixed(2)}%
                             </span>
                             <div style={{ flex: 1, height: '12px', backgroundColor: '#e0f2fe', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1103,7 +1107,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                         </td>
                         <td style={{ padding: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                            <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                               {(ad.clicks || 0).toLocaleString()}
                             </span>
                             <div style={{ flex: 1, height: '12px', backgroundColor: '#dcfce7', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1117,7 +1121,7 @@ function HierarchicalTable({ data }: HierarchicalTableProps) {
                         </td>
                         <td style={{ padding: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', minWidth: '50px' }}>
+                            <span style={{ fontSize: '0.75rem', minWidth: '50px', color: '#1f2937' }}>
                               {(ad.impressions || 0).toLocaleString()}
                             </span>
                             <div style={{ flex: 1, height: '12px', backgroundColor: '#f3e8ff', borderRadius: '4px', overflow: 'hidden' }}>
@@ -1219,7 +1223,7 @@ function TopCampaignsTable({ campaigns }: TopCampaignsTableProps) {
         <tbody>
           {campaigns.map((campaign, idx) => (
             <tr key={idx} style={{ borderTop: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#1f2937' }}>
                 {campaign.name}
               </td>
               <td style={{
@@ -1240,16 +1244,16 @@ function TopCampaignsTable({ campaigns }: TopCampaignsTableProps) {
             </tr>
           ))}
           <tr style={{ borderTop: '2px solid #1f2937', fontWeight: 600 }}>
-            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#1f2937' }}>
               Grand total
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalCTR.toFixed(2)}%
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalClicks.toLocaleString()}
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalImpressions.toLocaleString()}
             </td>
           </tr>
@@ -1347,10 +1351,10 @@ function TopCreativesTable({ creatives, currency }: TopCreativesTableProps) {
                   </div>
                 )}
               </td>
-              <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#1f2937' }}>
                 {creative.creative_title}
               </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
                 {formatCurrency(creative.spend || 0, currency)}
               </td>
               <td style={{
@@ -1362,28 +1366,28 @@ function TopCreativesTable({ creatives, currency }: TopCreativesTableProps) {
               }}>
                 {(creative.ctr || 0).toFixed(2)}%
               </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
                 {(creative.clicks || 0).toLocaleString()}
               </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
                 {(creative.impressions || 0).toLocaleString()}
               </td>
             </tr>
           ))}
           <tr style={{ borderTop: '2px solid #1f2937', fontWeight: 600 }}>
-            <td style={{ padding: '0.75rem', fontSize: '0.875rem' }} colSpan={2}>
+            <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#1f2937' }} colSpan={2}>
               Grand total
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {formatCurrency(totalSpend, currency)}
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalCTR.toFixed(2)}%
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalClicks.toLocaleString()}
             </td>
-            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+            <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
               {totalImpressions.toLocaleString()}
             </td>
           </tr>

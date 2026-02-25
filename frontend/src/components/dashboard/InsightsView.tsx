@@ -210,15 +210,27 @@ export default function InsightsView({
         end_date: endDate,
       })
 
-      // Ensure we have safe defaults if API returns undefined
-      setTopPerformers(result.topPerformers || {
-        topSpend: [],
-        topImpressions: [],
-        topClicks: [],
-        topReach: [],
-        topCTR: [],
-        topCPC: [],
-        topCPM: []
+      // Transform flat topPerformers array into separate sorted arrays per metric
+      const performers = result.topPerformers || []
+      const toEntry = (item: any, value: number) => ({
+        entityId: item.id,
+        entityName: item.name,
+        entityType: item.type,
+        value,
+      })
+      const sortedBy = (metric: string) =>
+        [...performers]
+          .sort((a: any, b: any) => (b[metric] || 0) - (a[metric] || 0))
+          .map((item: any) => toEntry(item, item[metric] || 0))
+
+      setTopPerformers({
+        topSpend: sortedBy('spend'),
+        topImpressions: sortedBy('impressions'),
+        topClicks: sortedBy('clicks'),
+        topReach: sortedBy('reach'),
+        topCTR: sortedBy('ctr'),
+        topCPC: sortedBy('cpc'),
+        topCPM: sortedBy('cpm'),
       })
       setChartData(result.chartData || [])
     } catch (err: any) {
@@ -229,32 +241,6 @@ export default function InsightsView({
     }
   }
 
-
-  const hasAnySelections = selectedCampaigns.length > 0 || selectedAdSets.length > 0 || selectedAds.length > 0
-
-  if (!hasAnySelections) {
-    return (
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'white',
-        }}
-      >
-        <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
-          <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem', color: '#6b7280' }}>
-            Nu există selecții salvate
-          </p>
-          <p style={{ fontSize: '0.875rem' }}>
-            Navighează la secțiunile Campaigns, Ad Sets sau Ads și selectează obiectele pe care vrei să le analizezi
-          </p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div style={{ height: '100%', overflowY: 'auto' }} className="scrollbar-hidden">

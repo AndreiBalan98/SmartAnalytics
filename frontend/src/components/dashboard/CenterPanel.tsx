@@ -320,22 +320,24 @@ export default function CenterPanel({
       flexDirection: 'column',
     }}>
       {/* Header - reducere înălțime */}
-      <div style={{
-        padding: '0.75rem 1.5rem',
-        borderBottom: '1px solid #e5e7eb',
-        backgroundColor: '#f9fafb',
-        flexShrink: 0,
-      }}>
-        <h2 style={{
-          margin: 0,
-          fontSize: '1.125rem',
-          fontWeight: 600,
-          color: '#1f2937',
-          textTransform: 'capitalize',
+      {view !== 'overview' && view !== 'leads' && (
+        <div style={{
+          padding: '0.75rem 1.5rem',
+          borderBottom: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+          flexShrink: 0,
         }}>
-          {platform === 'google_ads' && view === 'adsets' ? 'Ad Groups' : view}
-        </h2>
-      </div>
+          <h2 style={{
+            margin: 0,
+            fontSize: '1.125rem',
+            fontWeight: 600,
+            color: '#1f2937',
+            textTransform: 'capitalize',
+          }}>
+            {platform === 'google_ads' && view === 'adsets' ? 'Ad Groups' : view}
+          </h2>
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto' }} className="scrollbar-hidden">
