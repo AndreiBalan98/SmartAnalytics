@@ -711,7 +711,7 @@ export default function OverviewView({
           {/* Top Campaigns Table */}
           {topCampaigns.length > 0 && (
             <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Campaigns</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', color: '#1f2937' }}>Campaigns</h3>
               <TopCampaignsTable campaigns={topCampaigns} />
             </div>
           )}
@@ -1231,14 +1231,15 @@ function TopCampaignsTable({ campaigns }: TopCampaignsTableProps) {
                 textAlign: 'right',
                 fontSize: '0.875rem',
                 fontWeight: 600,
+                color: '#1f2937',
                 backgroundColor: getCTRColor(campaign.ctr || 0),
               }}>
                 {(campaign.ctr || 0).toFixed(2)}%
               </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
                 {(campaign.clicks || 0).toLocaleString()}
               </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem' }}>
+              <td style={{ padding: '0.75rem', textAlign: 'right', fontSize: '0.875rem', color: '#1f2937' }}>
                 {(campaign.impressions || 0).toLocaleString()}
               </td>
             </tr>
@@ -1362,6 +1363,7 @@ function TopCreativesTable({ creatives, currency }: TopCreativesTableProps) {
                 textAlign: 'right',
                 fontSize: '0.875rem',
                 fontWeight: 600,
+                color: '#1f2937',
                 backgroundColor: getCTRGradient(creative.ctr || 0),
               }}>
                 {(creative.ctr || 0).toFixed(2)}%

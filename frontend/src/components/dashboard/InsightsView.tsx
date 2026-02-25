@@ -232,7 +232,32 @@ export default function InsightsView({
         topCPC: sortedBy('cpc'),
         topCPM: sortedBy('cpm'),
       })
-      setChartData(result.chartData || [])
+      // Transform flat chartData into pivoted format for MetricsCharts
+      // Backend: [{date, entity_id, spend, clicks, ...}, ...]
+      // Frontend expects: [{day: 1, spend_<id>: x, clicks_<id>: y, ...}, ...]
+      const rawChartData = result.chartData || []
+      const metrics = ['spend', 'impressions', 'clicks', 'reach', 'ctr', 'cpc', 'cpm']
+      const dateMap: Record<string, any> = {}
+      const sortedDates: string[] = []
+
+      rawChartData.forEach((row: any) => {
+        const date = row.date
+        if (!dateMap[date]) {
+          dateMap[date] = { date }
+          sortedDates.push(date)
+        }
+        metrics.forEach((metric) => {
+          dateMap[date][`${metric}_${row.entity_id}`] = row[metric] || 0
+        })
+      })
+
+      sortedDates.sort()
+      const pivotedData = sortedDates.map((date, idx) => ({
+        day: idx + 1,
+        ...dateMap[date],
+      }))
+
+      setChartData(pivotedData)
     } catch (err: any) {
       console.error('Failed to load insights:', err)
       alert(`Eroare la încărcarea insights-urilor: ${err.message}`)
