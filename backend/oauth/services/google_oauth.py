@@ -87,6 +87,14 @@ def google_exchange_code(code, redirect_uri, user):
     })
     logger.info(f'GoogleToken saved for {user.email}')
 
+    # Step 5: Fetch initial Google Ads data (customers + ad accounts)
+    try:
+        from google_ads.views import _fetch_and_store_accounts
+        _fetch_and_store_accounts(user)
+        logger.info(f'Initial Google Ads accounts fetched for {user.email}')
+    except Exception as e:
+        logger.warning(f'Could not fetch initial Google Ads data for {user.email}: {e}')
+
     return {
         'success': True,
         'user_name': name,

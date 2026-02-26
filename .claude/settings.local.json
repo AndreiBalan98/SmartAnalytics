@@ -24,7 +24,8 @@
       "Bash(oauth \")",
       "Bash(npx tsc:*)",
       "Bash(npx next build:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(head:*)"
     ],
     "deny": [],
     "ask": []

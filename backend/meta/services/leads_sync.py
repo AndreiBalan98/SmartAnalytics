@@ -8,10 +8,7 @@ logger = logging.getLogger('smartanalytics.sync')
 
 
 def sync_leads(user, form_ids, since_timestamp=None):
-    """Sync leads for selected forms. Default: last 7 days."""
-    if since_timestamp is None:
-        since_timestamp = int((datetime.now() - timedelta(days=7)).timestamp())
-
+    """Sync leads for selected forms. If no since_timestamp, fetches only leads newer than the latest in DB."""
     token = MetaToken.objects.get(user=user)
     client = MetaAPIClient(token.token)
     meta_user = MetaUser.objects.get(user=user)
@@ -19,7 +16,23 @@ def sync_leads(user, form_ids, since_timestamp=None):
 
     for form in MetaLeadForm.objects.filter(user=user, form_id__in=form_ids).select_related('page'):
         try:
-            leads_data = client.get_leads(form.form_id, form.page.page_access_token, since_timestamp)
+            # Determine the timestamp to fetch from
+            if since_timestamp is not None:
+                form_since = since_timestamp
+            else:
+                # Check DB for the latest lead for this form
+                latest = MetaLead.objects.filter(
+                    user=user, form=form
+                ).order_by('-created_time').values_list('created_time', flat=True).first()
+
+                if latest:
+                    # Only fetch leads newer than the latest existing one
+                    form_since = int(latest.timestamp()) + 1
+                else:
+                    # No existing leads - fetch last 90 days
+                    form_since = int((datetime.now() - timedelta(days=90)).timestamp())
+
+            leads_data = client.get_leads(form.form_id, form.page.page_access_token, form_since)
             count = 0
             for lead in leads_data:
                 created_time = datetime.fromisoformat(lead['created_time'].replace('+0000', '+00:00'))

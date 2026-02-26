@@ -87,6 +87,14 @@ def ga4_exchange_code(code, redirect_uri, user):
     })
     logger.info(f'GA4Token saved for {user.email}')
 
+    # Step 5: Fetch initial GA4 data (accounts + properties)
+    try:
+        from ga4.views import _fetch_and_store_properties
+        _fetch_and_store_properties(user)
+        logger.info(f'Initial GA4 properties fetched for {user.email}')
+    except Exception as e:
+        logger.warning(f'Could not fetch initial GA4 data for {user.email}: {e}')
+
     return {
         'success': True,
         'user_name': name,
