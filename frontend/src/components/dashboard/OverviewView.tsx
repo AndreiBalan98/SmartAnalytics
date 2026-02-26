@@ -46,7 +46,7 @@ function extractPurchases(insights: any): { purchases: number; purchaseValue: nu
 
   if (insights.actions) {
     insights.actions.forEach((action: any) => {
-      if (action.action_type && action.action_type.toLowerCase().includes('purchase')) {
+      if (action.action_type === 'purchase') {
         purchases += parseFloat(action.value || 0)
       }
     })
@@ -54,7 +54,7 @@ function extractPurchases(insights: any): { purchases: number; purchaseValue: nu
 
   if (insights.action_values) {
     insights.action_values.forEach((actionValue: any) => {
-      if (actionValue.action_type && actionValue.action_type.toLowerCase().includes('purchase')) {
+      if (actionValue.action_type === 'purchase') {
         purchaseValue += parseFloat(actionValue.value || 0)
       }
     })
@@ -267,7 +267,7 @@ export default function OverviewView({
       })
 
       // Map insights to campaigns
-      const campaignsWithMetrics = campaignsData.slice(0, 20).map((campaign: any) => {
+      const campaignsWithMetrics = campaignsData.map((campaign: any) => {
         const campaignInsightsData = (campaignInsights.insights || []).filter(
           (insight: any) => insight.object_id === campaign.campaign_id
         )
@@ -279,8 +279,9 @@ export default function OverviewView({
         }
       })
 
-      // Sort by CTR and set top campaigns
-      const sorted = campaignsWithMetrics.sort((a: any, b: any) => (b.ctr || 0) - (a.ctr || 0))
+      // Filter out campaigns with 0 impressions (inactive in period), sort by CTR
+      const activeCampaigns = campaignsWithMetrics.filter((c: any) => (c.impressions || 0) > 0)
+      const sorted = activeCampaigns.sort((a: any, b: any) => (b.ctr || 0) - (a.ctr || 0))
       setTopCampaigns(sorted.slice(0, 10))
 
       // Load hierarchical data (campaigns -> adsets -> ads)
@@ -305,7 +306,7 @@ export default function OverviewView({
 
       // For each campaign, load adsets and ads
       const hierarchical = await Promise.all(
-        campaignsData.slice(0, 5).map(async (campaign: any) => {
+        campaignsData.map(async (campaign: any) => {
           try {
             // Get adsets for this campaign
             const adsetsResult = await api.getClientAdSetsNew([campaign.campaign_id])
@@ -313,7 +314,7 @@ export default function OverviewView({
 
             // For each adset, get ads
             const adsetsWithAds = await Promise.all(
-              adsets.slice(0, 3).map(async (adset: any) => {
+              adsets.map(async (adset: any) => {
                 try {
                   const adsResult = await api.getClientAdsNew([adset.adset_id])
                   const ads = adsResult.ads || []
@@ -329,7 +330,7 @@ export default function OverviewView({
                     })
 
                     // Map insights to ads
-                    adsWithInsights = ads.slice(0, 5).map((ad: any) => {
+                    adsWithInsights = ads.map((ad: any) => {
                       const adInsightsData = (adInsights.insights || []).filter(
                         (insight: any) => insight.object_id === ad.ad_id
                       )
@@ -338,7 +339,7 @@ export default function OverviewView({
                       return { ...ad, ...metrics }
                     })
                   } catch (error) {
-                    adsWithInsights = ads.slice(0, 5).map((ad: any) => ({
+                    adsWithInsights = ads.map((ad: any) => ({
                       ...ad,
                       clicks: 0,
                       impressions: 0,
@@ -346,10 +347,13 @@ export default function OverviewView({
                     }))
                   }
 
-                  // Calculate adset metrics from ads
+                  // Filter ads with >= 1 impression
+                  const activeAds = adsWithInsights.filter((ad: any) => (ad.impressions || 0) > 0)
+
+                  // Calculate adset metrics from active ads
                   const adsetMetrics = {
-                    clicks: adsWithInsights.reduce((sum, ad) => sum + (ad.clicks || 0), 0),
-                    impressions: adsWithInsights.reduce((sum, ad) => sum + (ad.impressions || 0), 0),
+                    clicks: activeAds.reduce((sum: number, ad: any) => sum + (ad.clicks || 0), 0),
+                    impressions: activeAds.reduce((sum: number, ad: any) => sum + (ad.impressions || 0), 0),
                   }
                   const adsetCTR = adsetMetrics.impressions > 0
                     ? (adsetMetrics.clicks / adsetMetrics.impressions) * 100
@@ -359,7 +363,7 @@ export default function OverviewView({
                     ...adset,
                     ...adsetMetrics,
                     ctr: adsetCTR,
-                    ads: adsWithInsights,
+                    ads: activeAds,
                   }
                 } catch (error) {
                   return { ...adset, clicks: 0, impressions: 0, ctr: 0, ads: [] }
@@ -367,10 +371,13 @@ export default function OverviewView({
               })
             )
 
-            // Calculate campaign metrics from adsets
+            // Filter adsets with >= 1 impression (i.e., have active ads)
+            const activeAdsets = adsetsWithAds.filter((adset: any) => (adset.impressions || 0) > 0)
+
+            // Calculate campaign metrics from active adsets
             const campaignMetrics = {
-              clicks: adsetsWithAds.reduce((sum, adset) => sum + (adset.clicks || 0), 0),
-              impressions: adsetsWithAds.reduce((sum, adset) => sum + (adset.impressions || 0), 0),
+              clicks: activeAdsets.reduce((sum, adset) => sum + (adset.clicks || 0), 0),
+              impressions: activeAdsets.reduce((sum, adset) => sum + (adset.impressions || 0), 0),
             }
             const campaignCTR = campaignMetrics.impressions > 0
               ? (campaignMetrics.clicks / campaignMetrics.impressions) * 100
@@ -380,7 +387,7 @@ export default function OverviewView({
               ...campaign,
               ...campaignMetrics,
               ctr: campaignCTR,
-              adsets: adsetsWithAds,
+              adsets: activeAdsets,
             }
           } catch (error) {
             return { ...campaign, clicks: 0, impressions: 0, ctr: 0, adsets: [] }
@@ -388,7 +395,8 @@ export default function OverviewView({
         })
       )
 
-      setHierarchicalData(hierarchical)
+      // Filter campaigns with >= 1 impression
+      setHierarchicalData(hierarchical.filter((c: any) => (c.impressions || 0) > 0))
     } catch (error) {
       console.error('Failed to load hierarchical data:', error)
       setHierarchicalData([])
@@ -413,7 +421,7 @@ export default function OverviewView({
       })
 
       // Map insights to ads
-      const creativesWithMetrics = allAds.slice(0, 20).map((ad: any) => {
+      const creativesWithMetrics = allAds.map((ad: any) => {
         const adInsightsData = (adInsights.insights || []).filter(
           (insight: any) => insight.object_id === ad.ad_id
         )
@@ -428,8 +436,9 @@ export default function OverviewView({
         }
       })
 
-      // Sort by CTR and set top creatives
-      const sorted = creativesWithMetrics.sort((a: any, b: any) => (b.ctr || 0) - (a.ctr || 0))
+      // Filter to only creatives with >= 1 impression, sort by CTR
+      const activeCreatives = creativesWithMetrics.filter((c: any) => (c.impressions || 0) > 0)
+      const sorted = activeCreatives.sort((a: any, b: any) => (b.ctr || 0) - (a.ctr || 0))
       setTopCreatives(sorted)
     } catch (error) {
       console.error('Failed to load top creatives:', error)
@@ -780,6 +789,16 @@ interface MetricCardProps {
 }
 
 function MetricCard({ title, mainMetric, subMetrics, chartData, chartKey, chartColor }: MetricCardProps) {
+  const [animated, setAnimated] = useState(false)
+
+  useEffect(() => {
+    setAnimated(false)
+    const timer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setAnimated(true))
+    })
+    return () => cancelAnimationFrame(timer)
+  }, [chartData, chartKey])
+
   const formatValue = (value: number, format: string, decimals = 0, currency = 'USD', suffix = '') => {
     if (format === 'currency') {
       return formatCurrency(value, currency)
@@ -837,6 +856,7 @@ function MetricCard({ title, mainMetric, subMetrics, chartData, chartKey, chartC
             const value = day[chartKey] || 0
             const height = maxValue > 0 ? (value / maxValue) * 100 : 0
             const barWidth = chartData.length > 0 ? `${100 / chartData.length}%` : '100%'
+            const delay = `${(idx / chartData.length) * 1000}ms`
 
             return (
               <div
@@ -844,11 +864,12 @@ function MetricCard({ title, mainMetric, subMetrics, chartData, chartKey, chartC
                 style={{
                   width: barWidth,
                   maxWidth: '40px',
-                  height: `${height}%`,
+                  height: animated ? `${height}%` : '0%',
                   backgroundColor: chartColor,
                   borderRadius: '3px 3px 0 0',
-                  minHeight: value > 0 ? '3px' : '0',
-                  transition: 'height 0.3s',
+                  minHeight: animated && value > 0 ? '3px' : '0',
+                  transition: 'height 0.4s ease-out',
+                  transitionDelay: delay,
                 }}
                 title={`${day.date}: ${value.toLocaleString()}`}
               />
@@ -872,7 +893,7 @@ function MetricCard({ title, mainMetric, subMetrics, chartData, chartKey, chartC
       {/* Sub Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${subMetrics.length}, 1fr)`, gap: '1rem' }}>
         {subMetrics.map((metric, idx) => (
-          <div key={idx}>
+          <div key={idx} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.25rem' }}>
               {metric.label}
             </div>

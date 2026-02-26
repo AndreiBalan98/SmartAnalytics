@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'user_type',
-                  'dark_mode', 'agency_name', 'agency_id', 'date_joined']
+                  'dark_mode', 'agency_name', 'agency_id', 'date_joined', 'is_active']
         read_only_fields = ['id', 'date_joined']
 
 
