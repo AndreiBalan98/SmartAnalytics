@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+import random
+from datetime import datetime, timedelta, date
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -141,7 +142,7 @@ def _get_allowed_ga4_property_ids(user):
 def client_properties(request):
     allowed_ids = _get_allowed_ga4_property_ids(request.user)
     if not allowed_ids:
-        return Response({'properties': []})
+        return Response({'properties': _mock_ga4_properties(), 'is_mock': True})
 
     properties = GA4Property.objects.filter(property_id__in=allowed_ids).select_related('account')
 
@@ -162,7 +163,7 @@ def client_properties(request):
 def client_insights(request):
     allowed_ids = _get_allowed_ga4_property_ids(request.user)
     if not allowed_ids:
-        return Response({'insights': []})
+        return Response(_mock_ga4_insights_response(request))
 
     if request.method == 'POST':
         return _client_insights_aggregate(request, allowed_ids)
@@ -278,3 +279,137 @@ def _client_insights_aggregate(request, allowed_ids):
         'chartData': chart_data,
         'summaries': summaries,
     })
+
+
+# ========== MOCK DATA HELPERS ==========
+
+MOCK_GA4_PROPERTY_ID = 'mock-ga4-001'
+
+def _mock_ga4_properties():
+    return [{
+        'id': MOCK_GA4_PROPERTY_ID,
+        'property_id': MOCK_GA4_PROPERTY_ID,
+        'name': 'Demo Website',
+        'timezone': 'America/New_York',
+        'currency': 'USD',
+        'account_name': 'Demo Analytics Account',
+        'is_mock': True,
+    }]
+
+
+MOCK_SOURCES = [
+    ('google', 'organic'),
+    ('direct', '(none)'),
+    ('facebook.com', 'referral'),
+    ('newsletter', 'email'),
+    ('google', 'cpc'),
+]
+
+
+def _mock_ga4_insights_response(request):
+    """Return mock insights for both GET and POST requests."""
+    random.seed(42)
+    today = date.today()
+
+    if request.method == 'POST':
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        start = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else today - timedelta(days=30)
+        end = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else today
+
+        chart_data = []
+        day = start
+        while day <= end:
+            sessions = random.randint(200, 800)
+            users = int(sessions * random.uniform(0.65, 0.85))
+            pageviews = int(sessions * random.uniform(1.8, 3.2))
+            chart_data.append({
+                'date': day.isoformat(),
+                'property_id': MOCK_GA4_PROPERTY_ID,
+                'property_name': 'Demo Website',
+                'sessions': sessions,
+                'users': users,
+                'pageviews': pageviews,
+                'bounce_rate': round(random.uniform(35, 55), 2),
+                'conversions': random.randint(5, 30),
+                'events': random.randint(500, 2000),
+                'revenue': round(random.uniform(50, 300), 2),
+                'is_mock': True,
+            })
+            day += timedelta(days=1)
+
+        total_sessions = sum(r['sessions'] for r in chart_data)
+        total_users = sum(r['users'] for r in chart_data)
+        total_pageviews = sum(r['pageviews'] for r in chart_data)
+        total_conversions = sum(r['conversions'] for r in chart_data)
+        total_events = sum(r['events'] for r in chart_data)
+        total_revenue = sum(r['revenue'] for r in chart_data)
+        n = len(chart_data) or 1
+        avg_bounce = sum(r['bounce_rate'] for r in chart_data) / n
+
+        return {
+            'chartData': chart_data,
+            'summaries': [{
+                'id': MOCK_GA4_PROPERTY_ID,
+                'name': 'Demo Website',
+                'sessions': total_sessions,
+                'users': total_users,
+                'pageviews': total_pageviews,
+                'bounce_rate': round(avg_bounce, 2),
+                'conversions': total_conversions,
+                'events': total_events,
+                'revenue': round(total_revenue, 2),
+                'is_mock': True,
+            }],
+            'is_mock': True,
+        }
+
+    # GET request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    include_sources = request.GET.get('include_sources', 'false') == 'true'
+    start = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else today - timedelta(days=30)
+    end = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else today
+
+    insights = []
+    day = start
+    while day <= end:
+        sessions = random.randint(200, 800)
+        users = int(sessions * random.uniform(0.65, 0.85))
+        pageviews = int(sessions * random.uniform(1.8, 3.2))
+        insights.append({
+            'date': day.isoformat(),
+            'property_id': MOCK_GA4_PROPERTY_ID,
+            'sessions': sessions,
+            'users': users,
+            'pageviews': pageviews,
+            'bounce_rate': round(random.uniform(35, 55), 2),
+            'conversions': random.randint(5, 30),
+            'events': random.randint(500, 2000),
+            'revenue': round(random.uniform(50, 300), 2),
+            'source': '',
+            'medium': '',
+            'is_mock': True,
+        })
+
+        if include_sources:
+            for src, med in MOCK_SOURCES:
+                s = random.randint(20, 150)
+                insights.append({
+                    'date': day.isoformat(),
+                    'property_id': MOCK_GA4_PROPERTY_ID,
+                    'sessions': s,
+                    'users': int(s * random.uniform(0.65, 0.85)),
+                    'pageviews': int(s * random.uniform(1.8, 3.2)),
+                    'bounce_rate': round(random.uniform(30, 60), 2),
+                    'conversions': random.randint(0, 8),
+                    'events': random.randint(50, 400),
+                    'revenue': round(random.uniform(5, 80), 2),
+                    'source': src,
+                    'medium': med,
+                    'is_mock': True,
+                })
+
+        day += timedelta(days=1)
+
+    return {'insights': insights, 'is_mock': True}

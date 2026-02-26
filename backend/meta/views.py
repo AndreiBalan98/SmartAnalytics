@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -434,7 +435,8 @@ def client_leads(request):
     """Get leads for a client user based on their form permissions."""
     allowed_form_ids = _get_allowed_form_ids(request.user)
     if not allowed_form_ids:
-        return Response({'leads': [], 'total': 0})
+        mock = _mock_leads_data()
+        return Response({'leads': mock, 'total': len(mock), 'is_mock': True})
 
     qs = MetaLead.objects.filter(
         form__form_id__in=allowed_form_ids
@@ -462,3 +464,47 @@ def client_leads(request):
     } for l in qs]
 
     return Response({'leads': data, 'total': total})
+
+
+# ========== MOCK DATA HELPERS ==========
+
+def _mock_leads_data():
+    random.seed(42)
+    now = datetime.now()
+    mock_people = [
+        {'name': 'Maria Ionescu', 'email': 'maria.ionescu@example.com', 'phone': '+40 721 234 567'},
+        {'name': 'Andrei Popescu', 'email': 'andrei.popescu@example.com', 'phone': '+40 732 345 678'},
+        {'name': 'Elena Dumitrescu', 'email': 'elena.d@example.com', 'phone': '+40 743 456 789'},
+        {'name': 'Stefan Gheorghe', 'email': 'stefan.g@example.com', 'phone': '+40 754 567 890'},
+        {'name': 'Ana Radu', 'email': 'ana.radu@example.com', 'phone': '+40 765 678 901'},
+    ]
+    campaigns = [
+        ('mock-camp-1', 'Summer Sale 2025', 'mock-adset-1', 'Retargeting Lookalike'),
+        ('mock-camp-2', 'Lead Gen - Services', 'mock-adset-2', 'Interest Targeting'),
+        ('mock-camp-1', 'Summer Sale 2025', 'mock-adset-3', 'Broad Audience'),
+    ]
+    leads = []
+    for i, person in enumerate(mock_people):
+        camp = campaigns[i % len(campaigns)]
+        created = now - timedelta(days=random.randint(0, 13), hours=random.randint(0, 23))
+        leads.append({
+            'id': f'mock-lead-{i+1}',
+            'lead_id': f'mock-lead-{i+1}',
+            'created_time': created.isoformat(),
+            'field_data': [
+                {'name': 'full_name', 'values': [person['name']]},
+                {'name': 'email', 'values': [person['email']]},
+                {'name': 'phone_number', 'values': [person['phone']]},
+            ],
+            'ad_id': f'mock-ad-{i+1}',
+            'ad_name': f'Ad Variant {chr(65+i)}',
+            'adset_id': camp[2],
+            'adset_name': camp[3],
+            'campaign_id': camp[0],
+            'campaign_name': camp[1],
+            'form_name': 'Demo Contact Form',
+            'is_organic': False,
+            'platform': 'fb',
+            'is_mock': True,
+        })
+    return leads

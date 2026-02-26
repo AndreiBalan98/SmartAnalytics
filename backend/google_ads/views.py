@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+import random
+from datetime import datetime, timedelta, date
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -155,7 +156,7 @@ def _get_allowed_google_account_ids(user):
 def client_accounts(request):
     allowed_ids = _get_allowed_google_account_ids(request.user)
     if not allowed_ids:
-        return Response({'accounts': []})
+        return Response({'ad_accounts': _mock_google_accounts(), 'is_mock': True})
 
     accounts = GoogleAdsAccount.objects.filter(account_id__in=allowed_ids)
 
@@ -258,7 +259,7 @@ def client_ads(request):
 def client_insights(request):
     allowed_ids = _get_allowed_google_account_ids(request.user)
     if not allowed_ids:
-        return Response({'insights': []})
+        return Response(_mock_google_insights_response(request))
 
     if request.method == 'POST':
         return _client_insights_aggregate(request, allowed_ids)
@@ -396,3 +397,109 @@ def _get_entity_ids_for_account(account_id, level):
     elif level == 'ad':
         return list(GoogleAdsAd.objects.filter(account__account_id=account_id).values_list('ad_id', flat=True))
     return []
+
+
+# ========== MOCK DATA HELPERS ==========
+
+MOCK_GOOGLE_ACCOUNT_ID = 'mock-gads-001'
+
+def _mock_google_accounts():
+    return [{
+        'id': MOCK_GOOGLE_ACCOUNT_ID,
+        'account_id': MOCK_GOOGLE_ACCOUNT_ID,
+        'name': 'Demo Google Ads Account',
+        'currency': 'USD',
+        'timezone': 'America/New_York',
+        'account_status': 'ENABLED',
+        'status_display': 'ENABLED',
+        'is_mock': True,
+    }]
+
+
+def _mock_google_insights_response(request):
+    """Return mock insights for both GET and POST requests."""
+    random.seed(42)
+    today = date.today()
+
+    if request.method == 'POST':
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        start = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else today - timedelta(days=30)
+        end = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else today
+
+        chart_data = []
+        day = start
+        while day <= end:
+            base_spend = random.uniform(40, 120)
+            impressions = random.randint(3000, 12000)
+            clicks = random.randint(80, 400)
+            conversions = random.uniform(2, 15)
+            chart_data.append({
+                'date': day.isoformat(),
+                'entity_id': MOCK_GOOGLE_ACCOUNT_ID,
+                'entity_name': 'Demo Google Ads Account',
+                'entity_type': 'account',
+                'spend': round(base_spend, 2),
+                'impressions': impressions,
+                'clicks': clicks,
+                'cpc': round(base_spend / max(clicks, 1), 2),
+                'cpm': round(base_spend / max(impressions, 1) * 1000, 2),
+                'ctr': round(clicks / max(impressions, 1) * 100, 2),
+                'conversions': round(conversions, 1),
+                'conversion_value': round(conversions * random.uniform(20, 60), 2),
+                'is_mock': True,
+            })
+            day += timedelta(days=1)
+
+        total_spend = sum(r['spend'] for r in chart_data)
+        total_impressions = sum(r['impressions'] for r in chart_data)
+        total_clicks = sum(r['clicks'] for r in chart_data)
+        total_conversions = sum(r['conversions'] for r in chart_data)
+
+        return {
+            'chartData': chart_data,
+            'topPerformers': [{
+                'id': MOCK_GOOGLE_ACCOUNT_ID,
+                'name': 'Demo Google Ads Account',
+                'type': 'account',
+                'spend': round(total_spend, 2),
+                'impressions': total_impressions,
+                'clicks': total_clicks,
+                'cpc': round(total_spend / max(total_clicks, 1), 2),
+                'ctr': round(total_clicks / max(total_impressions, 1) * 100, 2),
+                'conversions': round(total_conversions, 1),
+                'is_mock': True,
+            }],
+            'is_mock': True,
+        }
+
+    # GET request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    start = datetime.strptime(start_date, '%Y-%m-%d').date() if start_date else today - timedelta(days=30)
+    end = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else today
+
+    insights = []
+    day = start
+    while day <= end:
+        base_spend = random.uniform(40, 120)
+        impressions = random.randint(3000, 12000)
+        clicks = random.randint(80, 400)
+        conversions = random.uniform(2, 15)
+        insights.append({
+            'date': day.isoformat(),
+            'level': 'account',
+            'object_id': MOCK_GOOGLE_ACCOUNT_ID,
+            'spend': round(base_spend, 2),
+            'impressions': impressions,
+            'clicks': clicks,
+            'cpc': round(base_spend / max(clicks, 1), 2),
+            'cpm': round(base_spend / max(impressions, 1) * 1000, 2),
+            'ctr': round(clicks / max(impressions, 1) * 100, 2),
+            'conversions': round(conversions, 1),
+            'conversion_value': round(conversions * random.uniform(20, 60), 2),
+            'is_mock': True,
+        })
+        day += timedelta(days=1)
+
+    return {'insights': insights, 'is_mock': True}
