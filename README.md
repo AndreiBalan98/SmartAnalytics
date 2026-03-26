@@ -27,3 +27,5 @@ npm run dev
 ```
 
 Access frontend at http://localhost:3000, admin at http://localhost:8000/bigboss/
+
+<img width="1919" height="1038" alt="image" src="https://github.com/user-attachments/assets/13a0f7ca-2dc6-4646-afc8-f45886850f0a" />
